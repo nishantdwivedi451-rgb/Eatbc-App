@@ -1,31 +1,32 @@
 kind = "web"
-previewPath = "/"
-title = "EatBC — Indian Diet Planner"
-version = "1.0.0"
-id = "artifacts/eatbc"
-router = "path"
+  previewPath = "/"
+  title = "EatBC — Indian Diet Planner"
+  version = "1.0.0"
+  id = "artifacts/eatbc"
+  router = "path"
 
-[[integratedSkills]]
-name = "react-vite"
-version = "1.0.0"
+  [[integratedSkills]]
+  name = "react-vite"
+  version = "1.0.0"
 
-[[services]]
-name = "web"
-paths = [ "/" ]
-localPort = 19922
+  [[services]]
+  name = "web"
+  paths = [ "/" ]
+  localPort = 19922
 
-[services.development]
-run = "pnpm --filter @workspace/eatbc run dev"
+  [services.development]
+  run = "npm run dev --workspace=@workspace/eatbc"
 
-[services.production]
-build = [ "pnpm", "--filter", "@workspace/eatbc", "run", "build" ]
-publicDir = "artifacts/eatbc/dist/public"
-serve = "static"
+  [services.production]
+  build = [ "npm", "run", "build", "--workspace=@workspace/eatbc" ]
+  publicDir = "artifacts/eatbc/dist/public"
+  serve = "static"
 
-[[services.production.rewrites]]
-from = "/*"
-to = "/index.html"
+  [[services.production.rewrites]]
+  from = "/*"
+  to = "/index.html"
 
-[services.env]
-PORT = "19922"
-BASE_PATH = "/"
+  [services.env]
+  PORT = "19922"
+  BASE_PATH = "/"
+  
