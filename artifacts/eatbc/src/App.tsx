@@ -3,7 +3,7 @@ import {
   ChevronRight, Utensils, Share2, Mail,
   CheckCircle2, Droplet, LogOut, TrendingDown, Loader2,
   AlertCircle, Sunrise, Apple, Cookie, Moon, HeartPulse,
-  Sparkles, Stethoscope, User, UserPlus, ArrowRight,
+  Sparkles, Stethoscope, User, UserPlus, ArrowRight, Scale,
 } from "lucide-react";
 
 /* ─────────────── localStorage helpers ─────────────── */
@@ -123,7 +123,6 @@ const QUOTES = [
   "Start where you are. Use what you have. Do what you can.",
   "Great things never came from comfort zones.",
   "The hardest part is starting. Once you start, everything changes.",
-  "I am my own experiment. I am my own work of art.",
   "Transformation is a process, not an event.",
   "Results happen over time, not overnight. Work harder.",
   "Eat clean. Train mean. Live lean.",
@@ -134,10 +133,7 @@ const QUOTES = [
   "Progress, not perfection.",
   "Build a body you're proud of — one thali at a time.",
 ];
-
-function pickQuote(): string {
-  return QUOTES[Math.floor(Math.random() * QUOTES.length)];
-}
+function pickQuote(): string { return QUOTES[Math.floor(Math.random() * QUOTES.length)]; }
 
 /* ─────────────── constants ─────────────── */
 const GREEN = "#1DAA61";
@@ -148,16 +144,18 @@ type DayName = typeof WEEK[number];
 interface Profile {
   name?: string; age?: string; sex?: string;
   heightFt?: string; heightIn?: string;
-  weight?: string; target?: string; goal?: string;
-  condition?: string; diet?: string; region: string[];
+  weight?: string; target?: string;
+  timeline?: string;
+  goal?: string; condition?: string; diet?: string; region: string[];
   activity?: string; exercise?: string; meals?: string;
   cooktime?: string; avoid?: string;
 }
-interface Meal { time: string; food: string; cal: number; }
+interface Meal { time: string; food: string; cal: number; qty: string; }
 interface PlanDay { day: DayName; meals: Meal[]; }
 interface Plan {
   summary: string; dailyCalories: number; bmi: string; bmiCat: string;
   goal: string; diet: string; condition: string; regLabel: string;
+  timeline: string; weeklyLoss: string;
   tips: string[]; days: PlanDay[];
 }
 interface Session { id: string; name: string; }
@@ -167,7 +165,6 @@ interface Tracking {
   weights?: Record<string, number>;
 }
 interface UserRecord { pw: string; name: string; }
-
 type Screen = "welcome" | "quiz" | "plan" | "login" | "signup" | "dash";
 
 /* ─────────────── quiz questions ─────────────── */
@@ -182,9 +179,14 @@ const Q: Question[] = [
   { k:"sex",       label:"Sex",                                         type:"pick",   opts:["Male","Female","Other"] },
   { k:"height",    label:"Your height",                                 type:"height" },
   { k:"weight",    label:"Current weight (kg)",                         type:"number", ph:"e.g. 78" },
-  { k:"target",    label:"Target weight (kg)",                          type:"number", ph:"e.g. 72" },
+  { k:"target",    label:"Target weight (kg)",                          type:"number", ph:"e.g. 72",
+    sub:"Enter the same number as your current weight if you want to maintain." },
+  { k:"timeline",  label:"When do you want to reach your target?",      type:"pick",
+    sub:"We'll calibrate your daily calories to match your pace.",
+    opts:["1 month (aggressive)","3 months","6 months (recommended)","1 year","No fixed timeline"] },
   { k:"goal",      label:"Your primary goal",                           type:"pick",   opts:["Weight loss","Muscle gain","Maintain weight","General fitness"] },
-  { k:"condition", label:"Any medical condition we should plan around?", type:"pick",   opts:["None","Diabetes / pre-diabetes","High BP (hypertension)","High cholesterol","Thyroid (hypothyroid)","Other"] },
+  { k:"condition", label:"Any medical condition we should plan around?", type:"pick",
+    opts:["None","Diabetes / pre-diabetes","High BP (hypertension)","High cholesterol","Thyroid (hypothyroid)","Pregnant","Breastfeeding","Other"] },
   { k:"diet",      label:"Your food preference",                        type:"pick",   opts:["Pure veg","Egg + veg","Non-veg","Vegan","Jain"] },
   { k:"region",    label:"Which cuisines do you enjoy?",                type:"multi",  sub:"Pick one or more — your plan mixes from these.", opts:["North Indian","South Indian","East Indian","West Indian"] },
   { k:"activity",  label:"Your daily activity level",                   type:"pick",   opts:["Mostly desk job","On feet / moderate","Physically active"] },
@@ -194,104 +196,116 @@ const Q: Question[] = [
   { k:"avoid",     label:"Allergies / foods to avoid",                  type:"text",   sub:"Optional — skip if none.", ph:"e.g. lactose, peanuts" },
 ];
 
-/* ─────────────── food database ─────────────── */
+/* ─────────────── food database (with quantities) ─────────────── */
 interface FoodItem {
-  n:string; c:number; slot:string[]; reg:string[];
-  simple?:number; jain?:number; egg?:number; meat?:number; fish?:number; dairy?:number; t:string[];
+  n: string; c: number; q: string;
+  slot: string[]; reg: string[];
+  simple?: number; jain?: number; egg?: number; meat?: number; fish?: number; dairy?: number;
+  t: string[];
 }
+
 const DB: FoodItem[] = [
-  {n:"Vegetable poha",c:300,slot:["b"],reg:["w","all"],simple:1,t:["fiber"]},
-  {n:"Besan chilla with mint chutney",c:280,slot:["b"],reg:["n","all"],jain:1,simple:1,t:["protein","lowgi"]},
-  {n:"Moong dal cheela",c:260,slot:["b"],reg:["n","all"],jain:1,simple:1,t:["protein","lowgi"]},
-  {n:"Oats with milk, banana & seeds",c:290,slot:["b"],reg:["all"],dairy:1,simple:1,t:["fiber","lowgi"]},
-  {n:"Oats with almond milk & fruit",c:280,slot:["b"],reg:["all"],jain:1,simple:1,t:["fiber","lowgi"]},
-  {n:"Vegetable upma",c:300,slot:["b"],reg:["s","all"],simple:1,t:["fiber"]},
-  {n:"Idli (3) with coconut chutney",c:280,slot:["b"],reg:["s"],jain:1,simple:1,t:["lowgi"]},
-  {n:"Idli (3) with sambar",c:290,slot:["b"],reg:["s"],simple:1,t:["fiber","lowgi"]},
-  {n:"Masala dosa with chutney",c:420,slot:["b"],reg:["s"],t:["fried"]},
-  {n:"Plain dosa with sambar",c:350,slot:["b"],reg:["s"],simple:1,t:[]},
-  {n:"Pesarattu (moong dosa)",c:300,slot:["b"],reg:["s"],simple:1,t:["protein","lowgi"]},
-  {n:"Ragi dosa",c:280,slot:["b"],reg:["s"],simple:1,t:["lowgi","fiber"]},
-  {n:"Aloo paratha with curd",c:430,slot:["b"],reg:["n"],dairy:1,t:[]},
-  {n:"Paneer paratha with curd",c:450,slot:["b"],reg:["n"],dairy:1,t:["protein"]},
-  {n:"Methi thepla with curd",c:340,slot:["b"],reg:["w"],dairy:1,t:["fiber"]},
-  {n:"Steamed dhokla",c:250,slot:["b","es"],reg:["w"],jain:1,simple:1,t:["lowgi","protein"]},
-  {n:"Handvo slice",c:300,slot:["b"],reg:["w"],dairy:1,jain:1,t:["fiber"]},
-  {n:"Vegetable daliya",c:260,slot:["b"],reg:["all"],jain:1,simple:1,t:["fiber","lowgi"]},
-  {n:"Ragi porridge",c:240,slot:["b"],reg:["s","all"],jain:1,simple:1,t:["lowgi","fiber"]},
-  {n:"Sprout & veg salad bowl",c:220,slot:["b","es"],reg:["all"],jain:1,simple:1,t:["protein","lowgi","fiber"]},
-  {n:"Boiled eggs (2) with toast",c:280,slot:["b"],reg:["all"],egg:1,simple:1,t:["protein"]},
-  {n:"Egg bhurji with roti",c:360,slot:["b"],reg:["all"],egg:1,t:["protein"]},
-  {n:"Bread omelette",c:320,slot:["b"],reg:["all"],egg:1,simple:1,t:["protein"]},
-  {n:"Chirer pulao (Bengali poha)",c:300,slot:["b"],reg:["e"],simple:1,t:["fiber"]},
-  {n:"Luchi with aloo dom",c:430,slot:["b"],reg:["e"],t:["fried"]},
-  {n:"Vegetable khichuri",c:320,slot:["b","d"],reg:["e","all"],jain:1,simple:1,t:["fiber","lowgi"]},
-  {n:"Misal pav",c:450,slot:["b"],reg:["w"],t:["fiber","protein"]},
-  {n:"Sabudana khichdi",c:350,slot:["b","es"],reg:["w"],t:[]},
-  {n:"Banana peanut-butter toast",c:320,slot:["b"],reg:["all"],jain:1,simple:1,t:[]},
-  {n:"Seasonal fruit bowl",c:90,slot:["ms","es"],reg:["all"],jain:1,simple:1,t:["lowgi","fiber"]},
-  {n:"An apple",c:80,slot:["ms"],reg:["all"],jain:1,simple:1,t:["lowgi","fiber"]},
-  {n:"Buttermilk (chaas)",c:80,slot:["ms","es"],reg:["w","s","all"],dairy:1,jain:1,simple:1,t:["lowgi"]},
-  {n:"Tender coconut water",c:60,slot:["ms"],reg:["s","all"],jain:1,simple:1,t:["lowgi"]},
-  {n:"Roasted chana (handful)",c:120,slot:["ms","es"],reg:["all"],jain:1,simple:1,t:["protein","fiber"]},
-  {n:"Moong sprouts cup",c:110,slot:["ms"],reg:["all"],jain:1,simple:1,t:["protein","lowgi","fiber"]},
-  {n:"Greek yogurt",c:100,slot:["ms"],reg:["all"],dairy:1,jain:1,simple:1,t:["protein","lowgi"]},
-  {n:"Soaked almonds (6)",c:90,slot:["ms"],reg:["all"],jain:1,simple:1,t:["protein","fiber"]},
-  {n:"Papaya bowl",c:80,slot:["ms"],reg:["all"],jain:1,simple:1,t:["lowgi","fiber"]},
-  {n:"Green tea with roasted makhana",c:110,slot:["es"],reg:["all"],jain:1,simple:1,t:["lowgi"]},
-  {n:"Masala chai with 2 biscuits",c:120,slot:["es"],reg:["all"],dairy:1,simple:1,t:["sugary"]},
-  {n:"Light bhel",c:180,slot:["es"],reg:["w"],simple:1,t:["fiber"]},
-  {n:"Boiled egg with tea",c:110,slot:["es"],reg:["all"],egg:1,dairy:1,simple:1,t:["protein"]},
-  {n:"Roasted peanuts",c:160,slot:["es"],reg:["all"],jain:1,simple:1,t:["protein","fiber"]},
-  {n:"Fruit chaat",c:120,slot:["es"],reg:["all"],jain:1,simple:1,t:["lowgi","fiber"]},
-  {n:"Grilled veg sandwich",c:220,slot:["es"],reg:["all"],simple:1,t:["fiber"]},
-  {n:"Chana sundal",c:150,slot:["es"],reg:["s"],simple:1,t:["protein","fiber"]},
-  {n:"Pan-tossed paneer cubes",c:160,slot:["es"],reg:["all"],dairy:1,jain:1,simple:1,t:["protein","lowgi"]},
-  {n:"Hummus with cucumber",c:150,slot:["es"],reg:["all"],simple:1,t:["protein","lowgi","fiber"]},
-  {n:"2 roti, dal tadka, bhindi & curd",c:520,slot:["l","d"],reg:["n","all"],dairy:1,t:["fiber"]},
-  {n:"2 roti, rajma & small rice",c:560,slot:["l","d"],reg:["n"],t:["fiber","protein"]},
-  {n:"2 roti, chole & salad",c:540,slot:["l","d"],reg:["n"],t:["fiber","protein"]},
-  {n:"Palak paneer with 2 roti",c:540,slot:["l","d"],reg:["n"],dairy:1,t:["fiber","protein"]},
-  {n:"Dal makhani with jeera rice",c:600,slot:["l","d"],reg:["n"],dairy:1,t:["protein"]},
-  {n:"Mixed veg, dal & 2 roti",c:500,slot:["l","d"],reg:["all"],jain:1,t:["fiber"]},
-  {n:"Soya chunk curry with rice",c:520,slot:["l","d"],reg:["all"],t:["protein","fiber"]},
-  {n:"Rice, sambar, rasam, poriyal & curd",c:540,slot:["l","d"],reg:["s"],dairy:1,t:["fiber"]},
-  {n:"Curd rice with pickle",c:420,slot:["l","d"],reg:["s"],dairy:1,simple:1,t:["highsalt"]},
-  {n:"Lemon rice with papad & salad",c:460,slot:["l","d"],reg:["s"],simple:1,t:["highsalt"]},
-  {n:"Bisi bele bath",c:520,slot:["l","d"],reg:["s"],dairy:1,t:["fiber","protein"]},
-  {n:"Rice, kootu & thoran",c:500,slot:["l","d"],reg:["s"],jain:1,t:["fiber"]},
-  {n:"Avial with rice",c:480,slot:["l","d"],reg:["s"],dairy:1,jain:1,t:["fiber"]},
-  {n:"Fish curry with rice",c:560,slot:["l","d"],reg:["s","e"],fish:1,t:["protein"]},
-  {n:"Chicken Chettinad with rice",c:620,slot:["l","d"],reg:["s"],meat:1,t:["protein"]},
-  {n:"Egg curry with rice",c:540,slot:["l","d"],reg:["all"],egg:1,t:["protein"]},
-  {n:"Rice, cholar dal, aloo posto & curd",c:540,slot:["l","d"],reg:["e"],dairy:1,t:["fiber"]},
-  {n:"Rice with macher jhol",c:560,slot:["l","d"],reg:["e"],fish:1,t:["protein"]},
-  {n:"Shukto with rice",c:460,slot:["l","d"],reg:["e"],dairy:1,t:["fiber"]},
-  {n:"Rice, dal & begun bhaja",c:500,slot:["l","d"],reg:["e"],jain:1,simple:1,t:["fried"]},
-  {n:"Gujarati thali (roti, dal, shaak, rice, curd)",c:560,slot:["l","d"],reg:["w"],dairy:1,jain:1,t:["fiber"]},
-  {n:"Bajra roti, baingan bharta & chaas",c:480,slot:["l","d"],reg:["w"],dairy:1,t:["fiber","lowgi"]},
-  {n:"Pithla bhakri",c:460,slot:["l","d"],reg:["w"],jain:1,t:["fiber"]},
-  {n:"Dal dhokli",c:520,slot:["l","d"],reg:["w"],jain:1,t:["fiber","protein"]},
-  {n:"Undhiyu with roti",c:540,slot:["l","d"],reg:["w"],t:["fiber"]},
-  {n:"Chicken sukka with bhakri",c:640,slot:["l","d"],reg:["w"],meat:1,t:["protein"]},
-  {n:"Moong dal khichdi with curd",c:420,slot:["l","d"],reg:["all"],dairy:1,jain:1,simple:1,t:["lowgi","fiber"]},
-  {n:"Moong dal khichdi (light)",c:360,slot:["l","d"],reg:["all"],jain:1,simple:1,t:["lowgi","fiber"]},
-  {n:"Vegetable soup with 2 multigrain toast",c:320,slot:["d"],reg:["all"],jain:1,simple:1,t:["lowgi","fiber"]},
-  {n:"Grilled chicken with sautéed veg",c:480,slot:["l","d"],reg:["all"],meat:1,simple:1,t:["protein","lowgi"]},
-  {n:"Grilled fish with salad",c:420,slot:["l","d"],reg:["all"],fish:1,simple:1,t:["protein","lowgi"]},
-  {n:"Paneer tikka with salad",c:420,slot:["l","d"],reg:["all"],dairy:1,simple:1,t:["protein","lowgi"]},
-  {n:"Tofu stir-fry with rice",c:460,slot:["l","d"],reg:["all"],simple:1,t:["protein"]},
-  {n:"Dal with 2 roti & salad",c:460,slot:["l","d"],reg:["all"],jain:1,simple:1,t:["fiber","protein"]},
-  {n:"Missi roti with seasonal sabzi",c:440,slot:["l","d"],reg:["n","all"],jain:1,simple:1,t:["fiber"]},
-  {n:"Veg pulao with raita",c:480,slot:["l","d"],reg:["all"],dairy:1,jain:1,simple:1,t:["fiber"]},
-  {n:"Turmeric milk",c:120,slot:["bt"],reg:["all"],dairy:1,jain:1,simple:1,t:["lowgi"]},
-  {n:"Warm milk",c:110,slot:["bt"],reg:["all"],dairy:1,jain:1,simple:1,t:["lowgi"]},
-  {n:"Chamomile tea",c:10,slot:["bt"],reg:["all"],jain:1,simple:1,t:["lowgi"]},
-  {n:"A few walnuts",c:90,slot:["bt"],reg:["all"],jain:1,simple:1,t:["protein","lowgi"]},
-  {n:"Soaked figs (2)",c:80,slot:["bt"],reg:["all"],jain:1,simple:1,t:["fiber","lowgi"]},
+  /* ── Breakfast ── */
+  {n:"Vegetable poha",                    c:300,q:"1½ cups (250g)",                                           slot:["b"],reg:["w","all"],simple:1,t:["fiber"]},
+  {n:"Besan chilla with mint chutney",    c:280,q:"2 chillas (160g) + 2 tbsp chutney",                       slot:["b"],reg:["n","all"],jain:1,simple:1,t:["protein","lowgi"]},
+  {n:"Moong dal cheela",                  c:260,q:"2 cheelas (140g)",                                        slot:["b"],reg:["n","all"],jain:1,simple:1,t:["protein","lowgi"]},
+  {n:"Oats with milk, banana & seeds",   c:290,q:"½ cup oats + 200ml milk + 1 banana",                     slot:["b"],reg:["all"],dairy:1,simple:1,t:["fiber","lowgi"]},
+  {n:"Oats with almond milk & fruit",    c:280,q:"½ cup oats + 200ml almond milk + ½ cup fruit",           slot:["b"],reg:["all"],jain:1,simple:1,t:["fiber","lowgi"]},
+  {n:"Vegetable upma",                    c:300,q:"1½ cups (220g)",                                           slot:["b"],reg:["s","all"],simple:1,t:["fiber"]},
+  {n:"Idli (3) with coconut chutney",    c:280,q:"3 idlis (180g) + 3 tbsp chutney",                        slot:["b"],reg:["s"],jain:1,simple:1,t:["lowgi"]},
+  {n:"Idli (3) with sambar",             c:290,q:"3 idlis (180g) + 1 cup sambar",                           slot:["b"],reg:["s"],simple:1,t:["fiber","lowgi"]},
+  {n:"Masala dosa with chutney",         c:420,q:"1 dosa (120g) + 2 tbsp chutney",                          slot:["b"],reg:["s"],t:["fried"]},
+  {n:"Plain dosa with sambar",           c:350,q:"1 dosa (100g) + 1 cup sambar",                            slot:["b"],reg:["s"],simple:1,t:[]},
+  {n:"Pesarattu (moong dosa)",           c:300,q:"2 dosas (160g)",                                           slot:["b"],reg:["s"],simple:1,t:["protein","lowgi"]},
+  {n:"Ragi dosa",                         c:280,q:"2 dosas (150g)",                                          slot:["b"],reg:["s"],simple:1,t:["lowgi","fiber"]},
+  {n:"Aloo paratha with curd",           c:430,q:"2 parathas (200g) + ½ cup curd",                          slot:["b"],reg:["n"],dairy:1,t:[]},
+  {n:"Paneer paratha with curd",         c:450,q:"2 parathas (200g) + ½ cup curd",                          slot:["b"],reg:["n"],dairy:1,t:["protein"]},
+  {n:"Methi thepla with curd",           c:340,q:"2 theplas (120g) + ½ cup curd",                           slot:["b"],reg:["w"],dairy:1,t:["fiber"]},
+  {n:"Steamed dhokla",                    c:250,q:"4 pieces (150g) + chutney",                               slot:["b","es"],reg:["w"],jain:1,simple:1,t:["lowgi","protein"]},
+  {n:"Handvo slice",                      c:300,q:"2 slices (150g)",                                          slot:["b"],reg:["w"],dairy:1,jain:1,t:["fiber"]},
+  {n:"Vegetable daliya",                  c:260,q:"1½ cups (220g)",                                           slot:["b"],reg:["all"],jain:1,simple:1,t:["fiber","lowgi"]},
+  {n:"Ragi porridge",                     c:240,q:"1½ cups (250ml)",                                          slot:["b"],reg:["s","all"],jain:1,simple:1,t:["lowgi","fiber"]},
+  {n:"Sprout & veg salad bowl",          c:220,q:"1½ cups sprouts + 1 cup veggies (300g)",                  slot:["b","es"],reg:["all"],jain:1,simple:1,t:["protein","lowgi","fiber"]},
+  {n:"Boiled eggs (2) with toast",       c:280,q:"2 boiled eggs + 2 slices whole wheat toast",             slot:["b"],reg:["all"],egg:1,simple:1,t:["protein"]},
+  {n:"Egg bhurji with roti",             c:360,q:"2-egg bhurji + 2 rotis (60g each)",                       slot:["b"],reg:["all"],egg:1,t:["protein"]},
+  {n:"Bread omelette",                    c:320,q:"2-egg omelette + 2 bread slices",                         slot:["b"],reg:["all"],egg:1,simple:1,t:["protein"]},
+  {n:"Chirer pulao (Bengali poha)",      c:300,q:"1½ cups (240g)",                                           slot:["b"],reg:["e"],simple:1,t:["fiber"]},
+  {n:"Luchi with aloo dom",              c:430,q:"3 luchis (90g) + ½ cup aloo dom",                         slot:["b"],reg:["e"],t:["fried"]},
+  {n:"Vegetable khichuri",               c:320,q:"1½ cups (270g)",                                           slot:["b","d"],reg:["e","all"],jain:1,simple:1,t:["fiber","lowgi"]},
+  {n:"Misal pav",                         c:450,q:"1 cup misal (200g) + 2 pavs",                             slot:["b"],reg:["w"],t:["fiber","protein"]},
+  {n:"Sabudana khichdi",                  c:350,q:"1½ cups (220g)",                                           slot:["b","es"],reg:["w"],t:[]},
+  {n:"Banana peanut-butter toast",       c:320,q:"2 toast slices + 2 tbsp peanut butter + 1 banana",       slot:["b"],reg:["all"],jain:1,simple:1,t:[]},
+
+  /* ── Mid-morning snacks ── */
+  {n:"Seasonal fruit bowl",              c:90, q:"1 cup mixed fruit (150g)",                                 slot:["ms","es"],reg:["all"],jain:1,simple:1,t:["lowgi","fiber"]},
+  {n:"An apple",                          c:80, q:"1 medium apple (150g)",                                   slot:["ms"],reg:["all"],jain:1,simple:1,t:["lowgi","fiber"]},
+  {n:"Buttermilk (chaas)",               c:80, q:"1 glass (250ml)",                                          slot:["ms","es"],reg:["w","s","all"],dairy:1,jain:1,simple:1,t:["lowgi"]},
+  {n:"Tender coconut water",             c:60, q:"1 tender coconut (~250ml)",                               slot:["ms"],reg:["s","all"],jain:1,simple:1,t:["lowgi"]},
+  {n:"Roasted chana (handful)",          c:120,q:"¼ cup (40g)",                                              slot:["ms","es"],reg:["all"],jain:1,simple:1,t:["protein","fiber"]},
+  {n:"Moong sprouts cup",                c:110,q:"1 cup sprouts (100g)",                                     slot:["ms"],reg:["all"],jain:1,simple:1,t:["protein","lowgi","fiber"]},
+  {n:"Greek yogurt",                      c:100,q:"150g (¾ cup)",                                            slot:["ms"],reg:["all"],dairy:1,jain:1,simple:1,t:["protein","lowgi"]},
+  {n:"Soaked almonds (6)",               c:90, q:"6 almonds (12g)",                                          slot:["ms"],reg:["all"],jain:1,simple:1,t:["protein","fiber"]},
+  {n:"Papaya bowl",                       c:80, q:"1 cup papaya (150g)",                                     slot:["ms"],reg:["all"],jain:1,simple:1,t:["lowgi","fiber"]},
+
+  /* ── Evening snacks ── */
+  {n:"Green tea with roasted makhana",   c:110,q:"1 cup tea + ½ cup makhana (20g)",                        slot:["es"],reg:["all"],jain:1,simple:1,t:["lowgi"]},
+  {n:"Masala chai with 2 biscuits",      c:120,q:"1 cup chai (150ml) + 2 digestive biscuits",              slot:["es"],reg:["all"],dairy:1,simple:1,t:["sugary"]},
+  {n:"Light bhel",                        c:180,q:"1½ cups (120g)",                                          slot:["es"],reg:["w"],simple:1,t:["fiber"]},
+  {n:"Boiled egg with tea",              c:110,q:"1 boiled egg + 1 cup tea",                                 slot:["es"],reg:["all"],egg:1,dairy:1,simple:1,t:["protein"]},
+  {n:"Roasted peanuts",                   c:160,q:"¼ cup (40g)",                                             slot:["es"],reg:["all"],jain:1,simple:1,t:["protein","fiber"]},
+  {n:"Fruit chaat",                       c:120,q:"1 cup (180g)",                                            slot:["es"],reg:["all"],jain:1,simple:1,t:["lowgi","fiber"]},
+  {n:"Grilled veg sandwich",             c:220,q:"1 sandwich (2 slices + filling)",                         slot:["es"],reg:["all"],simple:1,t:["fiber"]},
+  {n:"Chana sundal",                      c:150,q:"¾ cup (120g)",                                            slot:["es"],reg:["s"],simple:1,t:["protein","fiber"]},
+  {n:"Pan-tossed paneer cubes",          c:160,q:"80g paneer",                                              slot:["es"],reg:["all"],dairy:1,jain:1,simple:1,t:["protein","lowgi"]},
+  {n:"Hummus with cucumber",             c:150,q:"3 tbsp hummus (60g) + 1 cup cucumber slices",            slot:["es"],reg:["all"],simple:1,t:["protein","lowgi","fiber"]},
+
+  /* ── Lunch / Dinner ── */
+  {n:"2 roti, dal tadka, bhindi & curd", c:520,q:"2 rotis (60g each) + 1 cup dal + 1 cup bhindi + ½ cup curd",     slot:["l","d"],reg:["n","all"],dairy:1,t:["fiber"]},
+  {n:"2 roti, rajma & small rice",       c:560,q:"2 rotis (60g each) + 1 cup rajma + ½ cup cooked rice",           slot:["l","d"],reg:["n"],t:["fiber","protein"]},
+  {n:"2 roti, chole & salad",            c:540,q:"2 rotis (60g each) + 1 cup chole + 1 cup salad",                slot:["l","d"],reg:["n"],t:["fiber","protein"]},
+  {n:"Palak paneer with 2 roti",         c:540,q:"2 rotis (60g each) + 1 cup palak paneer (80g paneer)",          slot:["l","d"],reg:["n"],dairy:1,t:["fiber","protein"]},
+  {n:"Dal makhani with jeera rice",      c:600,q:"1 cup dal makhani + 1 cup jeera rice (180g cooked)",            slot:["l","d"],reg:["n"],dairy:1,t:["protein"]},
+  {n:"Mixed veg, dal & 2 roti",          c:500,q:"2 rotis (60g each) + 1 cup dal + 1 cup mixed veg",             slot:["l","d"],reg:["all"],jain:1,t:["fiber"]},
+  {n:"Soya chunk curry with rice",       c:520,q:"1 cup curry (80g soya chunks) + 1 cup cooked rice",            slot:["l","d"],reg:["all"],t:["protein","fiber"]},
+  {n:"Rice, sambar, rasam, poriyal & curd", c:540,q:"1½ cups rice + 1 cup sambar + 1 cup poriyal + ½ cup curd", slot:["l","d"],reg:["s"],dairy:1,t:["fiber"]},
+  {n:"Curd rice with pickle",            c:420,q:"1½ cups curd rice (300g) + 1 tsp pickle",                       slot:["l","d"],reg:["s"],dairy:1,simple:1,t:["highsalt"]},
+  {n:"Lemon rice with papad & salad",   c:460,q:"1½ cups lemon rice + 1 papad + 1 cup salad",                    slot:["l","d"],reg:["s"],simple:1,t:["highsalt"]},
+  {n:"Bisi bele bath",                   c:520,q:"1½ cups (300g)",                                                  slot:["l","d"],reg:["s"],dairy:1,t:["fiber","protein"]},
+  {n:"Rice, kootu & thoran",             c:500,q:"1½ cups rice + 1 cup kootu + ½ cup thoran",                     slot:["l","d"],reg:["s"],jain:1,t:["fiber"]},
+  {n:"Avial with rice",                  c:480,q:"1½ cups rice + 1 cup avial (200g)",                              slot:["l","d"],reg:["s"],dairy:1,jain:1,t:["fiber"]},
+  {n:"Fish curry with rice",             c:560,q:"1½ cups rice + 1 cup curry (100g fish)",                        slot:["l","d"],reg:["s","e"],fish:1,t:["protein"]},
+  {n:"Chicken Chettinad with rice",      c:620,q:"1½ cups rice + 1 cup curry (120g chicken)",                     slot:["l","d"],reg:["s"],meat:1,t:["protein"]},
+  {n:"Egg curry with rice",              c:540,q:"1½ cups rice + 1 cup curry (2 eggs)",                            slot:["l","d"],reg:["all"],egg:1,t:["protein"]},
+  {n:"Rice, cholar dal, aloo posto & curd", c:540,q:"1½ cups rice + 1 cup cholar dal + ½ cup aloo posto + ½ cup curd", slot:["l","d"],reg:["e"],dairy:1,t:["fiber"]},
+  {n:"Rice with macher jhol",            c:560,q:"1½ cups rice + 1 cup jhol (120g fish)",                         slot:["l","d"],reg:["e"],fish:1,t:["protein"]},
+  {n:"Shukto with rice",                 c:460,q:"1½ cups rice + 1 cup shukto (200g)",                            slot:["l","d"],reg:["e"],dairy:1,t:["fiber"]},
+  {n:"Rice, dal & begun bhaja",          c:500,q:"1½ cups rice + 1 cup dal + 2 begun bhaja",                      slot:["l","d"],reg:["e"],jain:1,simple:1,t:["fried"]},
+  {n:"Gujarati thali (roti, dal, shaak, rice, curd)", c:560,q:"2 rotis + 1 cup dal + ½ cup shaak + ½ cup rice + ½ cup curd", slot:["l","d"],reg:["w"],dairy:1,jain:1,t:["fiber"]},
+  {n:"Bajra roti, baingan bharta & chaas", c:480,q:"2 bajra rotis (80g each) + 1 cup bharta + 1 glass chaas",   slot:["l","d"],reg:["w"],dairy:1,t:["fiber","lowgi"]},
+  {n:"Pithla bhakri",                    c:460,q:"2 bhakris (100g each) + ¾ cup pithla",                          slot:["l","d"],reg:["w"],jain:1,t:["fiber"]},
+  {n:"Dal dhokli",                       c:520,q:"2 cups (350g)",                                                   slot:["l","d"],reg:["w"],jain:1,t:["fiber","protein"]},
+  {n:"Undhiyu with roti",               c:540,q:"2 rotis (60g each) + 1½ cups undhiyu (300g)",                   slot:["l","d"],reg:["w"],t:["fiber"]},
+  {n:"Chicken sukka with bhakri",        c:640,q:"2 bhakris (100g each) + 1 cup sukka (150g chicken)",            slot:["l","d"],reg:["w"],meat:1,t:["protein"]},
+  {n:"Moong dal khichdi with curd",      c:420,q:"1½ cups khichdi (280g) + ½ cup curd",                           slot:["l","d"],reg:["all"],dairy:1,jain:1,simple:1,t:["lowgi","fiber"]},
+  {n:"Moong dal khichdi (light)",        c:360,q:"1½ cups khichdi (250g)",                                         slot:["l","d"],reg:["all"],jain:1,simple:1,t:["lowgi","fiber"]},
+  {n:"Vegetable soup with 2 multigrain toast", c:320,q:"1½ cups soup + 2 toast slices",                           slot:["d"],reg:["all"],jain:1,simple:1,t:["lowgi","fiber"]},
+  {n:"Grilled chicken with sautéed veg", c:480,q:"150g chicken + 1½ cups sautéed veg",                           slot:["l","d"],reg:["all"],meat:1,simple:1,t:["protein","lowgi"]},
+  {n:"Grilled fish with salad",          c:420,q:"150g fish + 1½ cups salad",                                      slot:["l","d"],reg:["all"],fish:1,simple:1,t:["protein","lowgi"]},
+  {n:"Paneer tikka with salad",          c:420,q:"100g paneer tikka + 1½ cups salad",                             slot:["l","d"],reg:["all"],dairy:1,simple:1,t:["protein","lowgi"]},
+  {n:"Tofu stir-fry with rice",         c:460,q:"120g tofu + 1 cup cooked rice (180g)",                          slot:["l","d"],reg:["all"],simple:1,t:["protein"]},
+  {n:"Dal with 2 roti & salad",         c:460,q:"2 rotis (60g each) + 1 cup dal + 1 cup salad",                  slot:["l","d"],reg:["all"],jain:1,simple:1,t:["fiber","protein"]},
+  {n:"Missi roti with seasonal sabzi",  c:440,q:"2 missi rotis (70g each) + 1 cup sabzi",                        slot:["l","d"],reg:["n","all"],jain:1,simple:1,t:["fiber"]},
+  {n:"Veg pulao with raita",            c:480,q:"1½ cups pulao (280g) + ½ cup raita",                             slot:["l","d"],reg:["all"],dairy:1,jain:1,simple:1,t:["fiber"]},
+
+  /* ── Bedtime ── */
+  {n:"Turmeric milk",  c:120,q:"1 glass (250ml)",             slot:["bt"],reg:["all"],dairy:1,jain:1,simple:1,t:["lowgi"]},
+  {n:"Warm milk",      c:110,q:"1 glass (250ml)",             slot:["bt"],reg:["all"],dairy:1,jain:1,simple:1,t:["lowgi"]},
+  {n:"Chamomile tea",  c:10, q:"1 cup (200ml)",               slot:["bt"],reg:["all"],jain:1,simple:1,t:["lowgi"]},
+  {n:"A few walnuts",  c:90, q:"3–4 walnuts (15g)",           slot:["bt"],reg:["all"],jain:1,simple:1,t:["protein","lowgi"]},
+  {n:"Soaked figs (2)",c:80, q:"2 figs soaked overnight",     slot:["bt"],reg:["all"],jain:1,simple:1,t:["fiber","lowgi"]},
 ];
 
-const SLOTSET: Record<string, [string, number, string][]> = {
+const SLOTSET: Record<string,[string,number,string][]> = {
   "3 meals":            [["b",.32,"Breakfast"],["l",.40,"Lunch"],["d",.28,"Dinner"]],
   "3 meals + 2 snacks": [["b",.25,"Breakfast"],["ms",.10,"Mid-morning"],["l",.30,"Lunch"],["es",.12,"Evening snack"],["d",.23,"Dinner"]],
   "5-6 small meals":    [["b",.22,"Breakfast"],["ms",.12,"Mid-morning"],["l",.26,"Lunch"],["es",.12,"Evening snack"],["d",.20,"Dinner"],["bt",.08,"Bedtime"]],
@@ -300,26 +314,57 @@ const RMAP: Record<string,string> = {"North Indian":"n","South Indian":"s","East
 const COND_SHORT: Record<string,string> = {
   "Diabetes / pre-diabetes":"blood sugar","High BP (hypertension)":"blood pressure",
   "High cholesterol":"cholesterol","Thyroid (hypothyroid)":"thyroid",
+  "Pregnant":"pregnancy","Breastfeeding":"breastfeeding",
 };
 
+/* ─────────────── calorie calculation ─────────────── */
 function mapRegions(arr: string[]): string[] {
-  if (!arr || !arr.length || arr.length === 4) return ["n","s","e","w","all"];
-  return [...arr.map(x => RMAP[x]).filter(Boolean), "all"];
+  if (!arr||!arr.length||arr.length===4) return ["n","s","e","w","all"];
+  return [...arr.map(x=>RMAP[x]).filter(Boolean),"all"];
 }
+
 function calcStats(d: Profile) {
-  const cm = ((+(d.heightFt||0))*12+(+(d.heightIn||0)))*2.54;
+  const cm=((+(d.heightFt||0))*12+(+(d.heightIn||0)))*2.54;
   const h=cm/100, w=+(d.weight||0), age=+(d.age||30);
-  const bmi = w&&h ? w/(h*h) : 0;
-  const bmr = d.sex==="Female" ? 10*w+6.25*cm-5*age-161 : 10*w+6.25*cm-5*age+5;
-  const mult: Record<string,number> = {"Mostly desk job":1.3,"On feet / moderate":1.5,"Physically active":1.7};
-  let tdee = bmr*(mult[d.activity||""]||1.4);
-  if (d.goal==="Weight loss") tdee-=400;
-  if (d.goal==="Muscle gain") tdee+=300;
-  tdee = Math.max(1300, tdee);
-  return {cm, bmi:bmi.toFixed(1), tdee:Math.round(tdee/10)*10,
-    bmiCat: bmi<18.5?"Underweight":bmi<25?"Normal":bmi<30?"Overweight":"Obese"};
+  const bmi=w&&h?w/(h*h):0;
+  const bmr=d.sex==="Female"?10*w+6.25*cm-5*age-161:10*w+6.25*cm-5*age+5;
+  const mult: Record<string,number>={"Mostly desk job":1.3,"On feet / moderate":1.5,"Physically active":1.7};
+  let tdee=bmr*(mult[d.activity||""]||1.4);
+
+  const cond=d.condition||"None";
+  const timeline=d.timeline||"6 months (recommended)";
+
+  /* Timeline-based deficit / surplus for weight loss & muscle gain */
+  const deficitMap: Record<string,number>={
+    "1 month (aggressive)":700,"3 months":500,
+    "6 months (recommended)":350,"1 year":200,"No fixed timeline":150,
+  };
+  const surplusMap: Record<string,number>={
+    "1 month (aggressive)":450,"3 months":350,
+    "6 months (recommended)":250,"1 year":200,"No fixed timeline":150,
+  };
+
+  if (cond==="Pregnant")      { tdee+=300; }          // no deficit, +300 for pregnancy
+  else if (cond==="Breastfeeding") { tdee+=500; }     // no deficit, +500 for milk production
+  else if (d.goal==="Weight loss")  { tdee-=deficitMap[timeline]||350; }
+  else if (d.goal==="Muscle gain")  { tdee+=surplusMap[timeline]||250; }
+
+  const minCal=["Pregnant","Breastfeeding"].includes(cond)?1800:1300;
+  tdee=Math.max(minCal,tdee);
+
+  /* Weekly loss/gain estimate */
+  const diff=(tdee-(bmr*(mult[d.activity||""]||1.4)))*7;
+  const weeklyKg=(Math.abs(diff)/7700).toFixed(2);
+  const direction=diff<0?"loss":diff>0?"gain":"";
+
+  return {
+    cm,bmi:bmi.toFixed(1),tdee:Math.round(tdee/10)*10,
+    bmiCat:bmi<18.5?"Underweight":bmi<25?"Normal":bmi<30?"Overweight":"Obese",
+    weeklyKg,direction,
+  };
 }
-function dietOK(f:FoodItem, diet:string) {
+
+function dietOK(f: FoodItem, diet: string) {
   if (diet==="Non-veg") return true;
   if (f.meat||f.fish) return false;
   if (diet==="Egg + veg") return true;
@@ -329,32 +374,36 @@ function dietOK(f:FoodItem, diet:string) {
   if (diet==="Jain") return !!f.jain;
   return true;
 }
-function condOK(f:FoodItem, cond:string) {
+function condOK(f: FoodItem, cond: string) {
   if (cond==="Diabetes / pre-diabetes") return !f.t.includes("sugary");
   if (cond==="High BP (hypertension)") return !f.t.includes("highsalt");
   if (cond==="High cholesterol") return !f.t.includes("fried");
   if (cond==="Thyroid (hypothyroid)") return !f.t.includes("goitrogen");
   return true;
 }
+
 interface MealCtx { goal:string; cond:string; diet:string; regions:string[]; simplePref:boolean; }
-function cands(slot:string, ctx:MealCtx, relax:number):FoodItem[] {
-  return DB.filter(f => {
+
+function cands(slot: string, ctx: MealCtx, relax: number): FoodItem[] {
+  return DB.filter(f=>{
     if (!f.slot.includes(slot)) return false;
     if (!dietOK(f,ctx.diet)) return false;
-    if (relax<2 && !f.reg.some(r=>ctx.regions.includes(r))) return false;
-    if (relax<1 && !condOK(f,ctx.cond)) return false;
+    if (relax<2&&!f.reg.some(r=>ctx.regions.includes(r))) return false;
+    if (relax<1&&!condOK(f,ctx.cond)) return false;
     return true;
   });
 }
-function pickMeal(slot:string, target:number, di:number, used:Set<string>, ctx:MealCtx):FoodItem {
-  let list:FoodItem[]=[];
+
+function pickMeal(slot: string, target: number, di: number, used: Set<string>, ctx: MealCtx): FoodItem {
+  let list: FoodItem[]=[];
   for (let r=0;r<3&&!list.length;r++) list=cands(slot,ctx,r);
-  if (!list.length) return {n:"Seasonal fruit & nuts",c:target,slot:[slot],reg:["all"],t:[]};
+  if (!list.length) return {n:"Seasonal fruit & nuts",c:target,q:"1 serving",slot:[slot],reg:["all"],t:[]};
   const scored=list.map(f=>{
     let s=-Math.abs(f.c-target)/Math.max(target,1);
     if (ctx.goal==="Muscle gain"&&f.t.includes("protein")) s+=0.45;
     if ((ctx.goal==="Weight loss"||ctx.cond==="Diabetes / pre-diabetes")&&(f.t.includes("lowgi")||f.t.includes("fiber"))) s+=0.3;
     if (ctx.cond==="High cholesterol"&&f.t.includes("fiber")) s+=0.2;
+    if (["Pregnant","Breastfeeding"].includes(ctx.cond)&&f.t.includes("protein")) s+=0.35;
     if (ctx.simplePref&&f.simple) s+=0.25;
     if (used.has(f.n)) s-=1.6;
     s+=(hashNum(f.n+di)%100)/900;
@@ -362,18 +411,21 @@ function pickMeal(slot:string, target:number, di:number, used:Set<string>, ctx:M
   }).sort((a,b)=>b.s-a.s);
   return scored[0].f;
 }
-function makeTips(p:Profile, _cal:number):string[] {
-  const goalTips:Record<string,string[]>={
-    "Weight loss":["Put protein in every meal — it keeps you full and protects muscle.","Finish dinner 2-3 hours before bed."],
-    "Muscle gain":["Hit protein at every single meal — aim for a palm-sized source.","Eat your post-workout meal within 45 minutes of training."],
+
+function makeTips(p: Profile, _cal: number): string[] {
+  const goalTips: Record<string,string[]>={
+    "Weight loss":    ["Put protein in every meal — it keeps you full and protects muscle.","Finish dinner 2-3 hours before bed."],
+    "Muscle gain":    ["Hit protein at every single meal — aim for a palm-sized source.","Eat your post-workout meal within 45 minutes of training."],
     "Maintain weight":["Consistency beats perfection — follow the 80/20 rule.","Keep portion sizes steady day to day."],
     "General fitness":["Build the habit first; the body follows.","Move daily, even a 20-min walk counts."],
   };
-  const condTips:Record<string,string[]>={
+  const condTips: Record<string,string[]>={
     "Diabetes / pre-diabetes":["Eat fibre/veg first, carbs last — it blunts the sugar spike.","Take a 10-minute walk after meals."],
     "High BP (hypertension)":["Keep salt low — go easy on pickles, papad and packaged food.","Add potassium-rich foods like banana and coconut water."],
     "High cholesterol":["Avoid deep-fried food; use minimal oil for tadka.","Oats and soluble fibre help — keep them in your week."],
     "Thyroid (hypothyroid)":["Take thyroid medicine on an empty stomach, well before breakfast.","Don't skip meals — keep energy steady through the day."],
+    "Pregnant":["Take iron, folate & calcium supplements as prescribed by your doctor.","Eat 5-6 small meals — large gaps can cause nausea.","Avoid raw/undercooked meat, raw sprouts and unpasteurised dairy."],
+    "Breastfeeding":["Eat an extra 400–500 kcal for milk production — don't skip meals.","Stay very well hydrated — aim for 3+ litres of water a day.","Calcium-rich foods like curd, paneer and ragi support bone health."],
     "Other":["Review this plan with your doctor before starting."],
   };
   const g=goalTips[p.goal||""]||[];
@@ -383,21 +435,24 @@ function makeTips(p:Profile, _cal:number):string[] {
     :["Drink 2.5–3L water daily and aim for 7+ hours of sleep."];
   return [...g,...c,...extra].slice(0,5);
 }
-function buildPlan(profile:Profile):Plan {
+
+function buildPlan(profile: Profile): Plan {
   const st=calcStats(profile);
   const cal=st.tdee;
-  const ctx:MealCtx={
-    goal:profile.goal||"General fitness",cond:profile.condition||"None",
-    diet:profile.diet||"Pure veg",regions:mapRegions(profile.region),
+  const ctx: MealCtx={
+    goal:profile.goal||"General fitness",
+    cond:profile.condition||"None",
+    diet:profile.diet||"Pure veg",
+    regions:mapRegions(profile.region),
     simplePref:["Minimal cooking (10-15 min)","I order online mostly"].includes(profile.cooktime||""),
   };
   const slots=SLOTSET[profile.meals||"3 meals"]||SLOTSET["3 meals"];
   const weekUsed=new Set<string>();
-  const days:PlanDay[]=(WEEK as readonly string[]).map((dn,di)=>{
+  const days: PlanDay[]=(WEEK as readonly string[]).map((dn,di)=>{
     let raw=slots.map(([code,frac,label])=>{
       const m=pickMeal(code,Math.round(cal*frac),di,weekUsed,ctx);
       weekUsed.add(m.n);
-      return {time:label,food:m.n,cal:m.c};
+      return {time:label,food:m.n,cal:m.c,qty:m.q};
     });
     const total=raw.reduce((a,b)=>a+b.cal,0);
     let f=total?cal/total:1; f=Math.max(0.78,Math.min(1.28,f));
@@ -405,17 +460,25 @@ function buildPlan(profile:Profile):Plan {
     if (di%7===6) weekUsed.clear();
     return {day:dn as DayName,meals:raw};
   });
+
   const cond=profile.condition||"None";
   const condClause=cond!=="None"&&cond!=="Other"
-    ?` It's tuned to go easy on your ${COND_SHORT[cond]||cond} — still, please review it with your doctor.`
+    ?` It's tuned to support your ${COND_SHORT[cond]||cond} — still, please review it with your doctor.`
     :cond==="Other"?" Since you flagged a condition, please clear this plan with your doctor first.":"";
+
   const regionArr=profile.region||[];
   const regLabel=(!regionArr.length||regionArr.length===4)?"pan-Indian":regionArr.join(" & ");
+
+  const timeline=profile.timeline||"6 months (recommended)";
+  const weeklyLoss=st.direction&&st.weeklyKg!=="0.00"
+    ?`~${st.weeklyKg} kg / week ${st.direction}`:"";
+
   return {
     summary:`Here's a ${(profile.goal||"fitness").toLowerCase()} plan at about ${cal} kcal a day, built around ${regLabel} food you actually like.${condClause}`,
     dailyCalories:cal,bmi:st.bmi,bmiCat:st.bmiCat,
     goal:profile.goal||"General fitness",diet:profile.diet||"Pure veg",
-    condition:cond,regLabel,tips:makeTips(profile,cal),days,
+    condition:cond,regLabel,timeline,weeklyLoss,
+    tips:makeTips(profile,cal),days,
   };
 }
 
@@ -424,11 +487,9 @@ function Logo({size=40}:{size?:number}) {
   const id="lg"+size;
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <defs>
-        <linearGradient id={id} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#22C16B"/><stop offset="1" stopColor="#0E8A4D"/>
-        </linearGradient>
-      </defs>
+      <defs><linearGradient id={id} x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stopColor="#22C16B"/><stop offset="1" stopColor="#0E8A4D"/>
+      </linearGradient></defs>
       <rect width="48" height="48" rx="14" fill={`url(#${id})`}/>
       <path d="M24 13c-5 0-9 3.5-9 9 0 6 5 11 9 13 4-2 9-7 9-13 0-5.5-4-9-9-9z" fill="#fff" opacity="0.18"/>
       <path d="M24 12c-1 5-4 7-7 8 0 6 3.5 9 7 11 3.5-2 7-5 7-11-3-1-6-3-7-8z" fill="#fff"/>
@@ -439,7 +500,7 @@ function Logo({size=40}:{size?:number}) {
 function CalRing({pct=1,size=110,color="#fff",track="rgba(255,255,255,0.25)",big,small}:{
   pct?:number;size?:number;color?:string;track?:string;big?:number|string;small?:string;
 }) {
-  const r=(size-14)/2, c=2*Math.PI*r, off=c*(1-Math.max(0,Math.min(1,pct)));
+  const r=(size-14)/2,c=2*Math.PI*r,off=c*(1-Math.max(0,Math.min(1,pct)));
   return (
     <div className="relative" style={{width:size,height:size}}>
       <svg width={size} height={size} className="-rotate-90">
@@ -455,11 +516,13 @@ function CalRing({pct=1,size=110,color="#fff",track="rgba(255,255,255,0.25)",big
     </div>
   );
 }
-const MEAL_UI:Record<string,{Icon:React.ElementType;col:string}> = {
+
+const MEAL_UI: Record<string,{Icon:React.ElementType;col:string}> = {
   "Breakfast":{Icon:Sunrise,col:"#F59E0B"},"Mid-morning":{Icon:Apple,col:"#F43F5E"},
   "Lunch":{Icon:Utensils,col:"#1DAA61"},"Evening snack":{Icon:Cookie,col:"#8B5CF6"},
   "Dinner":{Icon:Moon,col:"#6366F1"},"Bedtime":{Icon:Moon,col:"#64748B"},
 };
+
 function Shell({children,wide}:{children:React.ReactNode;wide?:boolean}) {
   return (
     <div className="min-h-screen py-8 px-4" style={{background:"linear-gradient(180deg,#F3FBF6 0%,#F7F8FA 40%)"}}>
@@ -470,11 +533,12 @@ function Shell({children,wide}:{children:React.ReactNode;wide?:boolean}) {
 function Card({children,className=""}:{children:React.ReactNode;className?:string}) {
   return <div className={`bg-white rounded-3xl shadow-sm border border-gray-100 ${className}`}>{children}</div>;
 }
-function Chip({label,val}:{label:string;val:string}) {
+function Chip({label,val,accent}:{label:string;val:string;accent?:boolean}) {
   return (
     <div className="rounded-2xl bg-white border border-gray-100 px-3 py-2.5 shadow-sm">
       <div className="text-xs text-gray-400">{label}</div>
-      <div className="font-semibold text-gray-800 text-sm mt-0.5">{val}</div>
+      <div className={`font-semibold text-sm mt-0.5 ${accent?"":"text-gray-800"}`}
+        style={accent?{color:GREEN}:{}}>{val}</div>
     </div>
   );
 }
@@ -515,9 +579,13 @@ function PlanWeek({plan}:{plan:Plan}) {
               <div className={`flex-1 ${last?"":"pb-4"}`}>
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold uppercase tracking-wide" style={{color:ui.col}}>{m.time}</span>
-                  <span className="text-xs text-gray-400">{m.cal} kcal</span>
+                  <span className="text-xs font-semibold" style={{color:GREEN}}>{m.cal} kcal</span>
                 </div>
-                <p className="text-gray-800 font-medium mt-0.5">{m.food}</p>
+                <p className="text-gray-800 font-semibold mt-0.5 leading-snug">{m.food}</p>
+                <div className="flex items-center gap-1 mt-1">
+                  <Scale size={11} className="text-gray-400 shrink-0"/>
+                  <span className="text-xs text-gray-400">{m.qty}</span>
+                </div>
               </div>
             </div>
           );
@@ -569,35 +637,25 @@ function Welcome({onNew,onLogin}:{onNew:()=>void;onLogin:()=>void}) {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-5 py-10 relative overflow-hidden"
       style={{background:"linear-gradient(160deg,#064E30 0%,#0E8A4D 40%,#1DAA61 75%,#2DCE78 100%)"}}>
-
-      {/* decorative blobs */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="absolute rounded-full" style={{width:340,height:340,background:"rgba(255,255,255,0.06)",top:"-80px",right:"-80px"}}/>
         <div className="absolute rounded-full" style={{width:260,height:260,background:"rgba(255,255,255,0.05)",bottom:"-60px",left:"-60px"}}/>
         <div className="absolute rounded-full" style={{width:160,height:160,background:"rgba(255,255,255,0.07)",top:"45%",right:"-40px"}}/>
       </div>
-
       <div className={`relative z-10 w-full max-w-sm transition-all duration-700 ${visible?"opacity-100 translate-y-0":"opacity-0 translate-y-8"}`}>
-
-        {/* Logo + brand */}
         <div className="flex flex-col items-center mb-7">
           <Logo size={76}/>
           <h1 className="text-5xl font-black text-white mt-3 tracking-tight">EatBC</h1>
           <p className="text-green-200 font-medium text-base mt-1 tracking-wide">Eat Better. Change.</p>
         </div>
-
-        {/* Quote card — redesigned */}
         <div className="relative mb-7 rounded-3xl overflow-hidden"
           style={{background:"linear-gradient(135deg,rgba(255,255,255,0.18) 0%,rgba(255,255,255,0.08) 100%)",
             border:"1px solid rgba(255,255,255,0.22)",backdropFilter:"blur(12px)"}}>
-          {/* big decorative quote mark */}
           <div className="absolute top-3 left-4 text-white/20 font-black leading-none select-none"
             style={{fontSize:72,fontFamily:"Georgia,serif",lineHeight:1}}>"</div>
           <div className="px-6 pt-8 pb-6">
             <p className="text-white font-bold text-[1.05rem] leading-relaxed text-center"
-              style={{textShadow:"0 1px 8px rgba(0,0,0,0.18)"}}>
-              {quote}
-            </p>
+              style={{textShadow:"0 1px 8px rgba(0,0,0,0.18)"}}>{quote}</p>
             <div className="flex items-center justify-center gap-1.5 mt-4">
               <div className="h-px w-8 bg-white/30"/>
               <span className="text-green-200 text-xs font-semibold uppercase tracking-widest">Today's spark</span>
@@ -605,36 +663,22 @@ function Welcome({onNew,onLogin}:{onNew:()=>void;onLogin:()=>void}) {
             </div>
           </div>
         </div>
-
-        {/* CTA buttons — grid layout keeps icon+label centred, arrow pinned right */}
         <div className="space-y-3">
-          {/* New user */}
           <button onClick={onNew}
             className="group relative w-full py-4 px-5 rounded-2xl shadow-xl transition-all duration-150 active:scale-[0.97]"
             style={{background:"#ffffff",color:GREEN}}>
-            <span className="absolute left-5 top-1/2 -translate-y-1/2">
-              <UserPlus size={21}/>
-            </span>
+            <span className="absolute left-5 top-1/2 -translate-y-1/2"><UserPlus size={21}/></span>
             <span className="block text-center font-black text-[1.05rem]">I'm a New Warrior 🔥</span>
-            <span className="absolute right-5 top-1/2 -translate-y-1/2 opacity-40 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all">
-              <ArrowRight size={19}/>
-            </span>
+            <span className="absolute right-5 top-1/2 -translate-y-1/2 opacity-40 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all"><ArrowRight size={19}/></span>
           </button>
-
-          {/* Returning user */}
           <button onClick={onLogin}
             className="group relative w-full py-4 px-5 rounded-2xl transition-all duration-150 active:scale-[0.97] hover:bg-white/10"
             style={{border:"2px solid rgba(255,255,255,0.55)",color:"#ffffff"}}>
-            <span className="absolute left-5 top-1/2 -translate-y-1/2">
-              <User size={21}/>
-            </span>
+            <span className="absolute left-5 top-1/2 -translate-y-1/2"><User size={21}/></span>
             <span className="block text-center font-black text-[1.05rem]">I Already Hustle 💪</span>
-            <span className="absolute right-5 top-1/2 -translate-y-1/2 opacity-40 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all">
-              <ArrowRight size={19}/>
-            </span>
+            <span className="absolute right-5 top-1/2 -translate-y-1/2 opacity-40 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all"><ArrowRight size={19}/></span>
           </button>
         </div>
-
         <p className="text-center text-green-200/60 text-xs mt-6 flex items-center justify-center gap-1.5">
           <Stethoscope size={12}/> Not medical advice — consult your doctor for any condition.
         </p>
@@ -643,24 +687,19 @@ function Welcome({onNew,onLogin}:{onNew:()=>void;onLogin:()=>void}) {
   );
 }
 
-/* ─────────────── Login (existing users only) ─────────────── */
+/* ─────────────── Login ─────────────── */
 function Login({onDone,onBack}:{onDone:(sess:Session)=>void;onBack:()=>void}) {
   const [id,setId]=useState("");
   const [pw,setPw]=useState("");
   const [err,setErr]=useState("");
   const [busy,setBusy]=useState(false);
-
   function submit() {
-    setErr("");
-    if (!id.trim()||!pw){setErr("Enter both fields");return;}
+    setErr(""); if (!id.trim()||!pw){setErr("Enter both fields");return;}
     setBusy(true);
-    const k=`eatbc:user:${id.toLowerCase().trim()}`;
-    const ex=sget<UserRecord>(k);
-    if (!ex||ex.pw!==hash(pw)){setErr("No account found — check your ID or create one.");setBusy(false);return;}
-    onDone({id:id.toLowerCase().trim(),name:ex.name});
-    setBusy(false);
+    const ex=sget<UserRecord>(`eatbc:user:${id.toLowerCase().trim()}`);
+    if (!ex||ex.pw!==hash(pw)){setErr("No account found — check your ID or sign up first.");setBusy(false);return;}
+    onDone({id:id.toLowerCase().trim(),name:ex.name}); setBusy(false);
   }
-
   return (
     <Shell>
       <Card className="p-6 md:p-8">
@@ -668,12 +707,10 @@ function Login({onDone,onBack}:{onDone:(sess:Session)=>void;onBack:()=>void}) {
         <h2 className="text-2xl font-black text-gray-800 mt-4">Welcome back,<br/><span style={{color:GREEN}}>warrior!</span></h2>
         <p className="text-gray-400 text-sm mt-1 mb-6">Sign in to track your progress 🏆</p>
         <label className="text-sm font-semibold text-gray-600">Phone or Email</label>
-        <input value={id} onChange={e=>setId(e.target.value)}
-          placeholder="9876543210 or you@email.com"
+        <input value={id} onChange={e=>setId(e.target.value)} placeholder="9876543210 or you@email.com"
           className="w-full px-4 py-3 rounded-2xl border-2 border-gray-200 outline-none focus:border-green-500 mb-4 mt-1"/>
         <label className="text-sm font-semibold text-gray-600">Password</label>
-        <input type="password" value={pw} onChange={e=>setPw(e.target.value)}
-          placeholder="••••••"
+        <input type="password" value={pw} onChange={e=>setPw(e.target.value)} placeholder="••••••"
           className="w-full px-4 py-3 rounded-2xl border-2 border-gray-200 outline-none focus:border-green-500 mb-2 mt-1"
           onKeyDown={e=>e.key==="Enter"&&submit()}/>
         {err&&<div className="mb-3 flex items-center gap-2 text-red-500 text-sm"><AlertCircle size={16}/>{err}</div>}
@@ -691,31 +728,21 @@ function Login({onDone,onBack}:{onDone:(sess:Session)=>void;onBack:()=>void}) {
   );
 }
 
-/* ─────────────── Signup (after accepting challenge) ─────────────── */
-function Signup({profile,plan,onDone,onBack}:{
-  profile:Profile;plan:Plan|null;onDone:(sess:Session)=>void;onBack:()=>void;
-}) {
-  const [id,setId]=useState("");
-  const [pw,setPw]=useState("");
-  const [pw2,setPw2]=useState("");
-  const [err,setErr]=useState("");
-  const [busy,setBusy]=useState(false);
-
+/* ─────────────── Signup ─────────────── */
+function Signup({profile,plan,onDone,onBack}:{profile:Profile;plan:Plan|null;onDone:(sess:Session)=>void;onBack:()=>void}) {
+  const [id,setId]=useState(""); const [pw,setPw]=useState(""); const [pw2,setPw2]=useState("");
+  const [err,setErr]=useState(""); const [busy,setBusy]=useState(false);
   function submit() {
-    setErr("");
-    if (!id.trim()||!pw){setErr("Enter both fields");return;}
+    setErr(""); if (!id.trim()||!pw){setErr("Enter both fields");return;}
     if (pw!==pw2){setErr("Passwords don't match");return;}
     if (pw.length<6){setErr("Password must be at least 6 characters");return;}
     setBusy(true);
     const k=`eatbc:user:${id.toLowerCase().trim()}`;
-    const ex=sget<UserRecord>(k);
-    if (ex){setErr("Account already exists — sign in instead.");setBusy(false);return;}
+    if (sget<UserRecord>(k)){setErr("Account already exists — sign in instead.");setBusy(false);return;}
     const name=profile?.name||id;
     sset<UserRecord>(k,{pw:hash(pw),name});
-    onDone({id:id.toLowerCase().trim(),name});
-    setBusy(false);
+    onDone({id:id.toLowerCase().trim(),name}); setBusy(false);
   }
-
   return (
     <Shell>
       <Card className="p-6 md:p-8">
@@ -724,20 +751,15 @@ function Signup({profile,plan,onDone,onBack}:{
           <p className="text-sm font-bold" style={{color:GREEN}}>🎉 Challenge accepted, {profile?.name||"champ"}!</p>
           <p className="text-xs text-gray-500 mt-0.5">Create your account to unlock your personal tracker.</p>
         </div>
-        <h2 className="text-2xl font-black text-gray-800 mb-5">
-          Lock in your <span style={{color:GREEN}}>account</span> 🔐
-        </h2>
-        <label className="text-sm font-semibold text-gray-600">Your Phone or Email <span className="text-gray-400 font-normal">(this is your login ID)</span></label>
-        <input value={id} onChange={e=>setId(e.target.value)}
-          placeholder="9876543210 or you@email.com"
+        <h2 className="text-2xl font-black text-gray-800 mb-5">Lock in your <span style={{color:GREEN}}>account</span> 🔐</h2>
+        <label className="text-sm font-semibold text-gray-600">Phone or Email <span className="text-gray-400 font-normal">(your login ID)</span></label>
+        <input value={id} onChange={e=>setId(e.target.value)} placeholder="9876543210 or you@email.com"
           className="w-full px-4 py-3 rounded-2xl border-2 border-gray-200 outline-none focus:border-green-500 mb-4 mt-1"/>
         <label className="text-sm font-semibold text-gray-600">Set a Password</label>
-        <input type="password" value={pw} onChange={e=>setPw(e.target.value)}
-          placeholder="Min 6 characters"
+        <input type="password" value={pw} onChange={e=>setPw(e.target.value)} placeholder="Min 6 characters"
           className="w-full px-4 py-3 rounded-2xl border-2 border-gray-200 outline-none focus:border-green-500 mb-4 mt-1"/>
         <label className="text-sm font-semibold text-gray-600">Confirm Password</label>
-        <input type="password" value={pw2} onChange={e=>setPw2(e.target.value)}
-          placeholder="Repeat password"
+        <input type="password" value={pw2} onChange={e=>setPw2(e.target.value)} placeholder="Repeat password"
           className="w-full px-4 py-3 rounded-2xl border-2 border-gray-200 outline-none focus:border-green-500 mb-2 mt-1"
           onKeyDown={e=>e.key==="Enter"&&submit()}/>
         <p className="text-xs text-gray-400 mb-4">Demo tracker — don't reuse a real banking password.</p>
@@ -773,7 +795,6 @@ function Dash({session,plan,tracking,onUpdate,onLogout}:{
     const p2=plan?.days?.find(y=>y.day===d);
     return p2&&x&&p2.meals.every((_,i)=>x.meals[i]);
   }).length;
-
   return (
     <Shell wide>
       <div style={{animation:"eFade .4s ease both"}}>
@@ -795,7 +816,6 @@ function Dash({session,plan,tracking,onUpdate,onLogout}:{
             <LogOut size={15}/> Logout
           </button>
         </div>
-
         <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
           {WEEK.map(d=>(
             <button key={d} onClick={()=>setSel(d)}
@@ -805,7 +825,6 @@ function Dash({session,plan,tracking,onUpdate,onLogout}:{
             </button>
           ))}
         </div>
-
         {dp?(
           <>
             <Card className="p-5 mb-4">
@@ -820,9 +839,13 @@ function Dash({session,plan,tracking,onUpdate,onLogout}:{
                       <CheckCircle2 size={24} style={{color:on?GREEN:"#E5E7EB"}}/>
                       <div className="flex-1 min-w-0">
                         <span className="text-xs font-semibold uppercase tracking-wide" style={{color:ui.col}}>{m.time}</span>
-                        <div className={`text-sm truncate ${on?"line-through text-gray-300":"text-gray-700"}`}>{m.food}</div>
+                        <div className={`text-sm font-medium truncate ${on?"line-through text-gray-300":"text-gray-700"}`}>{m.food}</div>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <Scale size={10} className="text-gray-400 shrink-0"/>
+                          <span className="text-xs text-gray-400 truncate">{m.qty}</span>
+                        </div>
                       </div>
-                      <span className="text-xs text-gray-400">{m.cal}</span>
+                      <span className="text-xs font-semibold shrink-0" style={{color:GREEN}}>{m.cal}</span>
                     </button>
                   );
                 })}
@@ -836,8 +859,7 @@ function Dash({session,plan,tracking,onUpdate,onLogout}:{
               <div className="flex gap-1.5">
                 {[...Array(8)].map((_,i)=>(
                   <button key={i} onClick={()=>setWater(i+1===dd.water?i:i+1)}
-                    className="flex-1 h-9 rounded-lg transition"
-                    style={{background:i<dd.water?GREEN:"#E5E7EB"}}/>
+                    className="flex-1 h-9 rounded-lg transition" style={{background:i<dd.water?GREEN:"#E5E7EB"}}/>
                 ))}
               </div>
             </Card>
@@ -866,10 +888,8 @@ export default function App() {
   useEffect(()=>{
     const s=sget<Session>("eatbc:session");
     if (s){
-      setSession(s);
-      setTracking(sget<Tracking>(`eatbc:track:${s.id}`)||{});
-      const p=sget<Plan>(`eatbc:plan:${s.id}`);
-      if (p) setPlan(p);
+      setSession(s); setTracking(sget<Tracking>(`eatbc:track:${s.id}`)||{});
+      const p=sget<Plan>(`eatbc:plan:${s.id}`); if (p) setPlan(p);
       setScreen("dash");
     }
   },[]);
@@ -886,8 +906,8 @@ export default function App() {
     :cur.k==="avoid"?true
     :(profile[cur.k]||"")!=="";
 
-  function generate(){
-    setLoading(true);setErr("");
+  function generate() {
+    setLoading(true); setErr("");
     setTimeout(()=>{
       try{setPlan(buildPlan(profile));setScreen("plan");}
       catch{setErr("Something went off — adjust an answer and retry.");}
@@ -895,12 +915,14 @@ export default function App() {
     },650);
   }
 
-  function planText():string {
+  function planText(): string {
     if (!plan) return "";
-    let t=`🥗 *EatBC Weekly Plan — ${profile.name}*\n${plan.summary}\nDaily target: ~${plan.dailyCalories} kcal\n\n`;
+    let t=`🥗 *EatBC Weekly Plan — ${profile.name}*\n${plan.summary}\nDaily target: ~${plan.dailyCalories} kcal\n`;
+    if (plan.weeklyLoss) t+=`Expected: ${plan.weeklyLoss}\n`;
+    t+="\n";
     plan.days.forEach(d=>{
       t+=`*${d.day}*\n`;
-      d.meals.forEach(m=>t+=`• ${m.time}: ${m.food} (${m.cal} kcal)\n`);
+      d.meals.forEach(m=>t+=`• ${m.time}: ${m.food} — ${m.qty} (${m.cal} kcal)\n`);
       t+="\n";
     });
     t+=`💡 Tips:\n${plan.tips.map(x=>"• "+x).join("\n")}\n\nLet's make the nation fit 💪 — EatBC`;
@@ -909,36 +931,27 @@ export default function App() {
   const shareWA=()=>window.open(`https://wa.me/?text=${encodeURIComponent(planText())}`,"_blank");
   const shareEmail=()=>window.open(`mailto:?subject=${encodeURIComponent("My EatBC Weekly Plan")}&body=${encodeURIComponent(planText())}`,"_blank");
 
-  function doLogin(sess:Session){
-    setSession(sess);
-    sset<Session>("eatbc:session",sess);
-    const tr=sget<Tracking>(`eatbc:track:${sess.id}`)||{};
-    setTracking(tr);
-    const p=sget<Plan>(`eatbc:plan:${sess.id}`);
-    if (p) setPlan(p);
+  function doLogin(sess:Session) {
+    setSession(sess); sset<Session>("eatbc:session",sess);
+    setTracking(sget<Tracking>(`eatbc:track:${sess.id}`)||{});
+    const p=sget<Plan>(`eatbc:plan:${sess.id}`); if (p) setPlan(p);
     setScreen("dash");
   }
-
-  function doSignup(sess:Session){
-    setSession(sess);
-    sset<Session>("eatbc:session",sess);
+  function doSignup(sess:Session) {
+    setSession(sess); sset<Session>("eatbc:session",sess);
     if (plan) sset<Plan>(`eatbc:plan:${sess.id}`,plan);
-    const tr=sget<Tracking>(`eatbc:track:${sess.id}`)||{};
-    setTracking(tr);
+    setTracking(sget<Tracking>(`eatbc:track:${sess.id}`)||{});
     setScreen("dash");
   }
-
-  function logout(){
-    sdel("eatbc:session");
-    setSession(null);setScreen("welcome");
-    setStep(0);setProfile({region:[]});setPlan(null);setTracking({});
+  function logout() {
+    sdel("eatbc:session"); setSession(null); setScreen("welcome");
+    setStep(0); setProfile({region:[]}); setPlan(null); setTracking({});
     quoteRef.current=pickQuote();
   }
 
-  /* screens */
+  /* ── screens ── */
   if (screen==="welcome") return <Welcome onNew={()=>setScreen("quiz")} onLogin={()=>setScreen("login")}/>;
-
-  if (screen==="login") return <Login onDone={doLogin} onBack={()=>setScreen("welcome")}/>;
+  if (screen==="login")   return <Login onDone={doLogin} onBack={()=>setScreen("welcome")}/>;
 
   if (screen==="quiz") return (
     <Shell>
@@ -1036,6 +1049,12 @@ export default function App() {
               <p className="text-white/70 text-sm">Weekly plan for</p>
               <h2 className="text-3xl font-bold truncate">{profile.name||"you"}</h2>
               <p className="text-white/85 text-sm mt-2 max-w-md">{plan.summary}</p>
+              {plan.weeklyLoss&&(
+                <div className="mt-2 inline-flex items-center gap-1.5 bg-white/15 rounded-full px-3 py-1">
+                  <TrendingDown size={13}/>
+                  <span className="text-xs font-semibold">Expected: {plan.weeklyLoss}</span>
+                </div>
+              )}
             </div>
             <CalRing pct={1} big={plan.dailyCalories} small="kcal / day" size={118}/>
           </div>
@@ -1052,18 +1071,24 @@ export default function App() {
           </div>
         </div>
 
-        {plan.condition!=="None"&&(
+        {["Pregnant","Breastfeeding"].includes(plan.condition)&&(
+          <div className="rounded-2xl px-4 py-3 mb-4 flex items-start gap-2.5 text-sm" style={{background:"#FFF0F5",color:"#9D174D"}}>
+            <HeartPulse size={18} className="mt-0.5 shrink-0"/>
+            <span>This plan accounts for your <b>{plan.condition.toLowerCase()}</b> nutritional needs. <b>Always consult your gynaecologist or dietician before making dietary changes.</b></span>
+          </div>
+        )}
+        {plan.condition!=="None"&&!["Pregnant","Breastfeeding"].includes(plan.condition)&&(
           <div className="rounded-2xl px-4 py-3 mb-4 flex items-start gap-2.5 text-sm" style={{background:"#FFF7ED",color:"#9A3412"}}>
             <HeartPulse size={18} className="mt-0.5 shrink-0"/>
-            <span>This plan is adjusted for <b>{plan.condition}</b>. Please confirm it with your doctor before starting.</span>
+            <span>This plan is adjusted for <b>{plan.condition}</b>. Please confirm with your doctor before starting.</span>
           </div>
         )}
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-5">
           <Chip label="BMI" val={`${plan.bmi} · ${plan.bmiCat}`}/>
           <Chip label="Goal" val={plan.goal}/>
+          <Chip label="Timeline" val={plan.timeline} accent/>
           <Chip label="Diet" val={plan.diet}/>
-          <Chip label="Cuisine" val={plan.regLabel}/>
         </div>
 
         <PlanWeek plan={plan}/>
@@ -1090,15 +1115,13 @@ export default function App() {
           <p className="text-xs text-gray-400 mt-3">Account creation happens next — just one last step!</p>
         </Card>
         <p className="text-center text-xs text-gray-400 mt-4">
-          EatBC gives general guidance, not medical advice. Consult a doctor or registered dietician for any health condition.
+          EatBC gives general guidance, not medical advice. Consult a doctor or dietician for any health condition.
         </p>
       </div>
     </Shell>
   );
 
-  if (screen==="signup") return (
-    <Signup profile={profile} plan={plan} onDone={doSignup} onBack={()=>setScreen("plan")}/>
-  );
+  if (screen==="signup") return <Signup profile={profile} plan={plan} onDone={doSignup} onBack={()=>setScreen("plan")}/>;
 
   if (screen==="dash"&&session) return (
     <Dash session={session} plan={plan} tracking={tracking}
