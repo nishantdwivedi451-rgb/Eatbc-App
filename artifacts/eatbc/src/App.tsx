@@ -568,49 +568,74 @@ function Welcome({onNew,onLogin}:{onNew:()=>void;onLogin:()=>void}) {
   useEffect(()=>{const t=setTimeout(()=>setVisible(true),80);return()=>clearTimeout(t);},[]);
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-5 py-10 relative overflow-hidden"
-      style={{background:"linear-gradient(145deg,#0B6E40 0%,#1DAA61 45%,#22D272 100%)"}}>
+      style={{background:"linear-gradient(160deg,#064E30 0%,#0E8A4D 40%,#1DAA61 75%,#2DCE78 100%)"}}>
+
+      {/* decorative blobs */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {[...Array(6)].map((_,i)=>(
-          <div key={i} className="absolute rounded-full opacity-10"
-            style={{width:`${120+i*70}px`,height:`${120+i*70}px`,
-              background:"rgba(255,255,255,0.5)",
-              top:`${[10,60,5,40,70,20][i]}%`,left:`${[-10,70,-5,30,80,50][i]}%`,
-              transform:"translate(-50%,-50%)"}}/>
-        ))}
+        <div className="absolute rounded-full" style={{width:340,height:340,background:"rgba(255,255,255,0.06)",top:"-80px",right:"-80px"}}/>
+        <div className="absolute rounded-full" style={{width:260,height:260,background:"rgba(255,255,255,0.05)",bottom:"-60px",left:"-60px"}}/>
+        <div className="absolute rounded-full" style={{width:160,height:160,background:"rgba(255,255,255,0.07)",top:"45%",right:"-40px"}}/>
       </div>
 
-      <div className={`relative z-10 w-full max-w-sm transition-all duration-700 ${visible?"opacity-100 translate-y-0":"opacity-0 translate-y-6"}`}>
-        <div className="flex flex-col items-center mb-8">
-          <Logo size={80}/>
+      <div className={`relative z-10 w-full max-w-sm transition-all duration-700 ${visible?"opacity-100 translate-y-0":"opacity-0 translate-y-8"}`}>
+
+        {/* Logo + brand */}
+        <div className="flex flex-col items-center mb-7">
+          <Logo size={76}/>
           <h1 className="text-5xl font-black text-white mt-3 tracking-tight">EatBC</h1>
-          <p className="text-green-100 font-semibold text-lg mt-1">Eat Better. Change.</p>
+          <p className="text-green-200 font-medium text-base mt-1 tracking-wide">Eat Better. Change.</p>
         </div>
 
-        <div className="bg-white/15 backdrop-blur-sm rounded-3xl px-6 py-5 mb-8 border border-white/25">
-          <div className="flex items-start gap-3">
-            <span className="text-3xl mt-0.5 shrink-0">💬</span>
-            <p className="text-white font-bold text-lg leading-snug italic">"{quote}"</p>
+        {/* Quote card — redesigned */}
+        <div className="relative mb-7 rounded-3xl overflow-hidden"
+          style={{background:"linear-gradient(135deg,rgba(255,255,255,0.18) 0%,rgba(255,255,255,0.08) 100%)",
+            border:"1px solid rgba(255,255,255,0.22)",backdropFilter:"blur(12px)"}}>
+          {/* big decorative quote mark */}
+          <div className="absolute top-3 left-4 text-white/20 font-black leading-none select-none"
+            style={{fontSize:72,fontFamily:"Georgia,serif",lineHeight:1}}>"</div>
+          <div className="px-6 pt-8 pb-6">
+            <p className="text-white font-bold text-[1.05rem] leading-relaxed text-center"
+              style={{textShadow:"0 1px 8px rgba(0,0,0,0.18)"}}>
+              {quote}
+            </p>
+            <div className="flex items-center justify-center gap-1.5 mt-4">
+              <div className="h-px w-8 bg-white/30"/>
+              <span className="text-green-200 text-xs font-semibold uppercase tracking-widest">Today's spark</span>
+              <div className="h-px w-8 bg-white/30"/>
+            </div>
           </div>
         </div>
 
+        {/* CTA buttons — grid layout keeps icon+label centred, arrow pinned right */}
         <div className="space-y-3">
+          {/* New user */}
           <button onClick={onNew}
-            className="group w-full py-4 rounded-2xl font-black text-lg flex items-center justify-center gap-3 shadow-xl transition-all active:scale-95"
-            style={{background:"#fff",color:GREEN}}>
-            <UserPlus size={22} className="shrink-0"/>
-            <span>I'm a New Warrior 🔥</span>
-            <ArrowRight size={20} className="ml-auto opacity-50 group-hover:opacity-100 group-hover:translate-x-1 transition-transform"/>
+            className="group relative w-full py-4 px-5 rounded-2xl shadow-xl transition-all duration-150 active:scale-[0.97]"
+            style={{background:"#ffffff",color:GREEN}}>
+            <span className="absolute left-5 top-1/2 -translate-y-1/2">
+              <UserPlus size={21}/>
+            </span>
+            <span className="block text-center font-black text-[1.05rem]">I'm a New Warrior 🔥</span>
+            <span className="absolute right-5 top-1/2 -translate-y-1/2 opacity-40 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all">
+              <ArrowRight size={19}/>
+            </span>
           </button>
 
+          {/* Returning user */}
           <button onClick={onLogin}
-            className="group w-full py-4 rounded-2xl font-black text-lg flex items-center justify-center gap-3 border-2 border-white/60 text-white hover:bg-white/10 transition-all active:scale-95">
-            <User size={22} className="shrink-0"/>
-            <span>I Already Hustle 💪</span>
-            <ArrowRight size={20} className="ml-auto opacity-50 group-hover:opacity-100 group-hover:translate-x-1 transition-transform"/>
+            className="group relative w-full py-4 px-5 rounded-2xl transition-all duration-150 active:scale-[0.97] hover:bg-white/10"
+            style={{border:"2px solid rgba(255,255,255,0.55)",color:"#ffffff"}}>
+            <span className="absolute left-5 top-1/2 -translate-y-1/2">
+              <User size={21}/>
+            </span>
+            <span className="block text-center font-black text-[1.05rem]">I Already Hustle 💪</span>
+            <span className="absolute right-5 top-1/2 -translate-y-1/2 opacity-40 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all">
+              <ArrowRight size={19}/>
+            </span>
           </button>
         </div>
 
-        <p className="text-center text-green-100/70 text-xs mt-6 flex items-center justify-center gap-1.5">
+        <p className="text-center text-green-200/60 text-xs mt-6 flex items-center justify-center gap-1.5">
           <Stethoscope size={12}/> Not medical advice — consult your doctor for any condition.
         </p>
       </div>
