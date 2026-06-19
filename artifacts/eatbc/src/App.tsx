@@ -161,7 +161,7 @@ interface Plan {
 interface Session { id: string; name: string; }
 interface DayTracking { meals: Record<number, boolean>; water: number; }
 interface Tracking {
-  [day: string]: DayTracking | undefined;
+  [day: string]: DayTracking | Record<string, number> | undefined;
   weights?: Record<string, number>;
 }
 interface UserRecord { pw: string; name: string; }
@@ -177,7 +177,7 @@ const Q: Question[] = [
   { k:"name",      label:"What should we call you?",                    type:"text",   ph:"e.g. Nishant" },
   { k:"age",       label:"Your age",                                    type:"number", ph:"e.g. 32" },
   { k:"sex",       label:"Sex",                                         type:"pick",   opts:["Male","Female","Other"] },
-  { k:"height",    label:"Your height",                                 type:"height" },
+  { k:"heightFt", label:"Your height", type:"height" },
   { k:"weight",    label:"Current weight (kg)",                         type:"number", ph:"e.g. 78" },
   { k:"target",    label:"Target weight (kg)",                          type:"number", ph:"e.g. 72",
     sub:"Enter the same number as your current weight if you want to maintain." },
@@ -787,7 +787,13 @@ function Dash({session,plan,tracking,onUpdate,onLogout}:{
   const cal=plan?.dailyCalories||0;
   const toggle=(i:number)=>onUpdate({...tracking,[sel]:{...dd,meals:{...dd.meals,[i]:!dd.meals[i]}}});
   const setWater=(n:number)=>onUpdate({...tracking,[sel]:{...dd,water:n}});
-  const logW=(w:number)=>onUpdate({...tracking,weights:{...(tracking.weights||{}),[new Date().toISOString().slice(0,10)]:w}});
+  const logW=(w:number)=>onUpdate({
+  ...tracking,
+  weights:{
+    ...(tracking.weights||{}),
+    [new Date().toISOString().slice(0,10)]:w
+  }
+} as Tracking);
   const consumed=dp?dp.meals.reduce((a,m,i)=>a+(dd.meals[i]?m.cal:0),0):0;
   const doneCount=dp?dp.meals.filter((_,i)=>dd.meals[i]).length:0;
   const streak=WEEK.filter(d=>{
