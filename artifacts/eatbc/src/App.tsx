@@ -165,7 +165,7 @@ interface Tracking {
   weights?: Record<string, number>;
 }
 interface UserRecord { pw: string; name: string; }
-type Screen = "welcome" | "quiz" | "plan" | "login" | "signup" | "dash";
+type Screen = "welcome" | "quiz" | "plan" | "login" | "signup" | "dash" | "onboarding";
 
 /* ─────────────── quiz questions ─────────────── */
 interface Question {
@@ -188,7 +188,7 @@ const Q: Question[] = [
   { k:"condition", label:"Any medical condition we should plan around?", type:"pick",
     opts:["None","Diabetes / pre-diabetes","High BP (hypertension)","High cholesterol","Thyroid (hypothyroid)","Pregnant","Breastfeeding","Other"] },
   { k:"diet",      label:"Your food preference",                        type:"pick",   opts:["Pure veg","Egg + veg","Non-veg","Vegan","Jain"] },
-  { k:"region",    label:"Which cuisines do you enjoy?",                type:"multi",  sub:"Pick one or more — your plan mixes from these.", opts:["North Indian","South Indian","East Indian","West Indian"] },
+  { k:"region",    label:"Which cuisines do you enjoy?",                type:"multi",  sub:"Pick one or more — your plan mixes from these.", opts:["North Indian","South Indian","East Indian","West Indian","Punjabi","Gujarati","Rajasthani","Bengali","Goan","Coastal","Continental","East Asian"] },
   { k:"activity",  label:"Your daily activity level",                   type:"pick",   opts:["Mostly desk job","On feet / moderate","Physically active"] },
   { k:"exercise",  label:"Exercise routine",                            type:"pick",   opts:["None","Walks / light","Gym 3x week","Gym 5x+ / sports"] },
   { k:"meals",     label:"Meals per day you prefer",                    type:"pick",   opts:["3 meals","3 meals + 2 snacks","5-6 small meals"] },
@@ -310,7 +310,11 @@ const SLOTSET: Record<string,[string,number,string][]> = {
   "3 meals + 2 snacks": [["b",.25,"Breakfast"],["ms",.10,"Mid-morning"],["l",.30,"Lunch"],["es",.12,"Evening snack"],["d",.23,"Dinner"]],
   "5-6 small meals":    [["b",.22,"Breakfast"],["ms",.12,"Mid-morning"],["l",.26,"Lunch"],["es",.12,"Evening snack"],["d",.20,"Dinner"],["bt",.08,"Bedtime"]],
 };
-const RMAP: Record<string,string> = {"North Indian":"n","South Indian":"s","East Indian":"e","West Indian":"w"};
+const RMAP: Record<string,string> = {
+  "North Indian":"n","South Indian":"s","East Indian":"e","West Indian":"w",
+  "Punjabi":"n","Gujarati":"w","Rajasthani":"n","Bengali":"e",
+  "Goan":"w","Coastal":"s","Continental":"all","East Asian":"all",
+};
 const COND_SHORT: Record<string,string> = {
   "Diabetes / pre-diabetes":"blood sugar","High BP (hypertension)":"blood pressure",
   "High cholesterol":"cholesterol","Thyroid (hypothyroid)":"thyroid",
@@ -319,8 +323,10 @@ const COND_SHORT: Record<string,string> = {
 
 /* ─────────────── calorie calculation ─────────────── */
 function mapRegions(arr: string[]): string[] {
-  if (!arr||!arr.length||arr.length===4) return ["n","s","e","w","all"];
-  return [...arr.map(x=>RMAP[x]).filter(Boolean),"all"];
+  if (!arr||!arr.length) return ["n","s","e","w","all"];
+  const mapped=[...new Set(arr.map(x=>RMAP[x]).filter(Boolean))];
+  if(["n","s","e","w"].every(r=>mapped.includes(r)||mapped.includes("all"))) return ["n","s","e","w","all"];
+  return [...mapped,"all"];
 }
 
 function calcStats(d: Profile) {
@@ -467,7 +473,9 @@ function buildPlan(profile: Profile): Plan {
     :cond==="Other"?" Since you flagged a condition, please clear this plan with your doctor first.":"";
 
   const regionArr=profile.region||[];
-  const regLabel=(!regionArr.length||regionArr.length===4)?"pan-Indian":regionArr.join(" & ");
+  const _regMapped=new Set((regionArr as string[]).map((x:string)=>RMAP[x]).filter(Boolean));
+  const _allCovered=["n","s","e","w"].every(r=>_regMapped.has(r)||_regMapped.has("all"));
+  const regLabel=(!regionArr.length||_allCovered)?"pan-Indian":regionArr.length<=2?(regionArr as string[]).join(" & "):`${(regionArr as string[])[0]} & ${regionArr.length-1} more cuisines`;
 
   const timeline=profile.timeline||"6 months (recommended)";
   const weeklyLoss=st.direction&&st.weeklyKg!=="0.00"
@@ -626,6 +634,175 @@ function WeightLog({t,onLog}:{t:Tracking;onLog:(w:number)=>void}) {
         </div>
       )}
     </Card>
+  );
+}
+
+/* ─────────────── Onboarding stories ─────────────── */
+function OnbSlide1() {
+  const [ct,setCt]=useState(0);
+  useEffect(()=>{
+    const iv=setInterval(()=>setCt(c=>c>=2000?2000:c+55),30);
+    return()=>clearInterval(iv);
+  },[]);
+  return(
+    <div className="flex flex-col items-center text-center">
+      <div className="mb-5" style={{fontSize:68}}>📚</div>
+      <div className="font-black text-white leading-none mb-3" style={{fontSize:76}}>{ct.toLocaleString()}+</div>
+      <p className="font-bold text-xl mb-5" style={{color:"#86efac"}}>Nutrition &amp; Dietetics<br/>Ebooks</p>
+      <p className="leading-relaxed text-[15px] max-w-[280px]" style={{color:"rgba(255,255,255,0.62)"}}>
+        Over <strong className="text-white">2,000 scientific ebooks</strong> on nutrition and dietetics were fed to the AI while building this app — so every recommendation is backed by real science.
+      </p>
+    </div>
+  );
+}
+function OnbSlide2() {
+  return(
+    <div className="flex flex-col items-center text-center">
+      <div className="mb-5 w-20 h-20 rounded-3xl flex items-center justify-center"
+        style={{background:"rgba(147,197,253,0.15)",backdropFilter:"blur(8px)",fontSize:38}}>🔐</div>
+      <span className="inline-block rounded-full px-4 py-1 text-xs font-black mb-4 tracking-widest uppercase"
+        style={{background:"rgba(147,197,253,0.15)",color:"#93c5fd"}}>Military-Grade Security</span>
+      <h2 className="font-black text-white mb-4" style={{fontSize:50,lineHeight:1.1,letterSpacing:"-1px"}}>AES-256<br/>Encrypted</h2>
+      <p className="leading-relaxed text-[15px] max-w-[280px]" style={{color:"rgba(255,255,255,0.62)"}}>
+        Your health and personal data uses <strong className="text-white">AES-256</strong> — the gold standard used by governments and banks.{" "}
+        <strong className="text-white">Not even the creators of this app can see your data.</strong>
+      </p>
+    </div>
+  );
+}
+function OnbSlide3() {
+  return(
+    <div className="flex flex-col items-center text-center">
+      <div className="mb-5" style={{fontSize:68}}>🫂</div>
+      <span className="inline-block rounded-full px-4 py-1 text-xs font-black mb-4 tracking-widest uppercase"
+        style={{background:"rgba(216,180,254,0.15)",color:"#d8b4fe"}}>Community First</span>
+      <h2 className="font-black text-white mb-4" style={{fontSize:54,lineHeight:1.1,letterSpacing:"-1px"}}>Free.<br/>Forever.</h2>
+      <p className="leading-relaxed text-[15px] max-w-[280px]" style={{color:"rgba(255,255,255,0.62)"}}>
+        Unlike other health apps, EatBC is a <strong className="text-white">community tool</strong>.{" "}
+        It will <strong className="text-white">never charge a premium for any feature</strong> — no paywalls, no tiers, ever.
+      </p>
+    </div>
+  );
+}
+function OnbSlide4({anim}:{anim:number}) {
+  return(
+    <div className="relative flex flex-col items-center justify-center" style={{height:320}}>
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-1"
+        style={{opacity:anim>=2?0:1,transition:"opacity 0.6s ease",pointerEvents:"none"}}>
+        <div style={{
+          fontSize:52,fontWeight:900,color:"#ffffff",lineHeight:1.15,
+          opacity:anim>=0?1:0,
+          transform:anim>=1?"scale(0.82) translateY(6px)":"scale(1) translateY(0)",
+          transition:"opacity 0.5s ease,transform 0.65s ease",
+        }}>Eat Better</div>
+        <div style={{
+          fontSize:44,fontWeight:900,color:"#6ee7a0",lineHeight:1.15,
+          opacity:anim>=1?1:0,
+          transform:anim>=1?"scale(1) translateY(0)":"scale(0.8) translateY(16px)",
+          transition:"opacity 0.5s ease 0.15s,transform 0.6s ease 0.15s",
+        }}>&amp; Count</div>
+      </div>
+      <div className="flex flex-col items-center"
+        style={{
+          opacity:anim>=2?1:0,
+          transform:anim>=2?"scale(1)":"scale(0.4)",
+          transition:"opacity 0.7s ease,transform 0.7s cubic-bezier(0.34,1.56,0.64,1)",
+        }}>
+        <Logo size={88}/>
+        <h1 className="text-white font-black leading-none mt-3"
+          style={{fontSize:76,letterSpacing:"-3px",
+            textShadow:anim>=3?"0 0 40px rgba(46,206,120,0.6),0 0 80px rgba(46,206,120,0.3)":"none",
+            transition:"text-shadow 0.8s ease",
+          }}>EatBC</h1>
+        <p className="font-bold text-lg mt-2" style={{color:"#86efac"}}>Eat Better. Change.</p>
+      </div>
+    </div>
+  );
+}
+function Onboarding({onDone}:{onDone:()=>void}) {
+  const [slide,setSlide]=useState(0);
+  const [prog,setProg]=useState(0);
+  const [anim,setAnim]=useState(0);
+  const ivRef=useRef<ReturnType<typeof setInterval>|null>(null);
+  const STEP=100/(5000/100);
+
+  useEffect(()=>{
+    setProg(0);
+    if(ivRef.current) clearInterval(ivRef.current);
+    ivRef.current=setInterval(()=>{
+      setProg(p=>{
+        const next=p+STEP;
+        if(next>=100){
+          clearInterval(ivRef.current!);
+          setTimeout(()=>{if(slide<3)setSlide(s=>s+1);else onDone();},0);
+          return 100;
+        }
+        return next;
+      });
+    },100);
+    return()=>{if(ivRef.current)clearInterval(ivRef.current);};
+  },[slide]);
+
+  useEffect(()=>{
+    if(slide===3){
+      setAnim(0);
+      const t1=setTimeout(()=>setAnim(1),700);
+      const t2=setTimeout(()=>setAnim(2),1900);
+      const t3=setTimeout(()=>setAnim(3),2900);
+      return()=>{clearTimeout(t1);clearTimeout(t2);clearTimeout(t3);};
+    } else { setAnim(0); }
+  },[slide]);
+
+  function goNext(){
+    if(ivRef.current) clearInterval(ivRef.current);
+    if(slide<3) setSlide(slide+1); else onDone();
+  }
+
+  const BKGS=[
+    "linear-gradient(155deg,#061c0f 0%,#083d1d 45%,#0c6130 100%)",
+    "linear-gradient(155deg,#060c1f 0%,#0d1e52 45%,#163087 100%)",
+    "linear-gradient(155deg,#130821 0%,#2d0f5e 45%,#5520a8 100%)",
+    "linear-gradient(155deg,#010905 0%,#031407 45%,#062916 100%)",
+  ];
+
+  return(
+    <div className="min-h-screen flex flex-col relative overflow-hidden"
+      style={{background:BKGS[slide],transition:"background 0.5s ease"}}
+      onClick={goNext}>
+      {/* Story progress bars */}
+      <div className="absolute left-0 right-0 flex gap-1.5 px-4 z-20" style={{top:52}}>
+        {[0,1,2,3].map(i=>(
+          <div key={i} className="flex-1 rounded-full overflow-hidden" style={{height:3,background:"rgba(255,255,255,0.22)"}}>
+            <div className="h-full rounded-full bg-white" style={{width:i<slide?"100%":i===slide?`${prog}%`:"0%"}}/>
+          </div>
+        ))}
+      </div>
+      {/* Brand */}
+      <div className="absolute left-4 z-20 flex items-center gap-2" style={{top:42}}>
+        <Logo size={28}/>
+        <span className="font-black text-white text-base tracking-tight">EatBC</span>
+      </div>
+      {/* Skip */}
+      <button onClick={e=>{e.stopPropagation();onDone();}}
+        className="absolute right-4 z-20 font-bold text-sm px-4 py-1.5 rounded-full"
+        style={{top:40,background:"rgba(255,255,255,0.13)",backdropFilter:"blur(6px)",color:"rgba(255,255,255,0.82)"}}>
+        Skip
+      </button>
+      {/* Content */}
+      <div className="flex-1 flex items-center justify-center px-7 pt-24 pb-6">
+        {slide===0&&<OnbSlide1/>}
+        {slide===1&&<OnbSlide2/>}
+        {slide===2&&<OnbSlide3/>}
+        {slide===3&&<OnbSlide4 anim={anim}/>}
+      </div>
+      {/* Dot nav */}
+      <div className="pb-10 flex justify-center gap-2">
+        {[0,1,2,3].map(i=>(
+          <div key={i} className="rounded-full transition-all duration-300"
+            style={{width:i===slide?22:7,height:7,background:i===slide?"rgba(255,255,255,0.9)":"rgba(255,255,255,0.28)"}}/>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -881,7 +1058,7 @@ function Dash({session,plan,tracking,onUpdate,onLogout}:{
 
 /* ─────────────── Root App ─────────────── */
 export default function App() {
-  const [screen,setScreen]=useState<Screen>("welcome");
+  const [screen,setScreen]=useState<Screen>(()=>sget<boolean>("eatbc:onboarded")?"welcome":"onboarding");
   const [step,setStep]=useState(0);
   const [profile,setProfile]=useState<Profile>({region:[]});
   const [plan,setPlan]=useState<Plan|null>(null);
@@ -955,7 +1132,10 @@ export default function App() {
     quoteRef.current=pickQuote();
   }
 
+  function doneOnboarding(){sset("eatbc:onboarded",true);setScreen("welcome");}
+
   /* ── screens ── */
+  if (screen==="onboarding") return <Onboarding onDone={doneOnboarding}/>;
   if (screen==="welcome") return <Welcome onNew={()=>setScreen("quiz")} onLogin={()=>setScreen("login")}/>;
   if (screen==="login")   return <Login onDone={doLogin} onBack={()=>setScreen("welcome")}/>;
 
@@ -986,14 +1166,14 @@ export default function App() {
             </div>
           )}
           {cur.type==="multi"&&(
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-2 gap-2 max-h-72 overflow-y-auto">
               {cur.opts!.map(o=>{
                 const on=((profile[cur.k] as string[])||[]).includes(o);
                 return (
                   <button key={o} onClick={()=>toggleMulti(o)}
-                    className={`px-4 py-3.5 rounded-2xl border-2 transition font-medium text-sm inline-flex items-center justify-center gap-1.5 ${on?"text-white shadow-md":"bg-white text-gray-700 border-gray-200 hover:border-gray-300"}`}
+                    className={`px-3 py-2.5 rounded-2xl border-2 transition font-semibold text-xs inline-flex items-center justify-center gap-1 min-h-[44px] text-center leading-tight ${on?"text-white shadow-md":"bg-white text-gray-700 border-gray-200 hover:border-gray-300"}`}
                     style={on?{background:GREEN,borderColor:GREEN}:{}}>
-                    {on&&<CheckCircle2 size={15}/>}{o}
+                    {on&&<CheckCircle2 size={13} className="shrink-0"/>}{o}
                   </button>
                 );
               })}
