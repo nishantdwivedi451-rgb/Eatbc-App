@@ -1541,7 +1541,7 @@ function Login({onDone,onBack}:{onDone:(sess:Session,plan?:Plan|null,tracking?:T
         <div className="flex items-center gap-2 mb-2"><Logo size={28}/><span className="font-bold text-gray-700">EatBC</span></div>
         <h2 className="text-2xl font-black text-gray-800 mt-4">Welcome back,<br/><span style={{color:GREEN}}>warrior!</span></h2>
         <p className="text-gray-400 text-sm mt-1 mb-6">Sign in to track your progress 🏆</p>
-        <label className="text-sm font-semibold text-gray-600">Phone or Email</label>
+        <label className="text-sm font-semibold text-gray-600">Phone, Email or Username</label>
         <input value={id} onChange={e=>setId(e.target.value)} placeholder="9876543210 or you@email.com"
           className="w-full px-4 py-3 rounded-2xl border-2 border-gray-200 outline-none focus:border-green-500 mb-4 mt-1"/>
         <label className="text-sm font-semibold text-gray-600">Password</label>
@@ -1580,7 +1580,7 @@ function Signup({profile,plan,onDone,onBack}:{profile:Profile;plan:Plan|null;onD
       onDone({id:data.user.id,name:data.user.name,token:data.token});
     } catch(e:unknown) {
       const msg=(e as {error?:string})?.error;
-      setErr(msg||(navigator.onLine?"Server not ready — make sure the Neon database is connected in Vercel Storage settings.":"No internet connection."));
+      setErr(msg||(navigator.onLine?"Registration is temporarily unavailable. Please try again shortly.":"No internet connection."));
     } finally { setBusy(false); }
   }
   return (
@@ -1592,7 +1592,7 @@ function Signup({profile,plan,onDone,onBack}:{profile:Profile;plan:Plan|null;onD
           <p className="text-xs text-gray-500 mt-0.5">Create your account to unlock your personal tracker.</p>
         </div>
         <h2 className="text-2xl font-black text-gray-800 mb-5">Lock in your <span style={{color:GREEN}}>account</span> 🔐</h2>
-        <label className="text-sm font-semibold text-gray-600">Phone or Email <span className="text-gray-400 font-normal">(your login ID)</span></label>
+        <label className="text-sm font-semibold text-gray-600">Phone, Email or Username <span className="text-gray-400 font-normal">(your login ID)</span></label>
         <input value={id} onChange={e=>setId(e.target.value)} placeholder="9876543210 or you@email.com"
           className="w-full px-4 py-3 rounded-2xl border-2 border-gray-200 outline-none focus:border-green-500 mb-4 mt-1"/>
         <label className="text-sm font-semibold text-gray-600">Set a Password</label>
