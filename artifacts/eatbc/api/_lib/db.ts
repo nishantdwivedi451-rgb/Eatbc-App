@@ -18,7 +18,8 @@ export async function ensureDb() {
     CREATE TABLE IF NOT EXISTS sessions (
       token TEXT PRIMARY KEY,
       user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
-      created_at TIMESTAMPTZ DEFAULT NOW()
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '30 days')
     )
   `;
   await sql`

@@ -171,16 +171,16 @@ interface Profile {
   activity?: string; exercise?: string; meals?: string;
   cooktime?: string; avoid?: string;
 }
-interface Meal { time: string; food: string; cal: number; qty: string; }
+interface Meal { time: string; food: string; cal: number; p?: number; qty: string; }
 interface PlanDay { day: DayName; meals: Meal[]; }
 interface Plan {
-  summary: string; dailyCalories: number; bmi: string; bmiCat: string;
+  summary: string; dailyCalories: number; proteinTarget: number; bmi: string; bmiCat: string;
   goal: string; diet: string; condition: string; regLabel: string;
   timeline: string; weeklyLoss: string;
   tips: string[]; days: PlanDay[];
 }
 interface Session { id: string; name: string; token: string; }
-interface FoodLog { n: string; cal: number; qty: string; servings: number; }
+interface FoodLog { n: string; cal: number; p?: number; qty: string; servings: number; }
 interface DayTracking { meals: Record<number, boolean>; water: number; log?: FoodLog[]; }
 interface Tracking {
   [day: string]: DayTracking | Record<string, number> | undefined;
@@ -219,7 +219,7 @@ const Q: Question[] = [
 
 /* ─────────────── food database (with quantities) ─────────────── */
 interface FoodItem {
-  n: string; c: number; q: string;
+  n: string; c: number; p?: number; q: string;
   slot: string[]; reg: string[];
   simple?: number; jain?: number; egg?: number; meat?: number; fish?: number; dairy?: number;
   t: string[];
@@ -227,103 +227,103 @@ interface FoodItem {
 
 const DB: FoodItem[] = [
   /* ── Breakfast ── */
-  {n:"Vegetable poha",                    c:300,q:"1½ cups (250g)",                                           slot:["b"],reg:["w","all"],simple:1,t:["fiber"]},
-  {n:"Besan chilla with mint chutney",    c:280,q:"2 chillas (160g) + 2 tbsp chutney",                       slot:["b"],reg:["n","all"],jain:1,simple:1,t:["protein","lowgi"]},
-  {n:"Moong dal cheela",                  c:260,q:"2 cheelas (140g)",                                        slot:["b"],reg:["n","all"],jain:1,simple:1,t:["protein","lowgi"]},
-  {n:"Oats with milk, banana & seeds",   c:290,q:"½ cup oats + 200ml milk + 1 banana",                     slot:["b"],reg:["all"],dairy:1,simple:1,t:["fiber","lowgi"]},
-  {n:"Oats with almond milk & fruit",    c:280,q:"½ cup oats + 200ml almond milk + ½ cup fruit",           slot:["b"],reg:["all"],jain:1,simple:1,t:["fiber","lowgi"]},
-  {n:"Vegetable upma",                    c:300,q:"1½ cups (220g)",                                           slot:["b"],reg:["s","all"],simple:1,t:["fiber"]},
-  {n:"Idli (3) with coconut chutney",    c:280,q:"3 idlis (180g) + 3 tbsp chutney",                        slot:["b"],reg:["s"],jain:1,simple:1,t:["lowgi"]},
-  {n:"Idli (3) with sambar",             c:290,q:"3 idlis (180g) + 1 cup sambar",                           slot:["b"],reg:["s"],simple:1,t:["fiber","lowgi"]},
-  {n:"Masala dosa with chutney",         c:420,q:"1 dosa (120g) + 2 tbsp chutney",                          slot:["b"],reg:["s"],t:["fried"]},
-  {n:"Plain dosa with sambar",           c:350,q:"1 dosa (100g) + 1 cup sambar",                            slot:["b"],reg:["s"],simple:1,t:[]},
-  {n:"Pesarattu (moong dosa)",           c:300,q:"2 dosas (160g)",                                           slot:["b"],reg:["s"],simple:1,t:["protein","lowgi"]},
-  {n:"Ragi dosa",                         c:280,q:"2 dosas (150g)",                                          slot:["b"],reg:["s"],simple:1,t:["lowgi","fiber"]},
-  {n:"Aloo paratha with curd",           c:430,q:"2 parathas (200g) + ½ cup curd",                          slot:["b"],reg:["n"],dairy:1,t:[]},
-  {n:"Paneer paratha with curd",         c:450,q:"2 parathas (200g) + ½ cup curd",                          slot:["b"],reg:["n"],dairy:1,t:["protein"]},
-  {n:"Methi thepla with curd",           c:340,q:"2 theplas (120g) + ½ cup curd",                           slot:["b"],reg:["w"],dairy:1,t:["fiber"]},
-  {n:"Steamed dhokla",                    c:250,q:"4 pieces (150g) + chutney",                               slot:["b","es"],reg:["w"],jain:1,simple:1,t:["lowgi","protein"]},
-  {n:"Handvo slice",                      c:300,q:"2 slices (150g)",                                          slot:["b"],reg:["w"],dairy:1,jain:1,t:["fiber"]},
-  {n:"Vegetable daliya",                  c:260,q:"1½ cups (220g)",                                           slot:["b"],reg:["all"],jain:1,simple:1,t:["fiber","lowgi"]},
-  {n:"Ragi porridge",                     c:240,q:"1½ cups (250ml)",                                          slot:["b"],reg:["s","all"],jain:1,simple:1,t:["lowgi","fiber"]},
-  {n:"Sprout & veg salad bowl",          c:220,q:"1½ cups sprouts + 1 cup veggies (300g)",                  slot:["b","es"],reg:["all"],jain:1,simple:1,t:["protein","lowgi","fiber"]},
-  {n:"Boiled eggs (2) with toast",       c:280,q:"2 boiled eggs + 2 slices whole wheat toast",             slot:["b"],reg:["all"],egg:1,simple:1,t:["protein"]},
-  {n:"Egg bhurji with roti",             c:360,q:"2-egg bhurji + 2 rotis (60g each)",                       slot:["b"],reg:["all"],egg:1,t:["protein"]},
-  {n:"Bread omelette",                    c:320,q:"2-egg omelette + 2 bread slices",                         slot:["b"],reg:["all"],egg:1,simple:1,t:["protein"]},
-  {n:"Chirer pulao (Bengali poha)",      c:300,q:"1½ cups (240g)",                                           slot:["b"],reg:["e"],simple:1,t:["fiber"]},
-  {n:"Luchi with aloo dom",              c:430,q:"3 luchis (90g) + ½ cup aloo dom",                         slot:["b"],reg:["e"],t:["fried"]},
-  {n:"Vegetable khichuri",               c:320,q:"1½ cups (270g)",                                           slot:["b","d"],reg:["e","all"],jain:1,simple:1,t:["fiber","lowgi"]},
-  {n:"Misal pav",                         c:450,q:"1 cup misal (200g) + 2 pavs",                             slot:["b"],reg:["w"],t:["fiber","protein"]},
-  {n:"Sabudana khichdi",                  c:350,q:"1½ cups (220g)",                                           slot:["b","es"],reg:["w"],t:[]},
-  {n:"Banana peanut-butter toast",       c:320,q:"2 toast slices + 2 tbsp peanut butter + 1 banana",       slot:["b"],reg:["all"],jain:1,simple:1,t:[]},
+  {n:"Vegetable poha",                    c:300,p:7, q:"1½ cups (250g)",                                           slot:["b"],reg:["w","all"],simple:1,t:["fiber"]},
+  {n:"Besan chilla with mint chutney",    c:280,p:14,q:"2 chillas (160g) + 2 tbsp chutney",                       slot:["b"],reg:["n","all"],jain:1,simple:1,t:["protein","lowgi"]},
+  {n:"Moong dal cheela",                  c:260,p:12,q:"2 cheelas (140g)",                                        slot:["b"],reg:["n","all"],jain:1,simple:1,t:["protein","lowgi"]},
+  {n:"Oats with milk, banana & seeds",   c:290,p:10,q:"½ cup oats + 200ml milk + 1 banana",                     slot:["b"],reg:["all"],dairy:1,simple:1,t:["fiber","lowgi"]},
+  {n:"Oats with almond milk & fruit",    c:280,p:7, q:"½ cup oats + 200ml almond milk + ½ cup fruit",           slot:["b"],reg:["all"],jain:1,simple:1,t:["fiber","lowgi"]},
+  {n:"Vegetable upma",                    c:300,p:7, q:"1½ cups (220g)",                                           slot:["b"],reg:["s","all"],simple:1,t:["fiber"]},
+  {n:"Idli (3) with coconut chutney",    c:280,p:8, q:"3 idlis (180g) + 3 tbsp chutney",                        slot:["b"],reg:["s"],jain:1,simple:1,t:["lowgi"]},
+  {n:"Idli (3) with sambar",             c:290,p:10,q:"3 idlis (180g) + 1 cup sambar",                           slot:["b"],reg:["s"],simple:1,t:["fiber","lowgi"]},
+  {n:"Masala dosa with chutney",         c:420,p:7, q:"1 dosa (120g) + 2 tbsp chutney",                          slot:["b"],reg:["s"],t:["fried"]},
+  {n:"Plain dosa with sambar",           c:350,p:7, q:"1 dosa (100g) + 1 cup sambar",                            slot:["b"],reg:["s"],simple:1,t:[]},
+  {n:"Pesarattu (moong dosa)",           c:300,p:12,q:"2 dosas (160g)",                                           slot:["b"],reg:["s"],simple:1,t:["protein","lowgi"]},
+  {n:"Ragi dosa",                         c:280,p:7, q:"2 dosas (150g)",                                          slot:["b"],reg:["s"],simple:1,t:["lowgi","fiber"]},
+  {n:"Aloo paratha with curd",           c:430,p:12,q:"2 parathas (200g) + ½ cup curd",                          slot:["b"],reg:["n"],dairy:1,t:[]},
+  {n:"Paneer paratha with curd",         c:450,p:18,q:"2 parathas (200g) + ½ cup curd",                          slot:["b"],reg:["n"],dairy:1,t:["protein"]},
+  {n:"Methi thepla with curd",           c:340,p:10,q:"2 theplas (120g) + ½ cup curd",                           slot:["b"],reg:["w"],dairy:1,t:["fiber"]},
+  {n:"Steamed dhokla",                    c:250,p:10,q:"4 pieces (150g) + chutney",                               slot:["b","es"],reg:["w"],jain:1,simple:1,t:["lowgi","protein"]},
+  {n:"Handvo slice",                      c:300,p:8, q:"2 slices (150g)",                                          slot:["b"],reg:["w"],dairy:1,jain:1,t:["fiber"]},
+  {n:"Vegetable daliya",                  c:260,p:8, q:"1½ cups (220g)",                                           slot:["b"],reg:["all"],jain:1,simple:1,t:["fiber","lowgi"]},
+  {n:"Ragi porridge",                     c:240,p:5, q:"1½ cups (250ml)",                                          slot:["b"],reg:["s","all"],jain:1,simple:1,t:["lowgi","fiber"]},
+  {n:"Sprout & veg salad bowl",          c:220,p:15,q:"1½ cups sprouts + 1 cup veggies (300g)",                  slot:["b","es"],reg:["all"],jain:1,simple:1,t:["protein","lowgi","fiber"]},
+  {n:"Boiled eggs (2) with toast",       c:280,p:18,q:"2 boiled eggs + 2 slices whole wheat toast",             slot:["b"],reg:["all"],egg:1,simple:1,t:["protein"]},
+  {n:"Egg bhurji with roti",             c:360,p:20,q:"2-egg bhurji + 2 rotis (60g each)",                       slot:["b"],reg:["all"],egg:1,t:["protein"]},
+  {n:"Bread omelette",                    c:320,p:18,q:"2-egg omelette + 2 bread slices",                         slot:["b"],reg:["all"],egg:1,simple:1,t:["protein"]},
+  {n:"Chirer pulao (Bengali poha)",      c:300,p:6, q:"1½ cups (240g)",                                           slot:["b"],reg:["e"],simple:1,t:["fiber"]},
+  {n:"Luchi with aloo dom",              c:430,p:7, q:"3 luchis (90g) + ½ cup aloo dom",                         slot:["b"],reg:["e"],t:["fried"]},
+  {n:"Vegetable khichuri",               c:320,p:10,q:"1½ cups (270g)",                                           slot:["b","d"],reg:["e","all"],jain:1,simple:1,t:["fiber","lowgi"]},
+  {n:"Misal pav",                         c:450,p:14,q:"1 cup misal (200g) + 2 pavs",                             slot:["b"],reg:["w"],t:["fiber","protein"]},
+  {n:"Sabudana khichdi",                  c:350,p:4, q:"1½ cups (220g)",                                           slot:["b","es"],reg:["w"],t:[]},
+  {n:"Banana peanut-butter toast",       c:320,p:10,q:"2 toast slices + 2 tbsp peanut butter + 1 banana",       slot:["b"],reg:["all"],jain:1,simple:1,t:[]},
 
   /* ── Mid-morning snacks ── */
-  {n:"Seasonal fruit bowl",              c:90, q:"1 cup mixed fruit (150g)",                                 slot:["ms","es"],reg:["all"],jain:1,simple:1,t:["lowgi","fiber"]},
-  {n:"An apple",                          c:80, q:"1 medium apple (150g)",                                   slot:["ms"],reg:["all"],jain:1,simple:1,t:["lowgi","fiber"]},
-  {n:"Buttermilk (chaas)",               c:80, q:"1 glass (250ml)",                                          slot:["ms","es"],reg:["w","s","all"],dairy:1,jain:1,simple:1,t:["lowgi"]},
-  {n:"Tender coconut water",             c:60, q:"1 tender coconut (~250ml)",                               slot:["ms"],reg:["s","all"],jain:1,simple:1,t:["lowgi"]},
-  {n:"Roasted chana (handful)",          c:120,q:"¼ cup (40g)",                                              slot:["ms","es"],reg:["all"],jain:1,simple:1,t:["protein","fiber"]},
-  {n:"Moong sprouts cup",                c:110,q:"1 cup sprouts (100g)",                                     slot:["ms"],reg:["all"],jain:1,simple:1,t:["protein","lowgi","fiber"]},
-  {n:"Greek yogurt",                      c:100,q:"150g (¾ cup)",                                            slot:["ms"],reg:["all"],dairy:1,jain:1,simple:1,t:["protein","lowgi"]},
-  {n:"Soaked almonds (6)",               c:90, q:"6 almonds (12g)",                                          slot:["ms"],reg:["all"],jain:1,simple:1,t:["protein","fiber"]},
-  {n:"Papaya bowl",                       c:80, q:"1 cup papaya (150g)",                                     slot:["ms"],reg:["all"],jain:1,simple:1,t:["lowgi","fiber"]},
+  {n:"Seasonal fruit bowl",              c:90, p:1, q:"1 cup mixed fruit (150g)",                                 slot:["ms","es"],reg:["all"],jain:1,simple:1,t:["lowgi","fiber"]},
+  {n:"An apple",                          c:80, p:0, q:"1 medium apple (150g)",                                   slot:["ms"],reg:["all"],jain:1,simple:1,t:["lowgi","fiber"]},
+  {n:"Buttermilk (chaas)",               c:80, p:3, q:"1 glass (250ml)",                                          slot:["ms","es"],reg:["w","s","all"],dairy:1,jain:1,simple:1,t:["lowgi"]},
+  {n:"Tender coconut water",             c:60, p:1, q:"1 tender coconut (~250ml)",                               slot:["ms"],reg:["s","all"],jain:1,simple:1,t:["lowgi"]},
+  {n:"Roasted chana (handful)",          c:120,p:7, q:"¼ cup (40g)",                                              slot:["ms","es"],reg:["all"],jain:1,simple:1,t:["protein","fiber"]},
+  {n:"Moong sprouts cup",                c:110,p:8, q:"1 cup sprouts (100g)",                                     slot:["ms"],reg:["all"],jain:1,simple:1,t:["protein","lowgi","fiber"]},
+  {n:"Greek yogurt",                      c:100,p:15,q:"150g (¾ cup)",                                            slot:["ms"],reg:["all"],dairy:1,jain:1,simple:1,t:["protein","lowgi"]},
+  {n:"Soaked almonds (6)",               c:90, p:3, q:"6 almonds (12g)",                                          slot:["ms"],reg:["all"],jain:1,simple:1,t:["protein","fiber"]},
+  {n:"Papaya bowl",                       c:80, p:1, q:"1 cup papaya (150g)",                                     slot:["ms"],reg:["all"],jain:1,simple:1,t:["lowgi","fiber"]},
 
   /* ── Evening snacks ── */
-  {n:"Green tea with roasted makhana",   c:110,q:"1 cup tea + ½ cup makhana (20g)",                        slot:["es"],reg:["all"],jain:1,simple:1,t:["lowgi"]},
-  {n:"Masala chai with 2 biscuits",      c:120,q:"1 cup chai (150ml) + 2 digestive biscuits",              slot:["es"],reg:["all"],dairy:1,simple:1,t:["sugary"]},
-  {n:"Light bhel",                        c:180,q:"1½ cups (120g)",                                          slot:["es"],reg:["w"],simple:1,t:["fiber"]},
-  {n:"Boiled egg with tea",              c:110,q:"1 boiled egg + 1 cup tea",                                 slot:["es"],reg:["all"],egg:1,dairy:1,simple:1,t:["protein"]},
-  {n:"Roasted peanuts",                   c:160,q:"¼ cup (40g)",                                             slot:["es"],reg:["all"],jain:1,simple:1,t:["protein","fiber"]},
-  {n:"Fruit chaat",                       c:120,q:"1 cup (180g)",                                            slot:["es"],reg:["all"],jain:1,simple:1,t:["lowgi","fiber"]},
-  {n:"Grilled veg sandwich",             c:220,q:"1 sandwich (2 slices + filling)",                         slot:["es"],reg:["all"],simple:1,t:["fiber"]},
-  {n:"Chana sundal",                      c:150,q:"¾ cup (120g)",                                            slot:["es"],reg:["s"],simple:1,t:["protein","fiber"]},
-  {n:"Pan-tossed paneer cubes",          c:160,q:"80g paneer",                                              slot:["es"],reg:["all"],dairy:1,jain:1,simple:1,t:["protein","lowgi"]},
-  {n:"Hummus with cucumber",             c:150,q:"3 tbsp hummus (60g) + 1 cup cucumber slices",            slot:["es"],reg:["all"],simple:1,t:["protein","lowgi","fiber"]},
+  {n:"Green tea with roasted makhana",   c:110,p:3, q:"1 cup tea + ½ cup makhana (20g)",                        slot:["es"],reg:["all"],jain:1,simple:1,t:["lowgi"]},
+  {n:"Masala chai with 2 biscuits",      c:120,p:3, q:"1 cup chai (150ml) + 2 digestive biscuits",              slot:["es"],reg:["all"],dairy:1,simple:1,t:["sugary"]},
+  {n:"Light bhel",                        c:180,p:4, q:"1½ cups (120g)",                                          slot:["es"],reg:["w"],simple:1,t:["fiber"]},
+  {n:"Boiled egg with tea",              c:110,p:8, q:"1 boiled egg + 1 cup tea",                                 slot:["es"],reg:["all"],egg:1,dairy:1,simple:1,t:["protein"]},
+  {n:"Roasted peanuts",                   c:160,p:9, q:"¼ cup (40g)",                                             slot:["es"],reg:["all"],jain:1,simple:1,t:["protein","fiber"]},
+  {n:"Fruit chaat",                       c:120,p:2, q:"1 cup (180g)",                                            slot:["es"],reg:["all"],jain:1,simple:1,t:["lowgi","fiber"]},
+  {n:"Grilled veg sandwich",             c:220,p:8, q:"1 sandwich (2 slices + filling)",                         slot:["es"],reg:["all"],simple:1,t:["fiber"]},
+  {n:"Chana sundal",                      c:150,p:7, q:"¾ cup (120g)",                                            slot:["es"],reg:["s"],simple:1,t:["protein","fiber"]},
+  {n:"Pan-tossed paneer cubes",          c:160,p:12,q:"80g paneer",                                              slot:["es"],reg:["all"],dairy:1,jain:1,simple:1,t:["protein","lowgi"]},
+  {n:"Hummus with cucumber",             c:150,p:5, q:"3 tbsp hummus (60g) + 1 cup cucumber slices",            slot:["es"],reg:["all"],simple:1,t:["protein","lowgi","fiber"]},
 
   /* ── Lunch / Dinner ── */
-  {n:"2 roti, dal tadka, bhindi & curd", c:520,q:"2 rotis (60g each) + 1 cup dal + 1 cup bhindi + ½ cup curd",     slot:["l","d"],reg:["n","all"],dairy:1,t:["fiber"]},
-  {n:"2 roti, rajma & small rice",       c:560,q:"2 rotis (60g each) + 1 cup rajma + ½ cup cooked rice",           slot:["l","d"],reg:["n"],t:["fiber","protein"]},
-  {n:"2 roti, chole & salad",            c:540,q:"2 rotis (60g each) + 1 cup chole + 1 cup salad",                slot:["l","d"],reg:["n"],t:["fiber","protein"]},
-  {n:"Palak paneer with 2 roti",         c:540,q:"2 rotis (60g each) + 1 cup palak paneer (80g paneer)",          slot:["l","d"],reg:["n"],dairy:1,t:["fiber","protein"]},
-  {n:"Dal makhani with jeera rice",      c:600,q:"1 cup dal makhani + 1 cup jeera rice (180g cooked)",            slot:["l","d"],reg:["n"],dairy:1,t:["protein"]},
-  {n:"Mixed veg, dal & 2 roti",          c:500,q:"2 rotis (60g each) + 1 cup dal + 1 cup mixed veg",             slot:["l","d"],reg:["all"],jain:1,t:["fiber"]},
-  {n:"Soya chunk curry with rice",       c:520,q:"1 cup curry (80g soya chunks) + 1 cup cooked rice",            slot:["l","d"],reg:["all"],t:["protein","fiber"]},
-  {n:"Rice, sambar, rasam, poriyal & curd", c:540,q:"1½ cups rice + 1 cup sambar + 1 cup poriyal + ½ cup curd", slot:["l","d"],reg:["s"],dairy:1,t:["fiber"]},
-  {n:"Curd rice with pickle",            c:420,q:"1½ cups curd rice (300g) + 1 tsp pickle",                       slot:["l","d"],reg:["s"],dairy:1,simple:1,t:["highsalt"]},
-  {n:"Lemon rice with papad & salad",   c:460,q:"1½ cups lemon rice + 1 papad + 1 cup salad",                    slot:["l","d"],reg:["s"],simple:1,t:["highsalt"]},
-  {n:"Bisi bele bath",                   c:520,q:"1½ cups (300g)",                                                  slot:["l","d"],reg:["s"],dairy:1,t:["fiber","protein"]},
-  {n:"Rice, kootu & thoran",             c:500,q:"1½ cups rice + 1 cup kootu + ½ cup thoran",                     slot:["l","d"],reg:["s"],jain:1,t:["fiber"]},
-  {n:"Avial with rice",                  c:480,q:"1½ cups rice + 1 cup avial (200g)",                              slot:["l","d"],reg:["s"],dairy:1,jain:1,t:["fiber"]},
-  {n:"Fish curry with rice",             c:560,q:"1½ cups rice + 1 cup curry (100g fish)",                        slot:["l","d"],reg:["s","e"],fish:1,t:["protein"]},
-  {n:"Chicken Chettinad with rice",      c:620,q:"1½ cups rice + 1 cup curry (120g chicken)",                     slot:["l","d"],reg:["s"],meat:1,t:["protein"]},
-  {n:"Egg curry with rice",              c:540,q:"1½ cups rice + 1 cup curry (2 eggs)",                            slot:["l","d"],reg:["all"],egg:1,t:["protein"]},
-  {n:"Rice, cholar dal, aloo posto & curd", c:540,q:"1½ cups rice + 1 cup cholar dal + ½ cup aloo posto + ½ cup curd", slot:["l","d"],reg:["e"],dairy:1,t:["fiber"]},
-  {n:"Rice with macher jhol",            c:560,q:"1½ cups rice + 1 cup jhol (120g fish)",                         slot:["l","d"],reg:["e"],fish:1,t:["protein"]},
-  {n:"Shukto with rice",                 c:460,q:"1½ cups rice + 1 cup shukto (200g)",                            slot:["l","d"],reg:["e"],dairy:1,t:["fiber"]},
-  {n:"Rice, dal & begun bhaja",          c:500,q:"1½ cups rice + 1 cup dal + 2 begun bhaja",                      slot:["l","d"],reg:["e"],jain:1,simple:1,t:["fried"]},
-  {n:"Gujarati thali (roti, dal, shaak, rice, curd)", c:560,q:"2 rotis + 1 cup dal + ½ cup shaak + ½ cup rice + ½ cup curd", slot:["l","d"],reg:["w"],dairy:1,jain:1,t:["fiber"]},
-  {n:"Bajra roti, baingan bharta & chaas", c:480,q:"2 bajra rotis (80g each) + 1 cup bharta + 1 glass chaas",   slot:["l","d"],reg:["w"],dairy:1,t:["fiber","lowgi"]},
-  {n:"Pithla bhakri",                    c:460,q:"2 bhakris (100g each) + ¾ cup pithla",                          slot:["l","d"],reg:["w"],jain:1,t:["fiber"]},
-  {n:"Dal dhokli",                       c:520,q:"2 cups (350g)",                                                   slot:["l","d"],reg:["w"],jain:1,t:["fiber","protein"]},
-  {n:"Undhiyu with roti",               c:540,q:"2 rotis (60g each) + 1½ cups undhiyu (300g)",                   slot:["l","d"],reg:["w"],t:["fiber"]},
-  {n:"Chicken sukka with bhakri",        c:640,q:"2 bhakris (100g each) + 1 cup sukka (150g chicken)",            slot:["l","d"],reg:["w"],meat:1,t:["protein"]},
-  {n:"Moong dal khichdi with curd",      c:420,q:"1½ cups khichdi (280g) + ½ cup curd",                           slot:["l","d"],reg:["all"],dairy:1,jain:1,simple:1,t:["lowgi","fiber"]},
-  {n:"Moong dal khichdi (light)",        c:360,q:"1½ cups khichdi (250g)",                                         slot:["l","d"],reg:["all"],jain:1,simple:1,t:["lowgi","fiber"]},
-  {n:"Vegetable soup with 2 multigrain toast", c:320,q:"1½ cups soup + 2 toast slices",                           slot:["d"],reg:["all"],jain:1,simple:1,t:["lowgi","fiber"]},
-  {n:"Grilled chicken with sautéed veg", c:480,q:"150g chicken + 1½ cups sautéed veg",                           slot:["l","d"],reg:["all"],meat:1,simple:1,t:["protein","lowgi"]},
-  {n:"Grilled fish with salad",          c:420,q:"150g fish + 1½ cups salad",                                      slot:["l","d"],reg:["all"],fish:1,simple:1,t:["protein","lowgi"]},
-  {n:"Paneer tikka with salad",          c:420,q:"100g paneer tikka + 1½ cups salad",                             slot:["l","d"],reg:["all"],dairy:1,simple:1,t:["protein","lowgi"]},
-  {n:"Tofu stir-fry with rice",         c:460,q:"120g tofu + 1 cup cooked rice (180g)",                          slot:["l","d"],reg:["all"],simple:1,t:["protein"]},
-  {n:"Dal with 2 roti & salad",         c:460,q:"2 rotis (60g each) + 1 cup dal + 1 cup salad",                  slot:["l","d"],reg:["all"],jain:1,simple:1,t:["fiber","protein"]},
-  {n:"Missi roti with seasonal sabzi",  c:440,q:"2 missi rotis (70g each) + 1 cup sabzi",                        slot:["l","d"],reg:["n","all"],jain:1,simple:1,t:["fiber"]},
-  {n:"Veg pulao with raita",            c:480,q:"1½ cups pulao (280g) + ½ cup raita",                             slot:["l","d"],reg:["all"],dairy:1,jain:1,simple:1,t:["fiber"]},
+  {n:"2 roti, dal tadka, bhindi & curd", c:520,p:18,q:"2 rotis (60g each) + 1 cup dal + 1 cup bhindi + ½ cup curd",     slot:["l","d"],reg:["n","all"],dairy:1,t:["fiber"]},
+  {n:"2 roti, rajma & small rice",       c:560,p:22,q:"2 rotis (60g each) + 1 cup rajma + ½ cup cooked rice",           slot:["l","d"],reg:["n"],t:["fiber","protein"]},
+  {n:"2 roti, chole & salad",            c:540,p:20,q:"2 rotis (60g each) + 1 cup chole + 1 cup salad",                slot:["l","d"],reg:["n"],t:["fiber","protein"]},
+  {n:"Palak paneer with 2 roti",         c:540,p:22,q:"2 rotis (60g each) + 1 cup palak paneer (80g paneer)",          slot:["l","d"],reg:["n"],dairy:1,t:["fiber","protein"]},
+  {n:"Dal makhani with jeera rice",      c:600,p:20,q:"1 cup dal makhani + 1 cup jeera rice (180g cooked)",            slot:["l","d"],reg:["n"],dairy:1,t:["protein"]},
+  {n:"Mixed veg, dal & 2 roti",          c:500,p:15,q:"2 rotis (60g each) + 1 cup dal + 1 cup mixed veg",             slot:["l","d"],reg:["all"],jain:1,t:["fiber"]},
+  {n:"Soya chunk curry with rice",       c:520,p:30,q:"1 cup curry (80g soya chunks) + 1 cup cooked rice",            slot:["l","d"],reg:["all"],t:["protein","fiber"]},
+  {n:"Rice, sambar, rasam, poriyal & curd", c:540,p:16,q:"1½ cups rice + 1 cup sambar + 1 cup poriyal + ½ cup curd", slot:["l","d"],reg:["s"],dairy:1,t:["fiber"]},
+  {n:"Curd rice with pickle",            c:420,p:10,q:"1½ cups curd rice (300g) + 1 tsp pickle",                       slot:["l","d"],reg:["s"],dairy:1,simple:1,t:["highsalt"]},
+  {n:"Lemon rice with papad & salad",   c:460,p:8, q:"1½ cups lemon rice + 1 papad + 1 cup salad",                    slot:["l","d"],reg:["s"],simple:1,t:["highsalt"]},
+  {n:"Bisi bele bath",                   c:520,p:14,q:"1½ cups (300g)",                                                  slot:["l","d"],reg:["s"],dairy:1,t:["fiber","protein"]},
+  {n:"Rice, kootu & thoran",             c:500,p:12,q:"1½ cups rice + 1 cup kootu + ½ cup thoran",                     slot:["l","d"],reg:["s"],jain:1,t:["fiber"]},
+  {n:"Avial with rice",                  c:480,p:10,q:"1½ cups rice + 1 cup avial (200g)",                              slot:["l","d"],reg:["s"],dairy:1,jain:1,t:["fiber"]},
+  {n:"Fish curry with rice",             c:560,p:28,q:"1½ cups rice + 1 cup curry (100g fish)",                        slot:["l","d"],reg:["s","e"],fish:1,t:["protein"]},
+  {n:"Chicken Chettinad with rice",      c:620,p:32,q:"1½ cups rice + 1 cup curry (120g chicken)",                     slot:["l","d"],reg:["s"],meat:1,t:["protein"]},
+  {n:"Egg curry with rice",              c:540,p:24,q:"1½ cups rice + 1 cup curry (2 eggs)",                            slot:["l","d"],reg:["all"],egg:1,t:["protein"]},
+  {n:"Rice, cholar dal, aloo posto & curd", c:540,p:16,q:"1½ cups rice + 1 cup cholar dal + ½ cup aloo posto + ½ cup curd", slot:["l","d"],reg:["e"],dairy:1,t:["fiber"]},
+  {n:"Rice with macher jhol",            c:560,p:28,q:"1½ cups rice + 1 cup jhol (120g fish)",                         slot:["l","d"],reg:["e"],fish:1,t:["protein"]},
+  {n:"Shukto with rice",                 c:460,p:8, q:"1½ cups rice + 1 cup shukto (200g)",                            slot:["l","d"],reg:["e"],dairy:1,t:["fiber"]},
+  {n:"Rice, dal & begun bhaja",          c:500,p:12,q:"1½ cups rice + 1 cup dal + 2 begun bhaja",                      slot:["l","d"],reg:["e"],jain:1,simple:1,t:["fried"]},
+  {n:"Gujarati thali (roti, dal, shaak, rice, curd)", c:560,p:18,q:"2 rotis + 1 cup dal + ½ cup shaak + ½ cup rice + ½ cup curd", slot:["l","d"],reg:["w"],dairy:1,jain:1,t:["fiber"]},
+  {n:"Bajra roti, baingan bharta & chaas", c:480,p:14,q:"2 bajra rotis (80g each) + 1 cup bharta + 1 glass chaas",   slot:["l","d"],reg:["w"],dairy:1,t:["fiber","lowgi"]},
+  {n:"Pithla bhakri",                    c:460,p:16,q:"2 bhakris (100g each) + ¾ cup pithla",                          slot:["l","d"],reg:["w"],jain:1,t:["fiber"]},
+  {n:"Dal dhokli",                       c:520,p:15,q:"2 cups (350g)",                                                   slot:["l","d"],reg:["w"],jain:1,t:["fiber","protein"]},
+  {n:"Undhiyu with roti",               c:540,p:12,q:"2 rotis (60g each) + 1½ cups undhiyu (300g)",                   slot:["l","d"],reg:["w"],t:["fiber"]},
+  {n:"Chicken sukka with bhakri",        c:640,p:38,q:"2 bhakris (100g each) + 1 cup sukka (150g chicken)",            slot:["l","d"],reg:["w"],meat:1,t:["protein"]},
+  {n:"Moong dal khichdi with curd",      c:420,p:14,q:"1½ cups khichdi (280g) + ½ cup curd",                           slot:["l","d"],reg:["all"],dairy:1,jain:1,simple:1,t:["lowgi","fiber"]},
+  {n:"Moong dal khichdi (light)",        c:360,p:12,q:"1½ cups khichdi (250g)",                                         slot:["l","d"],reg:["all"],jain:1,simple:1,t:["lowgi","fiber"]},
+  {n:"Vegetable soup with 2 multigrain toast", c:320,p:10,q:"1½ cups soup + 2 toast slices",                           slot:["d"],reg:["all"],jain:1,simple:1,t:["lowgi","fiber"]},
+  {n:"Grilled chicken with sautéed veg", c:480,p:38,q:"150g chicken + 1½ cups sautéed veg",                           slot:["l","d"],reg:["all"],meat:1,simple:1,t:["protein","lowgi"]},
+  {n:"Grilled fish with salad",          c:420,p:32,q:"150g fish + 1½ cups salad",                                      slot:["l","d"],reg:["all"],fish:1,simple:1,t:["protein","lowgi"]},
+  {n:"Paneer tikka with salad",          c:420,p:22,q:"100g paneer tikka + 1½ cups salad",                             slot:["l","d"],reg:["all"],dairy:1,simple:1,t:["protein","lowgi"]},
+  {n:"Tofu stir-fry with rice",         c:460,p:16,q:"120g tofu + 1 cup cooked rice (180g)",                          slot:["l","d"],reg:["all"],simple:1,t:["protein"]},
+  {n:"Dal with 2 roti & salad",         c:460,p:16,q:"2 rotis (60g each) + 1 cup dal + 1 cup salad",                  slot:["l","d"],reg:["all"],jain:1,simple:1,t:["fiber","protein"]},
+  {n:"Missi roti with seasonal sabzi",  c:440,p:14,q:"2 missi rotis (70g each) + 1 cup sabzi",                        slot:["l","d"],reg:["n","all"],jain:1,simple:1,t:["fiber"]},
+  {n:"Veg pulao with raita",            c:480,p:14,q:"1½ cups pulao (280g) + ½ cup raita",                             slot:["l","d"],reg:["all"],dairy:1,jain:1,simple:1,t:["fiber"]},
 
   /* ── Bedtime ── */
-  {n:"Turmeric milk",  c:120,q:"1 glass (250ml)",             slot:["bt"],reg:["all"],dairy:1,jain:1,simple:1,t:["lowgi"]},
-  {n:"Warm milk",      c:110,q:"1 glass (250ml)",             slot:["bt"],reg:["all"],dairy:1,jain:1,simple:1,t:["lowgi"]},
-  {n:"Chamomile tea",  c:10, q:"1 cup (200ml)",               slot:["bt"],reg:["all"],jain:1,simple:1,t:["lowgi"]},
-  {n:"A few walnuts",  c:90, q:"3–4 walnuts (15g)",           slot:["bt"],reg:["all"],jain:1,simple:1,t:["protein","lowgi"]},
-  {n:"Soaked figs (2)",c:80, q:"2 figs soaked overnight",     slot:["bt"],reg:["all"],jain:1,simple:1,t:["fiber","lowgi"]},
+  {n:"Turmeric milk",  c:120,p:8, q:"1 glass (250ml)",             slot:["bt"],reg:["all"],dairy:1,jain:1,simple:1,t:["lowgi"]},
+  {n:"Warm milk",      c:110,p:8, q:"1 glass (250ml)",             slot:["bt"],reg:["all"],dairy:1,jain:1,simple:1,t:["lowgi"]},
+  {n:"Chamomile tea",  c:10, p:0, q:"1 cup (200ml)",               slot:["bt"],reg:["all"],jain:1,simple:1,t:["lowgi"]},
+  {n:"A few walnuts",  c:90, p:2, q:"3–4 walnuts (15g)",           slot:["bt"],reg:["all"],jain:1,simple:1,t:["protein","lowgi"]},
+  {n:"Soaked figs (2)",c:80, p:1, q:"2 figs soaked overnight",     slot:["bt"],reg:["all"],jain:1,simple:1,t:["fiber","lowgi"]},
 ];
 
 const SLOTSET: Record<string,[string,number,string][]> = {
@@ -343,148 +343,148 @@ const COND_SHORT: Record<string,string> = {
 };
 
 /* ─────────────── Food diary reference database ─────────────── */
-interface LogFood { n: string; c: number; q: string; cat: string; }
+interface LogFood { n: string; c: number; p?: number; q: string; cat: string; }
 const LOG_DB: LogFood[] = [
   /* Grains & Staples */
-  {n:"Steamed rice",c:260,q:"1 cup cooked (180g)",cat:"Grains"},
-  {n:"Basmati rice",c:240,q:"1 cup cooked (180g)",cat:"Grains"},
-  {n:"Brown rice",c:215,q:"1 cup cooked (180g)",cat:"Grains"},
-  {n:"Whole wheat roti / chapati",c:80,q:"1 roti (30g)",cat:"Grains"},
-  {n:"Multigrain roti",c:75,q:"1 roti (30g)",cat:"Grains"},
-  {n:"Plain paratha",c:180,q:"1 paratha (60g)",cat:"Grains"},
-  {n:"Stuffed aloo paratha",c:300,q:"1 paratha (90g)",cat:"Grains"},
-  {n:"Naan",c:260,q:"1 naan (80g)",cat:"Grains"},
-  {n:"Puri",c:150,q:"2 puris (50g)",cat:"Grains"},
-  {n:"White bread",c:70,q:"1 slice (30g)",cat:"Grains"},
-  {n:"Brown/whole wheat bread",c:65,q:"1 slice (30g)",cat:"Grains"},
-  {n:"Poha (cooked)",c:300,q:"1.5 cups (220g)",cat:"Grains"},
-  {n:"Upma",c:230,q:"1 cup (180g)",cat:"Grains"},
-  {n:"Oats (cooked)",c:150,q:"1 cup (180g)",cat:"Grains"},
-  {n:"Daliya / broken wheat porridge",c:220,q:"1 cup (190g)",cat:"Grains"},
-  {n:"Semolina / suji upma",c:230,q:"1 cup (180g)",cat:"Grains"},
-  {n:"Idli",c:80,q:"1 idli (50g)",cat:"Grains"},
-  {n:"Dosa (plain)",c:175,q:"1 medium dosa (75g)",cat:"Grains"},
-  {n:"Uttapam",c:220,q:"1 medium (100g)",cat:"Grains"},
+  {n:"Steamed rice",p:5, c:260,q:"1 cup cooked (180g)",cat:"Grains"},
+  {n:"Basmati rice",p:5, c:240,q:"1 cup cooked (180g)",cat:"Grains"},
+  {n:"Brown rice",p:5, c:215,q:"1 cup cooked (180g)",cat:"Grains"},
+  {n:"Whole wheat roti / chapati",p:3, c:80,q:"1 roti (30g)",cat:"Grains"},
+  {n:"Multigrain roti",p:3, c:75,q:"1 roti (30g)",cat:"Grains"},
+  {n:"Plain paratha",p:4, c:180,q:"1 paratha (60g)",cat:"Grains"},
+  {n:"Stuffed aloo paratha",p:6, c:300,q:"1 paratha (90g)",cat:"Grains"},
+  {n:"Naan",p:8, c:260,q:"1 naan (80g)",cat:"Grains"},
+  {n:"Puri",p:3, c:150,q:"2 puris (50g)",cat:"Grains"},
+  {n:"White bread",p:2, c:70,q:"1 slice (30g)",cat:"Grains"},
+  {n:"Brown/whole wheat bread",p:2, c:65,q:"1 slice (30g)",cat:"Grains"},
+  {n:"Poha (cooked)",p:5, c:300,q:"1.5 cups (220g)",cat:"Grains"},
+  {n:"Upma",p:5, c:230,q:"1 cup (180g)",cat:"Grains"},
+  {n:"Oats (cooked)",p:5, c:150,q:"1 cup (180g)",cat:"Grains"},
+  {n:"Daliya / broken wheat porridge",p:6, c:220,q:"1 cup (190g)",cat:"Grains"},
+  {n:"Semolina / suji upma",p:5, c:230,q:"1 cup (180g)",cat:"Grains"},
+  {n:"Idli",p:2, c:80,q:"1 idli (50g)",cat:"Grains"},
+  {n:"Dosa (plain)",p:4, c:175,q:"1 medium dosa (75g)",cat:"Grains"},
+  {n:"Uttapam",p:6, c:220,q:"1 medium (100g)",cat:"Grains"},
   /* Dal & Legumes */
-  {n:"Dal tadka (yellow dal)",c:180,q:"1 cup (200g)",cat:"Dal & Legumes"},
-  {n:"Dal makhani",c:320,q:"1 cup (200g)",cat:"Dal & Legumes"},
-  {n:"Rajma curry",c:230,q:"1 cup (200g)",cat:"Dal & Legumes"},
-  {n:"Chana masala",c:280,q:"1 cup (200g)",cat:"Dal & Legumes"},
-  {n:"Moong dal",c:200,q:"1 cup (200g)",cat:"Dal & Legumes"},
-  {n:"Sambar",c:130,q:"1 cup (200g)",cat:"Dal & Legumes"},
-  {n:"Kadhi",c:160,q:"1 cup (200g)",cat:"Dal & Legumes"},
-  {n:"Chole",c:260,q:"1 cup (200g)",cat:"Dal & Legumes"},
-  {n:"Lobia / black-eyed peas",c:200,q:"1 cup (200g)",cat:"Dal & Legumes"},
+  {n:"Dal tadka (yellow dal)",p:10,c:180,q:"1 cup (200g)",cat:"Dal & Legumes"},
+  {n:"Dal makhani",p:12,c:320,q:"1 cup (200g)",cat:"Dal & Legumes"},
+  {n:"Rajma curry",p:12,c:230,q:"1 cup (200g)",cat:"Dal & Legumes"},
+  {n:"Chana masala",p:12,c:280,q:"1 cup (200g)",cat:"Dal & Legumes"},
+  {n:"Moong dal",p:12,c:200,q:"1 cup (200g)",cat:"Dal & Legumes"},
+  {n:"Sambar",p:6, c:130,q:"1 cup (200g)",cat:"Dal & Legumes"},
+  {n:"Kadhi",p:5, c:160,q:"1 cup (200g)",cat:"Dal & Legumes"},
+  {n:"Chole",p:12,c:260,q:"1 cup (200g)",cat:"Dal & Legumes"},
+  {n:"Lobia / black-eyed peas",p:12,c:200,q:"1 cup (200g)",cat:"Dal & Legumes"},
   /* Vegetables */
-  {n:"Aloo sabzi",c:200,q:"1 cup (180g)",cat:"Vegetables"},
-  {n:"Palak paneer",c:280,q:"1 cup (180g)",cat:"Vegetables"},
-  {n:"Paneer bhurji",c:250,q:"1 cup (150g)",cat:"Vegetables"},
-  {n:"Shahi paneer",c:340,q:"1 cup (180g)",cat:"Vegetables"},
-  {n:"Mixed veg sabzi",c:120,q:"1 cup (180g)",cat:"Vegetables"},
-  {n:"Gobi / cauliflower sabzi",c:130,q:"1 cup (180g)",cat:"Vegetables"},
-  {n:"Baingan bharta",c:150,q:"1 cup (180g)",cat:"Vegetables"},
-  {n:"Bhindi sabzi",c:130,q:"1 cup (180g)",cat:"Vegetables"},
-  {n:"Lauki / bottle gourd sabzi",c:80,q:"1 cup (180g)",cat:"Vegetables"},
-  {n:"Palak / spinach sabzi",c:100,q:"1 cup (180g)",cat:"Vegetables"},
-  {n:"Aloo matar",c:220,q:"1 cup (180g)",cat:"Vegetables"},
-  {n:"Raita",c:80,q:"1 cup (150g)",cat:"Vegetables"},
+  {n:"Aloo sabzi",p:3, c:200,q:"1 cup (180g)",cat:"Vegetables"},
+  {n:"Palak paneer",p:12,c:280,q:"1 cup (180g)",cat:"Vegetables"},
+  {n:"Paneer bhurji",p:14,c:250,q:"1 cup (150g)",cat:"Vegetables"},
+  {n:"Shahi paneer",p:14,c:340,q:"1 cup (180g)",cat:"Vegetables"},
+  {n:"Mixed veg sabzi",p:3, c:120,q:"1 cup (180g)",cat:"Vegetables"},
+  {n:"Gobi / cauliflower sabzi",p:3, c:130,q:"1 cup (180g)",cat:"Vegetables"},
+  {n:"Baingan bharta",p:3, c:150,q:"1 cup (180g)",cat:"Vegetables"},
+  {n:"Bhindi sabzi",p:2, c:130,q:"1 cup (180g)",cat:"Vegetables"},
+  {n:"Lauki / bottle gourd sabzi",p:2, c:80,q:"1 cup (180g)",cat:"Vegetables"},
+  {n:"Palak / spinach sabzi",p:3, c:100,q:"1 cup (180g)",cat:"Vegetables"},
+  {n:"Aloo matar",p:5, c:220,q:"1 cup (180g)",cat:"Vegetables"},
+  {n:"Raita",p:4, c:80,q:"1 cup (150g)",cat:"Vegetables"},
   /* Protein */
-  {n:"Paneer (plain)",c:265,q:"100g",cat:"Protein"},
-  {n:"Egg — boiled",c:78,q:"1 large egg (50g)",cat:"Protein"},
-  {n:"Egg — omelette (2-egg)",c:190,q:"2-egg omelette (100g)",cat:"Protein"},
-  {n:"Egg bhurji (2-egg)",c:200,q:"2-egg scramble (100g)",cat:"Protein"},
-  {n:"Chicken curry",c:300,q:"1 cup (200g)",cat:"Protein"},
-  {n:"Chicken breast — grilled",c:165,q:"100g",cat:"Protein"},
-  {n:"Chicken — tandoori",c:220,q:"2 pieces (150g)",cat:"Protein"},
-  {n:"Fish curry",c:280,q:"1 cup (200g)",cat:"Protein"},
-  {n:"Fish — grilled / steamed",c:140,q:"100g",cat:"Protein"},
-  {n:"Mutton curry",c:380,q:"1 cup (200g)",cat:"Protein"},
-  {n:"Prawns — cooked",c:160,q:"100g",cat:"Protein"},
-  {n:"Tofu — plain",c:76,q:"100g",cat:"Protein"},
-  {n:"Soya chunks (dry)",c:345,q:"50g dry",cat:"Protein"},
+  {n:"Paneer (plain)",p:18,c:265,q:"100g",cat:"Protein"},
+  {n:"Egg — boiled",p:6, c:78,q:"1 large egg (50g)",cat:"Protein"},
+  {n:"Egg — omelette (2-egg)",p:14,c:190,q:"2-egg omelette (100g)",cat:"Protein"},
+  {n:"Egg bhurji (2-egg)",p:14,c:200,q:"2-egg scramble (100g)",cat:"Protein"},
+  {n:"Chicken curry",p:25,c:300,q:"1 cup (200g)",cat:"Protein"},
+  {n:"Chicken breast — grilled",p:31,c:165,q:"100g",cat:"Protein"},
+  {n:"Chicken — tandoori",p:26,c:220,q:"2 pieces (150g)",cat:"Protein"},
+  {n:"Fish curry",p:22,c:280,q:"1 cup (200g)",cat:"Protein"},
+  {n:"Fish — grilled / steamed",p:25,c:140,q:"100g",cat:"Protein"},
+  {n:"Mutton curry",p:25,c:380,q:"1 cup (200g)",cat:"Protein"},
+  {n:"Prawns — cooked",p:24,c:160,q:"100g",cat:"Protein"},
+  {n:"Tofu — plain",p:8, c:76,q:"100g",cat:"Protein"},
+  {n:"Soya chunks (dry)",p:26,c:345,q:"50g dry",cat:"Protein"},
   /* Dairy */
-  {n:"Full fat milk",c:150,q:"1 glass (250ml)",cat:"Dairy"},
-  {n:"Toned milk",c:120,q:"1 glass (250ml)",cat:"Dairy"},
-  {n:"Dahi / curd",c:120,q:"1 cup (200g)",cat:"Dairy"},
-  {n:"Greek yogurt",c:100,q:"150g",cat:"Dairy"},
-  {n:"Butter",c:35,q:"1 tsp (5g)",cat:"Dairy"},
-  {n:"Ghee",c:45,q:"1 tsp (5g)",cat:"Dairy"},
-  {n:"Cheese slice",c:70,q:"1 slice (20g)",cat:"Dairy"},
-  {n:"Lassi — sweet",c:230,q:"1 glass (250ml)",cat:"Dairy"},
-  {n:"Lassi — salted",c:150,q:"1 glass (250ml)",cat:"Dairy"},
-  {n:"Buttermilk / chaas",c:70,q:"1 glass (250ml)",cat:"Dairy"},
-  {n:"Paneer (50g)",c:132,q:"50g",cat:"Dairy"},
+  {n:"Full fat milk",p:8, c:150,q:"1 glass (250ml)",cat:"Dairy"},
+  {n:"Toned milk",p:6, c:120,q:"1 glass (250ml)",cat:"Dairy"},
+  {n:"Dahi / curd",p:7, c:120,q:"1 cup (200g)",cat:"Dairy"},
+  {n:"Greek yogurt",p:10,c:100,q:"150g",cat:"Dairy"},
+  {n:"Butter",p:0, c:35,q:"1 tsp (5g)",cat:"Dairy"},
+  {n:"Ghee",p:0, c:45,q:"1 tsp (5g)",cat:"Dairy"},
+  {n:"Cheese slice",p:5, c:70,q:"1 slice (20g)",cat:"Dairy"},
+  {n:"Lassi — sweet",p:8, c:230,q:"1 glass (250ml)",cat:"Dairy"},
+  {n:"Lassi — salted",p:6, c:150,q:"1 glass (250ml)",cat:"Dairy"},
+  {n:"Buttermilk / chaas",p:3, c:70,q:"1 glass (250ml)",cat:"Dairy"},
+  {n:"Paneer (50g)",p:9, c:132,q:"50g",cat:"Dairy"},
   /* Snacks & Street Food */
-  {n:"Samosa",c:260,q:"1 medium samosa",cat:"Snacks"},
-  {n:"Pakoda / bhajiya (4 pcs)",c:200,q:"4 pieces (80g)",cat:"Snacks"},
-  {n:"Vada pav",c:250,q:"1 piece",cat:"Snacks"},
-  {n:"Pav bhaji (2 pav)",c:450,q:"2 pav + bhaji",cat:"Snacks"},
-  {n:"Pani puri (6 pcs)",c:180,q:"6 pieces",cat:"Snacks"},
-  {n:"Bhel puri",c:180,q:"1 cup (120g)",cat:"Snacks"},
-  {n:"Dhokla (4 pcs)",c:200,q:"4 pieces (150g)",cat:"Snacks"},
-  {n:"Roasted chana",c:190,q:"50g",cat:"Snacks"},
-  {n:"Makhana / fox nuts",c:100,q:"30g",cat:"Snacks"},
-  {n:"Namkeen mixture",c:140,q:"30g",cat:"Snacks"},
-  {n:"Potato chips",c:160,q:"1 small pack (30g)",cat:"Snacks"},
-  {n:"Biscuits — Marie (4)",c:120,q:"4 biscuits (28g)",cat:"Snacks"},
-  {n:"Biscuits — digestive (2)",c:140,q:"2 biscuits (30g)",cat:"Snacks"},
+  {n:"Samosa",p:4, c:260,q:"1 medium samosa",cat:"Snacks"},
+  {n:"Pakoda / bhajiya (4 pcs)",p:4, c:200,q:"4 pieces (80g)",cat:"Snacks"},
+  {n:"Vada pav",p:5, c:250,q:"1 piece",cat:"Snacks"},
+  {n:"Pav bhaji (2 pav)",p:10,c:450,q:"2 pav + bhaji",cat:"Snacks"},
+  {n:"Pani puri (6 pcs)",p:4, c:180,q:"6 pieces",cat:"Snacks"},
+  {n:"Bhel puri",p:4, c:180,q:"1 cup (120g)",cat:"Snacks"},
+  {n:"Dhokla (4 pcs)",p:8, c:200,q:"4 pieces (150g)",cat:"Snacks"},
+  {n:"Roasted chana",p:10,c:190,q:"50g",cat:"Snacks"},
+  {n:"Makhana / fox nuts",p:3, c:100,q:"30g",cat:"Snacks"},
+  {n:"Namkeen mixture",p:4, c:140,q:"30g",cat:"Snacks"},
+  {n:"Potato chips",p:2, c:160,q:"1 small pack (30g)",cat:"Snacks"},
+  {n:"Biscuits — Marie (4)",p:2, c:120,q:"4 biscuits (28g)",cat:"Snacks"},
+  {n:"Biscuits — digestive (2)",p:2, c:140,q:"2 biscuits (30g)",cat:"Snacks"},
   /* Fruits */
-  {n:"Banana",c:90,q:"1 medium (100g)",cat:"Fruits"},
-  {n:"Apple",c:80,q:"1 medium (150g)",cat:"Fruits"},
-  {n:"Mango (Alfonso/Langra)",c:100,q:"1 cup chunks (150g)",cat:"Fruits"},
-  {n:"Papaya",c:55,q:"1 cup (150g)",cat:"Fruits"},
-  {n:"Watermelon",c:80,q:"2 cups (300g)",cat:"Fruits"},
-  {n:"Grapes",c:110,q:"1 cup (150g)",cat:"Fruits"},
-  {n:"Orange",c:62,q:"1 medium (130g)",cat:"Fruits"},
-  {n:"Guava",c:68,q:"1 medium (100g)",cat:"Fruits"},
-  {n:"Pineapple",c:82,q:"1 cup chunks (150g)",cat:"Fruits"},
-  {n:"Pomegranate",c:105,q:"1 cup arils (150g)",cat:"Fruits"},
-  {n:"Chickoo / sapota",c:120,q:"1 medium (100g)",cat:"Fruits"},
-  {n:"Dates",c:110,q:"3 pieces (30g)",cat:"Fruits"},
+  {n:"Banana",p:1, c:90,q:"1 medium (100g)",cat:"Fruits"},
+  {n:"Apple",p:0, c:80,q:"1 medium (150g)",cat:"Fruits"},
+  {n:"Mango (Alfonso/Langra)",p:1, c:100,q:"1 cup chunks (150g)",cat:"Fruits"},
+  {n:"Papaya",p:1, c:55,q:"1 cup (150g)",cat:"Fruits"},
+  {n:"Watermelon",p:2, c:80,q:"2 cups (300g)",cat:"Fruits"},
+  {n:"Grapes",p:1, c:110,q:"1 cup (150g)",cat:"Fruits"},
+  {n:"Orange",p:1, c:62,q:"1 medium (130g)",cat:"Fruits"},
+  {n:"Guava",p:1, c:68,q:"1 medium (100g)",cat:"Fruits"},
+  {n:"Pineapple",p:1, c:82,q:"1 cup chunks (150g)",cat:"Fruits"},
+  {n:"Pomegranate",p:2, c:105,q:"1 cup arils (150g)",cat:"Fruits"},
+  {n:"Chickoo / sapota",p:1, c:120,q:"1 medium (100g)",cat:"Fruits"},
+  {n:"Dates",p:1, c:110,q:"3 pieces (30g)",cat:"Fruits"},
   /* Beverages */
-  {n:"Chai — milk + sugar",c:80,q:"1 cup (200ml)",cat:"Beverages"},
-  {n:"Black tea / green tea",c:5,q:"1 cup (200ml)",cat:"Beverages"},
-  {n:"Coffee — with milk + sugar",c:90,q:"1 cup (200ml)",cat:"Beverages"},
-  {n:"Black coffee",c:5,q:"1 cup (200ml)",cat:"Beverages"},
-  {n:"Coconut water",c:60,q:"1 tender coconut (250ml)",cat:"Beverages"},
-  {n:"Cold drink / cola (can)",c:140,q:"1 can (330ml)",cat:"Beverages"},
-  {n:"Fresh fruit juice",c:100,q:"1 glass (200ml)",cat:"Beverages"},
-  {n:"Sugarcane juice",c:180,q:"1 glass (250ml)",cat:"Beverages"},
-  {n:"Protein shake (whey, 1 scoop)",c:120,q:"30g powder in water",cat:"Beverages"},
+  {n:"Chai — milk + sugar",p:2, c:80,q:"1 cup (200ml)",cat:"Beverages"},
+  {n:"Black tea / green tea",p:0, c:5,q:"1 cup (200ml)",cat:"Beverages"},
+  {n:"Coffee — with milk + sugar",p:3, c:90,q:"1 cup (200ml)",cat:"Beverages"},
+  {n:"Black coffee",p:0, c:5,q:"1 cup (200ml)",cat:"Beverages"},
+  {n:"Coconut water",p:1, c:60,q:"1 tender coconut (250ml)",cat:"Beverages"},
+  {n:"Cold drink / cola (can)",p:0, c:140,q:"1 can (330ml)",cat:"Beverages"},
+  {n:"Fresh fruit juice",p:1, c:100,q:"1 glass (200ml)",cat:"Beverages"},
+  {n:"Sugarcane juice",p:0, c:180,q:"1 glass (250ml)",cat:"Beverages"},
+  {n:"Protein shake (whey, 1 scoop)",p:24,c:120,q:"30g powder in water",cat:"Beverages"},
   /* Restaurant & Takeout */
-  {n:"Biryani — chicken (plate)",c:540,q:"1 plate (350g)",cat:"Restaurant"},
-  {n:"Biryani — veg (plate)",c:450,q:"1 plate (300g)",cat:"Restaurant"},
-  {n:"Chole bhature",c:680,q:"2 bhature + chole",cat:"Restaurant"},
-  {n:"North Indian thali (full)",c:900,q:"1 full thali",cat:"Restaurant"},
-  {n:"Masala dosa",c:420,q:"1 dosa + chutney",cat:"Restaurant"},
-  {n:"Pizza — veg (1 slice)",c:250,q:"1 medium slice (100g)",cat:"Restaurant"},
-  {n:"Pizza — non-veg (1 slice)",c:290,q:"1 medium slice (110g)",cat:"Restaurant"},
-  {n:"Burger — veg",c:290,q:"1 standard burger",cat:"Restaurant"},
-  {n:"Burger — chicken",c:380,q:"1 standard burger",cat:"Restaurant"},
-  {n:"French fries — medium",c:340,q:"medium serving (115g)",cat:"Restaurant"},
-  {n:"Fried rice — veg",c:350,q:"1 plate (200g)",cat:"Restaurant"},
-  {n:"Noodles — Hakka (veg)",c:380,q:"1 plate (200g)",cat:"Restaurant"},
-  {n:"Paneer butter masala",c:360,q:"1 cup (180g)",cat:"Restaurant"},
+  {n:"Biryani — chicken (plate)",p:30,c:540,q:"1 plate (350g)",cat:"Restaurant"},
+  {n:"Biryani — veg (plate)",p:12,c:450,q:"1 plate (300g)",cat:"Restaurant"},
+  {n:"Chole bhature",p:18,c:680,q:"2 bhature + chole",cat:"Restaurant"},
+  {n:"North Indian thali (full)",p:30,c:900,q:"1 full thali",cat:"Restaurant"},
+  {n:"Masala dosa",p:8, c:420,q:"1 dosa + chutney",cat:"Restaurant"},
+  {n:"Pizza — veg (1 slice)",p:10,c:250,q:"1 medium slice (100g)",cat:"Restaurant"},
+  {n:"Pizza — non-veg (1 slice)",p:14,c:290,q:"1 medium slice (110g)",cat:"Restaurant"},
+  {n:"Burger — veg",p:10,c:290,q:"1 standard burger",cat:"Restaurant"},
+  {n:"Burger — chicken",p:22,c:380,q:"1 standard burger",cat:"Restaurant"},
+  {n:"French fries — medium",p:4, c:340,q:"medium serving (115g)",cat:"Restaurant"},
+  {n:"Fried rice — veg",p:8, c:350,q:"1 plate (200g)",cat:"Restaurant"},
+  {n:"Noodles — Hakka (veg)",p:8, c:380,q:"1 plate (200g)",cat:"Restaurant"},
+  {n:"Paneer butter masala",p:14,c:360,q:"1 cup (180g)",cat:"Restaurant"},
   /* Sweets & Desserts */
-  {n:"Gulab jamun",c:125,q:"1 piece (50g)",cat:"Sweets"},
-  {n:"Ladoo — besan",c:175,q:"1 piece (40g)",cat:"Sweets"},
-  {n:"Kheer / rice pudding",c:280,q:"1 cup (200g)",cat:"Sweets"},
-  {n:"Gajar halwa",c:250,q:"1 cup (150g)",cat:"Sweets"},
-  {n:"Rasgulla",c:100,q:"1 piece (50g)",cat:"Sweets"},
-  {n:"Ice cream (vanilla)",c:130,q:"1 scoop (65g)",cat:"Sweets"},
-  {n:"Chocolate (dark)",c:170,q:"30g (3 squares)",cat:"Sweets"},
-  {n:"Jalebi",c:150,q:"2 pieces (50g)",cat:"Sweets"},
+  {n:"Gulab jamun",p:2, c:125,q:"1 piece (50g)",cat:"Sweets"},
+  {n:"Ladoo — besan",p:3, c:175,q:"1 piece (40g)",cat:"Sweets"},
+  {n:"Kheer / rice pudding",p:6, c:280,q:"1 cup (200g)",cat:"Sweets"},
+  {n:"Gajar halwa",p:4, c:250,q:"1 cup (150g)",cat:"Sweets"},
+  {n:"Rasgulla",p:2, c:100,q:"1 piece (50g)",cat:"Sweets"},
+  {n:"Ice cream (vanilla)",p:2, c:130,q:"1 scoop (65g)",cat:"Sweets"},
+  {n:"Chocolate (dark)",p:2, c:170,q:"30g (3 squares)",cat:"Sweets"},
+  {n:"Jalebi",p:1, c:150,q:"2 pieces (50g)",cat:"Sweets"},
   /* Nuts, Seeds & Fats */
-  {n:"Almonds",c:70,q:"10 almonds (12g)",cat:"Nuts & Fats"},
-  {n:"Cashews",c:85,q:"10 cashews (14g)",cat:"Nuts & Fats"},
-  {n:"Walnuts",c:130,q:"6 halves (14g)",cat:"Nuts & Fats"},
-  {n:"Peanuts — roasted",c:160,q:"¼ cup (40g)",cat:"Nuts & Fats"},
-  {n:"Peanut butter",c:95,q:"1 tbsp (16g)",cat:"Nuts & Fats"},
-  {n:"Cooking oil",c:40,q:"1 tsp (5ml)",cat:"Nuts & Fats"},
-  {n:"Ghee",c:45,q:"1 tsp (5g)",cat:"Nuts & Fats"},
-  {n:"Coconut — grated",c:90,q:"¼ cup (20g)",cat:"Nuts & Fats"},
-  {n:"Honey",c:64,q:"1 tbsp (21g)",cat:"Nuts & Fats"},
-  {n:"Sugar",c:48,q:"1 tbsp (12g)",cat:"Nuts & Fats"},
+  {n:"Almonds",p:3, c:70,q:"10 almonds (12g)",cat:"Nuts & Fats"},
+  {n:"Cashews",p:2, c:85,q:"10 cashews (14g)",cat:"Nuts & Fats"},
+  {n:"Walnuts",p:2, c:130,q:"6 halves (14g)",cat:"Nuts & Fats"},
+  {n:"Peanuts — roasted",p:7, c:160,q:"¼ cup (40g)",cat:"Nuts & Fats"},
+  {n:"Peanut butter",p:4, c:95,q:"1 tbsp (16g)",cat:"Nuts & Fats"},
+  {n:"Cooking oil",p:0, c:40,q:"1 tsp (5ml)",cat:"Nuts & Fats"},
+  {n:"Ghee",p:0, c:45,q:"1 tsp (5g)",cat:"Nuts & Fats"},
+  {n:"Coconut — grated",p:1, c:90,q:"¼ cup (20g)",cat:"Nuts & Fats"},
+  {n:"Honey",p:0, c:64,q:"1 tbsp (21g)",cat:"Nuts & Fats"},
+  {n:"Sugar",p:0, c:48,q:"1 tbsp (12g)",cat:"Nuts & Fats"},
 ];
 
 /* ─────────────── calorie calculation ─────────────── */
@@ -638,7 +638,7 @@ function buildPlan(profile: Profile): Plan {
     let raw=slots.map(([code,frac,label])=>{
       const m=pickMeal(code,Math.round(cal*frac),di,weekUsed,ctx);
       weekUsed.add(m.n);
-      return {time:label,food:m.n,cal:m.c,qty:m.q};
+      return {time:label,food:m.n,cal:m.c,p:m.p||0,qty:m.q};
     });
     const total=raw.reduce((a,b)=>a+b.cal,0);
     let f=total?cal/total:1; f=Math.max(0.78,Math.min(1.28,f));
@@ -661,9 +661,15 @@ function buildPlan(profile: Profile): Plan {
   const weeklyLoss=st.direction&&st.weeklyKg!=="0.00"
     ?`~${st.weeklyKg} kg / week ${st.direction}`:"";
 
+  const w=+(profile.weight||70);
+  const proteinMultiplier: Record<string,number>={
+    "Weight loss":1.8,"Muscle gain":2.2,"Maintain weight":1.4,"General fitness":1.4,
+  };
+  const proteinTarget=Math.round((proteinMultiplier[profile.goal||"General fitness"]??1.4)*w/5)*5;
+
   return {
     summary:`Here's a ${(profile.goal||"fitness").toLowerCase()} plan at about ${cal} kcal a day, built around ${regLabel} food you actually like.${condClause}`,
-    dailyCalories:cal,bmi:st.bmi,bmiCat:st.bmiCat,
+    dailyCalories:cal,proteinTarget,bmi:st.bmi,bmiCat:st.bmiCat,
     goal:profile.goal||"General fitness",diet:profile.diet||"Pure veg",
     condition:cond,regLabel,timeline,weeklyLoss,
     tips:makeTips(profile,cal),days,
@@ -845,7 +851,7 @@ function OnbSlide2() {
       <h2 className="font-black text-white mb-4" style={{fontSize:50,lineHeight:1.1,letterSpacing:"-1px"}}>AES-256<br/>Encrypted</h2>
       <p className="leading-relaxed text-[15px] max-w-[280px]" style={{color:"rgba(255,255,255,0.62)"}}>
         Your health and personal data uses <strong className="text-white">AES-256</strong> — the gold standard used by governments and banks.{" "}
-        <strong className="text-white">Not even the creators of this app can see your data.</strong>
+        <strong className="text-white">Your data is encrypted at rest — never readable in plain text on our servers.</strong>
       </p>
     </div>
   );
@@ -924,13 +930,12 @@ function Onboarding({onDone}:{onDone:()=>void}) {
   },[slide]);
 
   useEffect(()=>{
-    if(slide===3){
-      setAnim(0);
-      const t1=setTimeout(()=>setAnim(1),700);
-      const t2=setTimeout(()=>setAnim(2),1900);
-      const t3=setTimeout(()=>setAnim(3),2900);
-      return()=>{clearTimeout(t1);clearTimeout(t2);clearTimeout(t3);};
-    } else { setAnim(0); }
+    setAnim(0);
+    if(slide!==3) return;
+    const t1=setTimeout(()=>setAnim(1),700);
+    const t2=setTimeout(()=>setAnim(2),1900);
+    const t3=setTimeout(()=>setAnim(3),2900);
+    return()=>{clearTimeout(t1);clearTimeout(t2);clearTimeout(t3);};
   },[slide]);
 
   function goNext(){
@@ -1156,8 +1161,9 @@ function FoodLogger({log,onUpdate}:{log:FoodLog[];onUpdate:(l:FoodLog[])=>void})
   function addFood(){
     if(!pending)return;
     const cal=Math.round(pending.c*servings);
+    const p=Math.round((pending.p||0)*servings);
     const s=servings===1?"":`${servings}× `;
-    onUpdate([...log,{n:pending.n,cal,qty:`${s}${pending.q}`,servings}]);
+    onUpdate([...log,{n:pending.n,cal,p,qty:`${s}${pending.q}`,servings}]);
     setPending(null); setServings(1); setSearch(""); setOpen(false);
   }
   function remove(i:number){onUpdate(log.filter((_,idx)=>idx!==i));}
@@ -1285,6 +1291,10 @@ function Dash({session,plan,tracking,onUpdate,onLogout}:{
   const planConsumed=dp?dp.meals.reduce((a,m,i)=>a+(dd.meals[i]?m.cal:0),0):0;
   const diaryTotal=(dd.log||[]).reduce((s,x)=>s+x.cal,0);
   const consumed=planConsumed+diaryTotal;
+  const proteinFromPlan=dp?dp.meals.reduce((a,m,i)=>a+(dd.meals[i]?(m.p||0):0),0):0;
+  const proteinFromDiary=(dd.log||[]).reduce((s,x)=>s+(x.p||0),0);
+  const proteinConsumed=proteinFromPlan+proteinFromDiary;
+  const proteinTarget=plan?.proteinTarget||0;
   const doneCount=dp?dp.meals.filter((_,i)=>dd.meals[i]).length:0;
   const streak=WEEK.filter(d=>{
     const x=tracking[d] as DayTracking|undefined;
@@ -1304,7 +1314,18 @@ function Dash({session,plan,tracking,onUpdate,onLogout}:{
               <div className="flex gap-4 mt-4">
                 <div><div className="text-2xl font-bold">{streak}/7</div><div className="text-white/70 text-xs">perfect days</div></div>
                 <div><div className="text-2xl font-bold">{doneCount}/{dp?.meals.length||0}</div><div className="text-white/70 text-xs">today's meals</div></div>
+                {proteinTarget>0&&<div><div className="text-2xl font-bold">{proteinConsumed}<span className="text-base font-normal text-white/60">/{proteinTarget}g</span></div><div className="text-white/70 text-xs">protein</div></div>}
               </div>
+              {proteinTarget>0&&(
+                <div className="mt-3">
+                  <div className="flex justify-between text-xs text-white/60 mb-1">
+                    <span>Protein target</span><span>{Math.round(Math.min(proteinConsumed/proteinTarget,1)*100)}%</span>
+                  </div>
+                  <div className="h-1.5 rounded-full" style={{background:"rgba(255,255,255,0.2)"}}>
+                    <div className="h-1.5 rounded-full transition-all duration-700" style={{width:`${Math.min(proteinConsumed/proteinTarget,1)*100}%`,background:"#86efac"}}/>
+                  </div>
+                </div>
+              )}
             </div>
             <CalRing pct={cal?consumed/cal:0} big={consumed} small={`/ ${cal}`} size={104}/>
           </div>

@@ -23,7 +23,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   await sql`INSERT INTO users (id, name, password_hash) VALUES (${userId}, ${String(name)}, ${passwordHash})`;
 
   const token = randomUUID();
-  await sql`INSERT INTO sessions (token, user_id) VALUES (${token}, ${userId})`;
+  await sql`INSERT INTO sessions (token, user_id, expires_at) VALUES (${token}, ${userId}, NOW() + INTERVAL '30 days')`;
 
   return res.status(200).json({ token, user: { id: userId, name: String(name) } });
 }

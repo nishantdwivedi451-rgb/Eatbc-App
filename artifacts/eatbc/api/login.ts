@@ -21,7 +21,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!valid) return res.status(401).json({ error: "Invalid username or password" });
 
   const token = randomUUID();
-  await sql`INSERT INTO sessions (token, user_id) VALUES (${token}, ${userId})`;
+  await sql`INSERT INTO sessions (token, user_id, expires_at) VALUES (${token}, ${userId}, NOW() + INTERVAL '30 days')`;
 
   const planRows = await sql`SELECT plan_enc, profile_enc FROM plans WHERE user_id = ${userId}`;
   const trackRows = await sql`SELECT tracking_enc FROM tracking WHERE user_id = ${userId}`;
