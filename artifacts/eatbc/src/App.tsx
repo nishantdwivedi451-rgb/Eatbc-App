@@ -628,19 +628,20 @@ function calcStats(d: Profile) {
   };
 
   /* ── Absolute calorie floors by safety category ── */
-  const absFloor = ["Pregnant", "Breastfeeding"].includes(cond) ? 1800
-    : isFemale ? 1200 : 1500;
+  /* Pregnancy floors only apply when biologically female to avoid wrong floors for edge cases */
+  const isPregnancyRelated = ["Pregnant", "Breastfeeding"].includes(cond) && isFemale;
+  const absFloor = isPregnancyRelated ? 1800 : isFemale ? 1200 : 1500;
 
   /* ── Apply goal delta with condition-aware caps ── */
   if (effectiveGoal === "Weight loss") {
     /* Pregnant: no deficit at all (foetal growth requires maintenance+) */
-    if (cond === "Pregnant") {
+    if (cond === "Pregnant" && isFemale) {
       tdee = maintenanceTdee;           // no deficit during pregnancy
     } else {
       const desiredDeficit = deficitMap[timeline] ?? 500;
       /* Breastfeeding: max 500 kcal/day deficit to protect milk supply (AAP/ACOG) */
       /* PCOS: max 400 kcal deficit to avoid hormonal disruption */
-      const condCap = cond === "Breastfeeding" ? 500
+      const condCap = (cond === "Breastfeeding" && isFemale) ? 500
         : cond === "PCOS / PCOD" ? 400 : 1000;
       /* Don't deficit below the floor */
       const roomToDeficit = Math.max(0, maintenanceTdee - absFloor);
@@ -655,16 +656,18 @@ function calcStats(d: Profile) {
   }
   /* Maintain / General fitness: tdee stays at maintenanceTdee */
 
-  /* Final safety floor */
+  /* Final safety floor then round — round maintenance too so delta is clean */
   tdee = Math.max(absFloor, tdee);
+  tdee = Math.round(tdee / 10) * 10;
+  const roundedMaintenance = Math.round(maintenanceTdee / 10) * 10;
 
   /* ── Weekly rate: based on actual delta from true maintenance ── */
-  const actualDelta = tdee - maintenanceTdee;     // negative=deficit, positive=surplus
-  const weeklyKcal = actualDelta * 7;             // total kcal delta per week
+  const actualDelta = tdee - roundedMaintenance;   // negative=deficit, positive=surplus
+  const weeklyKcal = actualDelta * 7;              // total kcal delta per week
   const weeklyKg = (Math.abs(weeklyKcal) / 7700).toFixed(2);
   const direction = weeklyKcal < -50 ? "loss" : weeklyKcal > 50 ? "gain" : "";
 
-  return { cm, bmi: bmi.toFixed(1), bmiCat, tdee: Math.round(tdee / 10) * 10, weeklyKg, direction, effectiveGoal };
+  return { cm, bmi: bmi.toFixed(1), bmiCat, tdee, weeklyKg, direction, effectiveGoal };
 }
 
 function dietOK(f: FoodItem, diet: string) {
