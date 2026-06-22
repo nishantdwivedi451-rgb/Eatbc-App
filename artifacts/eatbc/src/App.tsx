@@ -175,7 +175,7 @@ interface Profile {
   timeline?: string;
   goal?: string; condition?: string; diet?: string; region: string[];
   activity?: string; exercise?: string; meals?: string;
-  cooktime?: string; avoid?: string; weekend?: string;
+  cooktime?: string; avoid?: string; weekend?: string; foodPicks?: string[];
 }
 interface Meal { time: string; food: string; cal: number; p?: number; qty: string; }
 interface PlanDay { day: DayName; meals: Meal[]; }
@@ -198,7 +198,7 @@ interface Tracking {
   joinedChallenges?: string[]; // challenge ids the user opted into
   lang?: string;
 }
-type Screen = "welcome" | "quiz" | "plan" | "login" | "signup" | "dash" | "onboarding";
+type Screen = "welcome" | "quiz" | "foodgame" | "plan" | "login" | "signup" | "dash" | "onboarding";
 
 /* ─────────────── quiz questions ─────────────── */
 interface Question {
@@ -595,7 +595,17 @@ function condOK(f: FoodItem, cond: string) {
   return true;
 }
 
-interface MealCtx { goal:string; cond:string; diet:string; regions:string[]; simplePref:boolean; }
+interface MealCtx { goal:string; cond:string; diet:string; regions:string[]; simplePref:boolean; picks:string[]; }
+/* Keywords from foods the user picked in the game — used to bias the plan
+   toward dishes they actually told us they love. */
+function picksMatch(f: FoodItem, picks: string[]): boolean {
+  if (!picks.length) return false;
+  const name=f.n.toLowerCase();
+  return picks.some(p=>{
+    const kw=p.toLowerCase();
+    return name.includes(kw)||kw.split(/\s+/).some(w=>w.length>3&&name.includes(w));
+  });
+}
 
 function cands(slot: string, ctx: MealCtx, relax: number): FoodItem[] {
   return DB.filter(f=>{
@@ -618,6 +628,7 @@ function pickMeal(slot: string, target: number, di: number, used: Set<string>, c
     if (ctx.cond==="High cholesterol"&&f.t.includes("fiber")) s+=0.2;
     if (["Pregnant","Breastfeeding"].includes(ctx.cond)&&f.t.includes("protein")) s+=0.35;
     if (ctx.simplePref&&f.simple) s+=0.25;
+    if (picksMatch(f,ctx.picks)) s+=0.6;   // foods the user picked in the game
     if (used.has(f.n)) s-=1.6;
     s+=(hashNum(f.n+di)%100)/900;
     return {f,s};
@@ -658,6 +669,7 @@ function buildPlan(profile: Profile): Plan {
     diet:profile.diet||"Pure veg",
     regions:mapRegions(profile.region),
     simplePref:["Minimal cooking (10-15 min)","I order online mostly"].includes(profile.cooktime||""),
+    picks:profile.foodPicks||[],
   };
   const slots=SLOTSET[profile.meals||"3 meals"]||SLOTSET["3 meals"];
   const weekUsed=new Set<string>();
@@ -932,6 +944,25 @@ function WeightLog({t,onLog}:{t:Tracking;onLog:(w:number)=>void}) {
   );
 }
 
+/* ─────────────── 3D parallax (pointer + gyroscope) ─────────────── */
+function use3DParallax() {
+  const [tilt,setTilt]=useState({x:0,y:0});
+  useEffect(()=>{
+    function onPointer(e:PointerEvent){
+      const cx=window.innerWidth/2, cy=window.innerHeight/2;
+      setTilt({x:(e.clientY-cy)/cy,y:(e.clientX-cx)/cx});
+    }
+    function onOrient(e:DeviceOrientationEvent){
+      const g=e.gamma??0, b=e.beta??0;            // left-right / front-back
+      setTilt({x:Math.max(-1,Math.min(1,b/45)),y:Math.max(-1,Math.min(1,g/45))});
+    }
+    window.addEventListener("pointermove",onPointer,{passive:true});
+    window.addEventListener("deviceorientation",onOrient,{passive:true});
+    return()=>{window.removeEventListener("pointermove",onPointer);window.removeEventListener("deviceorientation",onOrient);};
+  },[]);
+  return tilt;
+}
+
 /* ─────────────── Onboarding stories ─────────────── */
 function OnbSlide1() {
   const [ct,setCt]=useState(0);
@@ -1061,15 +1092,50 @@ function Onboarding({onDone}:{onDone:()=>void}) {
     "linear-gradient(155deg,#030a05 0%,#050f08 45%,#071408 100%)",
   ];
 
+  const ACCENT=["#00FF9D","#60A5FA","#C084FC","#34D399"];
+  const tilt=use3DParallax();
+  /* depth: how far a layer reacts to tilt (px of translate) */
+  const layer=(depth:number)=>({
+    transform:`translate3d(${tilt.y*depth}px,${tilt.x*depth}px,0)`,
+    transition:"transform 0.18s ease-out",
+  });
+
   return(
     <div className="min-h-screen flex flex-col relative overflow-hidden"
-      style={{background:BKGS[slide],transition:"background 0.5s ease"}}
+      style={{background:BKGS[slide],transition:"background 0.6s ease",perspective:"1100px"}}
       onClick={goNext}>
+
+      {/* ── Depth layer 1: deep glowing orbs (move most) ── */}
+      <div className="absolute inset-0 pointer-events-none" style={{transformStyle:"preserve-3d"}}>
+        <div className="absolute rounded-full" style={{
+          width:300,height:300,top:"12%",left:"-12%",
+          background:`radial-gradient(circle,${ACCENT[slide]}55,transparent 70%)`,
+          filter:"blur(30px)",...layer(46),
+        }}/>
+        <div className="absolute rounded-full" style={{
+          width:240,height:240,bottom:"14%",right:"-10%",
+          background:`radial-gradient(circle,${ACCENT[slide]}40,transparent 70%)`,
+          filter:"blur(34px)",...layer(60),
+        }}/>
+        <div className="absolute rounded-full" style={{
+          width:140,height:140,top:"48%",right:"22%",
+          background:`radial-gradient(circle,${ACCENT[slide]}30,transparent 70%)`,
+          filter:"blur(22px)",...layer(80),
+        }}/>
+      </div>
+
+      {/* ── Depth layer 2: fine grid for 3D floor feel ── */}
+      <div className="absolute inset-0 pointer-events-none" style={{
+        backgroundImage:`linear-gradient(${ACCENT[slide]}14 1px,transparent 1px),linear-gradient(90deg,${ACCENT[slide]}14 1px,transparent 1px)`,
+        backgroundSize:"44px 44px",maskImage:"radial-gradient(circle at 50% 40%,black,transparent 75%)",
+        WebkitMaskImage:"radial-gradient(circle at 50% 40%,black,transparent 75%)",...layer(20),
+      }}/>
+
       {/* Story progress bars */}
       <div className="absolute left-0 right-0 flex gap-1.5 px-4 z-20" style={{top:52}}>
         {[0,1,2,3].map(i=>(
-          <div key={i} className="flex-1 rounded-full overflow-hidden" style={{height:3,background:"rgba(255,255,255,0.22)"}}>
-            <div className="h-full rounded-full bg-white" style={{width:i<slide?"100%":i===slide?`${prog}%`:"0%"}}/>
+          <div key={i} className="flex-1 rounded-full overflow-hidden" style={{height:3,background:"rgba(255,255,255,0.18)"}}>
+            <div className="h-full rounded-full" style={{width:i<slide?"100%":i===slide?`${prog}%`:"0%",background:ACCENT[slide],boxShadow:`0 0 8px ${ACCENT[slide]}`,transition:"width 0.1s linear"}}/>
           </div>
         ))}
       </div>
@@ -1081,22 +1147,45 @@ function Onboarding({onDone}:{onDone:()=>void}) {
       {/* Skip */}
       <button onClick={e=>{e.stopPropagation();onDone();}}
         className="absolute right-4 z-20 font-bold text-sm px-4 py-1.5 rounded-full"
-        style={{top:40,background:"rgba(255,255,255,0.13)",backdropFilter:"blur(6px)",color:"rgba(255,255,255,0.82)"}}>
+        style={{top:40,background:"rgba(255,255,255,0.10)",border:"1px solid rgba(255,255,255,0.18)",backdropFilter:"blur(8px)",color:"rgba(255,255,255,0.82)"}}>
         Skip
       </button>
-      {/* Content */}
-      <div className="flex-1 flex items-center justify-center px-7 pt-24 pb-6">
-        {slide===0&&<OnbSlide1/>}
-        {slide===1&&<OnbSlide2/>}
-        {slide===2&&<OnbSlide3/>}
-        {slide===3&&<OnbSlide4 anim={anim}/>}
+
+      {/* ── Depth layer 3: foreground glass card with the slide content ── */}
+      <div className="flex-1 flex items-center justify-center px-6 pt-24 pb-6 relative z-10" style={{transformStyle:"preserve-3d"}}>
+        <div key={slide} style={{
+          ...layer(-26),
+          transformStyle:"preserve-3d",
+          animation:"onbCard 0.6s cubic-bezier(0.22,1,0.36,1) both",
+        }}>
+          <div className="relative rounded-[34px] px-8 py-12 flex items-center justify-center" style={{
+            minWidth:300,minHeight:420,
+            background:"linear-gradient(160deg,rgba(255,255,255,0.10),rgba(255,255,255,0.02))",
+            border:"1px solid rgba(255,255,255,0.16)",
+            boxShadow:`0 30px 80px -20px ${ACCENT[slide]}40, inset 0 1px 0 rgba(255,255,255,0.18)`,
+            backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)",
+            transform:`rotateX(${tilt.x*-5}deg) rotateY(${tilt.y*5}deg)`,
+            transition:"transform 0.18s ease-out, box-shadow 0.6s ease",
+          }}>
+            {slide===0&&<OnbSlide1/>}
+            {slide===1&&<OnbSlide2/>}
+            {slide===2&&<OnbSlide3/>}
+            {slide===3&&<OnbSlide4 anim={anim}/>}
+          </div>
+        </div>
       </div>
-      {/* Dot nav */}
-      <div className="pb-10 flex justify-center gap-2">
-        {[0,1,2,3].map(i=>(
-          <div key={i} className="rounded-full transition-all duration-300"
-            style={{width:i===slide?22:7,height:7,background:i===slide?"rgba(255,255,255,0.9)":"rgba(255,255,255,0.28)"}}/>
-        ))}
+
+      {/* Tap hint + dot nav */}
+      <div className="pb-9 flex flex-col items-center gap-3 relative z-10">
+        <span className="text-[11px] tracking-widest uppercase font-semibold" style={{color:"rgba(255,255,255,0.4)"}}>Tap to continue</span>
+        <div className="flex justify-center gap-2">
+          {[0,1,2,3].map(i=>(
+            <div key={i} className="rounded-full transition-all duration-300"
+              style={{width:i===slide?24:7,height:7,
+                background:i===slide?ACCENT[slide]:"rgba(255,255,255,0.26)",
+                boxShadow:i===slide?`0 0 10px ${ACCENT[slide]}`:"none"}}/>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -1185,6 +1274,91 @@ function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;on
         <p className="text-center text-green-200/60 text-xs mt-6 flex items-center justify-center gap-1.5">
           <Stethoscope size={12}/> {t("notMedical")}
         </p>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────── Food affiliation game ─────────────── */
+const FOOD_GAME: {e:string;n:string}[] = [
+  {e:"🫓",n:"Paratha"},{e:"🧀",n:"Paneer"},{e:"🍲",n:"Dal"},{e:"🫘",n:"Rajma"},
+  {e:"🥘",n:"Chole"},{e:"🥞",n:"Dosa"},{e:"🍘",n:"Idli"},{e:"🍚",n:"Rice"},
+  {e:"🍗",n:"Chicken"},{e:"🐟",n:"Fish"},{e:"🥚",n:"Egg"},{e:"🍛",n:"Khichdi"},
+  {e:"🥣",n:"Poha"},{e:"🌾",n:"Oats"},{e:"🥗",n:"Salad"},{e:"🫛",n:"Sprouts"},
+  {e:"🥛",n:"Milk"},{e:"☕",n:"Chai"},{e:"🍎",n:"Fruit"},{e:"🥜",n:"Peanuts"},
+];
+function FoodGame({name,onDone}:{name?:string;onDone:(picks:string[])=>void}) {
+  const NEED=5;
+  const [picks,setPicks]=useState<string[]>([]);
+  const done=picks.length>=NEED;
+  const toggle=(n:string)=>setPicks(p=>p.includes(n)?p.filter(x=>x!==n):p.length>=NEED?p:[...p,n]);
+  return (
+    <div className="min-h-screen relative overflow-hidden flex flex-col px-5 pt-12 pb-32"
+      style={{background:"linear-gradient(165deg,#052e1b 0%,#0a5e34 48%,#159a57 100%)"}}>
+      {/* glow orbs */}
+      <div className="absolute pointer-events-none rounded-full" style={{width:300,height:300,top:"-60px",right:"-80px",background:"radial-gradient(circle,rgba(0,255,157,0.25),transparent 70%)",filter:"blur(30px)"}}/>
+      <div className="absolute pointer-events-none rounded-full" style={{width:260,height:260,bottom:"10%",left:"-90px",background:"radial-gradient(circle,rgba(0,255,157,0.16),transparent 70%)",filter:"blur(34px)"}}/>
+
+      <div className="relative z-10 max-w-md w-full mx-auto">
+        <div className="flex items-center gap-2 mb-6"><Logo size={28}/><span className="font-black text-white tracking-tight">EatBC</span></div>
+        <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 mb-3"
+          style={{background:"rgba(0,255,157,0.14)",border:"1px solid rgba(0,255,157,0.3)"}}>
+          <Sparkles size={12} style={{color:"#00FF9D"}}/>
+          <span className="text-[11px] font-bold tracking-widest uppercase" style={{color:"#00FF9D"}}>Quick game</span>
+        </div>
+        <h2 className="text-white font-black leading-tight" style={{fontSize:30,letterSpacing:"-1px"}}>
+          {name?`${name}, tap `:"Tap "}<span style={{color:"#7CFFC4"}}>5 foods</span> you love
+        </h2>
+        <p className="text-white/55 text-sm mt-1.5">We'll weave your favourites right into your plan.</p>
+
+        {/* progress dots */}
+        <div className="flex items-center gap-2 mt-5 mb-6">
+          {Array.from({length:NEED}).map((_,i)=>(
+            <div key={i} className="h-2 flex-1 rounded-full transition-all duration-300"
+              style={{background:i<picks.length?"#00FF9D":"rgba(255,255,255,0.15)",
+                boxShadow:i<picks.length?"0 0 10px #00FF9D":"none"}}/>
+          ))}
+          <span className="text-white font-black text-sm ml-1 tabular-nums">{picks.length}/{NEED}</span>
+        </div>
+
+        {/* bubble grid */}
+        <div className="grid grid-cols-4 gap-3">
+          {FOOD_GAME.map((f,i)=>{
+            const on=picks.includes(f.n);
+            return (
+              <button key={f.n} onClick={()=>toggle(f.n)}
+                className="relative flex flex-col items-center justify-center rounded-2xl aspect-square transition-all duration-200 active:scale-90"
+                style={{
+                  background:on?"rgba(0,255,157,0.16)":"rgba(255,255,255,0.07)",
+                  border:on?"2px solid #00FF9D":"1px solid rgba(255,255,255,0.14)",
+                  boxShadow:on?"0 8px 26px -6px rgba(0,255,157,0.55)":"none",
+                  transform:on?"scale(1.04)":"scale(1)",
+                  animation:`bobFloat ${2.6+i%4*0.4}s ease-in-out ${i*0.12}s infinite`,
+                }}>
+                <span style={{fontSize:30,lineHeight:1}}>{f.e}</span>
+                <span className="text-[10px] font-bold mt-1" style={{color:on?"#7CFFC4":"rgba(255,255,255,0.6)"}}>{f.n}</span>
+                {on&&(
+                  <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center"
+                    style={{background:"#00FF9D",animation:"popIn 0.3s ease both"}}>
+                    <Check size={13} strokeWidth={3.5} color="#052e1b"/>
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* fixed CTA */}
+      <div className="fixed left-0 right-0 bottom-0 px-5 pb-7 pt-10 z-20"
+        style={{background:"linear-gradient(to top,#052e1b 30%,transparent)"}}>
+        <button disabled={!done} onClick={()=>onDone(picks)}
+          className="max-w-md mx-auto w-full py-4 rounded-2xl font-black text-base flex items-center justify-center gap-2 transition-all active:scale-[0.97]"
+          style={done
+            ?{background:"#00FF9D",color:"#052e1b",boxShadow:"0 0 32px rgba(0,255,157,0.6)"}
+            :{background:"rgba(255,255,255,0.12)",color:"rgba(255,255,255,0.45)"}}>
+          {done?<>Reveal my plan <Sparkles size={18}/></>:`Pick ${NEED-picks.length} more`}
+        </button>
       </div>
     </div>
   );
@@ -2001,13 +2175,19 @@ export default function App() {
     :cur.k==="avoid"?true
     :(profile[cur.k]||"")!=="";
 
+  /* Quiz done → play the food-picking game first, then build the plan. */
   function generate() {
-    setLoading(true); setErr("");
+    setErr(""); setScreen("foodgame");
+  }
+  function finishGame(picks:string[]) {
+    const withPicks={...profile,foodPicks:picks};
+    setProfile(withPicks);
+    setLoading(true);
     setTimeout(()=>{
-      try{setPlan(buildPlan(profile));setScreen("plan");}
-      catch{setErr("Something went off — adjust an answer and retry.");}
+      try{setPlan(buildPlan(withPicks));setScreen("plan");}
+      catch{setErr("Something went off — adjust an answer and retry.");setScreen("quiz");}
       setLoading(false);
-    },650);
+    },500);
   }
 
   function planText(): string {
@@ -2070,6 +2250,7 @@ export default function App() {
   if (screen==="onboarding") return <Onboarding onDone={doneOnboarding}/>;
   if (screen==="welcome") return <Welcome lang={lang} onLang={changeLang} onNew={()=>setScreen("quiz")} onLogin={()=>setScreen("login")}/>;
   if (screen==="login")   return <Login onDone={doLogin} onBack={()=>setScreen("welcome")}/>;
+  if (screen==="foodgame") return <FoodGame name={profile.name} onDone={finishGame}/>;
 
   if (screen==="quiz") return (
     <Shell>
