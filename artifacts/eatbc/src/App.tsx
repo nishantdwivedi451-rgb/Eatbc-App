@@ -237,7 +237,7 @@ const Q: Question[] = [
     opts:["Mostly desk job","On feet / moderate","Physically active"] },
   { k:"wantWorkout", label:"Want a workout plan with your diet?",        type:"pick",
     sub:"We'll build a weekly training schedule with a tracker.",
-    opts:["Yes, build my workout plan 💪","No thanks, just the diet"] },
+    opts:["Yes, build my workout plan","No thanks, just the diet"] },
   { k:"exercise",  label:"How do you like to exercise?",                type:"pick",
     sub:"Pick whatever fits your lifestyle — we'll build around it.",
     opts:["Running / jogging","Cycling","Swimming","Yoga / Pilates","Home workouts","Gym (weights)","Sports / games","HIIT / CrossFit"],
@@ -1131,8 +1131,8 @@ function totalPoints(history: Record<string,HistEntry>): number {
 /* ─────────────── i18n (English + Hindi) ─────────────── */
 type Lang = "en" | "hi";
 const STR: Record<string,{en:string;hi:string}> = {
-  newWarrior:{en:"I'm a New Warrior 🔥",hi:"मैं नया योद्धा हूँ 🔥"},
-  alreadyHustle:{en:"I Already Hustle 💪",hi:"मैं पहले से जुटा हूँ 💪"},
+  newWarrior:{en:"I'm a New Warrior",hi:"मैं नया योद्धा हूँ"},
+  alreadyHustle:{en:"I Already Hustle",hi:"मैं पहले से जुटा हूँ"},
   tagline:{en:"Eat Better. Count.",hi:"बेहतर खाओ। गिनो।"},
   todaysSpark:{en:"Today's spark",hi:"आज की प्रेरणा"},
   notMedical:{en:"Not medical advice — consult your doctor for any condition.",hi:"यह चिकित्सकीय सलाह नहीं है — किसी भी स्थिति के लिए डॉक्टर से सलाह लें।"},
