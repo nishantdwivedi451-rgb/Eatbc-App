@@ -4,7 +4,13 @@ import {
   CheckCircle2, Droplet, LogOut, TrendingDown, Loader2,
   AlertCircle, Sunrise, Apple, Cookie, Moon, HeartPulse,
   Sparkles, Stethoscope, User, UserPlus, ArrowRight, Scale,
+  Flame, BarChart3, Trophy, Users, Bell, Plus, RefreshCw,
+  Lightbulb, Globe, X, Check, Target,
 } from "lucide-react";
+import {
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip as RTooltip, LineChart, Line, ReferenceLine,
+} from "recharts";
 
 /* ─────────────── localStorage helpers ─────────────── */
 function sget<T>(k: string): T | null {
@@ -182,9 +188,15 @@ interface Plan {
 interface Session { id: string; name: string; token: string; }
 interface FoodLog { n: string; cal: number; p?: number; qty: string; servings: number; }
 interface DayTracking { meals: Record<number, boolean>; water: number; log?: FoodLog[]; }
+/* Date-keyed daily snapshot — powers real streaks, trends and insights. */
+interface HistEntry { onTrack: boolean; cal: number; protein: number; meals: number; total: number; water: number; }
 interface Tracking {
-  [day: string]: DayTracking | Record<string, number> | undefined;
+  [day: string]: DayTracking | Record<string, number> | Record<string, HistEntry> | LogFood[] | string[] | string | undefined;
   weights?: Record<string, number>;
+  history?: Record<string, HistEntry>;
+  customFoods?: LogFood[];     // user-saved foods
+  joinedChallenges?: string[]; // challenge ids the user opted into
+  lang?: string;
 }
 type Screen = "welcome" | "quiz" | "plan" | "login" | "signup" | "dash" | "onboarding";
 
@@ -336,11 +348,23 @@ const RMAP: Record<string,string> = {
   "Punjabi":"n","Gujarati":"w","Rajasthani":"n","Bengali":"e",
   "Goan":"w","Coastal":"s","Continental":"all","East Asian":"all",
 };
+const LABEL2SLOT: Record<string,string> = {
+  "Breakfast":"b","Mid-morning":"ms","Lunch":"l","Evening snack":"es","Dinner":"d","Bedtime":"bt",
+};
 const COND_SHORT: Record<string,string> = {
   "Diabetes / pre-diabetes":"blood sugar","High BP (hypertension)":"blood pressure",
   "High cholesterol":"cholesterol","Thyroid (hypothyroid)":"thyroid",
   "Pregnant":"pregnancy","Breastfeeding":"breastfeeding",
 };
+
+/* ─────────────── community challenges ─────────────── */
+interface Challenge { id: string; emoji: string; title: string; desc: string; target: number; metric: "ontrack"|"water"|"protein"; }
+const CHALLENGES: Challenge[] = [
+  {id:"streak7",   emoji:"🔥",title:"7-Day Streak",     desc:"Stay on track for 7 days in a row.",            target:7, metric:"ontrack"},
+  {id:"hydrate",   emoji:"💧",title:"Hydration Hero",   desc:"Hit 8 glasses of water on 5 days this week.",   target:5, metric:"water"},
+  {id:"protein5",  emoji:"💪",title:"Protein Power",    desc:"Reach your protein target on 5 days.",          target:5, metric:"protein"},
+  {id:"consistent",emoji:"📅",title:"Consistency King", desc:"Log your food on 14 days.",                     target:14,metric:"ontrack"},
+];
 
 /* ─────────────── Food diary reference database ─────────────── */
 interface LogFood { n: string; c: number; p?: number; q: string; cat: string; }
@@ -676,6 +700,88 @@ function buildPlan(profile: Profile): Plan {
   };
 }
 
+/* ─────────────── date / streak / analytics helpers ─────────────── */
+function isoDate(d=new Date()): string { return d.toISOString().slice(0,10); }
+function isoShift(days: number): string {
+  const d=new Date(); d.setDate(d.getDate()+days); return isoDate(d);
+}
+function weekdayOf(iso: string): DayName {
+  const d=new Date(iso+"T00:00:00");
+  return WEEK[(d.getDay()+6)%7];
+}
+/* A day counts as "on track" if at least 60% of planned meals were eaten,
+   or the diary shows real effort (something logged). Forgiving by design. */
+function dayOnTrack(meals: number, total: number, diaryCal: number): boolean {
+  if (total>0 && meals/total>=0.6) return true;
+  if (diaryCal>0 && meals>=Math.max(1,Math.floor(total*0.4))) return true;
+  return false;
+}
+/* Current streak ending today (or yesterday), allowing ONE grace miss so a
+   single bad day doesn't wipe out weeks of effort. */
+function currentStreak(history: Record<string,HistEntry>): number {
+  let streak=0, graceUsed=false;
+  for (let i=0;i<400;i++) {
+    const iso=isoShift(-i);
+    const e=history[iso];
+    const ok=e?.onTrack;
+    if (ok) { streak++; continue; }
+    if (i===0) continue;               // today still in progress — don't break yet
+    if (!graceUsed) { graceUsed=true; continue; }  // forgive one miss
+    break;
+  }
+  return streak;
+}
+function bestStreak(history: Record<string,HistEntry>): number {
+  const dates=Object.keys(history).filter(d=>history[d]?.onTrack).sort();
+  let best=0, run=0, prev="";
+  for (const d of dates) {
+    if (prev && new Date(d).getTime()-new Date(prev).getTime()<=86400000*2) run++;
+    else run=1;
+    best=Math.max(best,run); prev=d;
+  }
+  return best;
+}
+/* Points: 10 per on-track day + streak bonus. Drives the community board. */
+function totalPoints(history: Record<string,HistEntry>): number {
+  const onTrackDays=Object.values(history).filter(e=>e.onTrack).length;
+  return onTrackDays*10 + currentStreak(history)*5;
+}
+
+/* ─────────────── i18n (English + Hindi) ─────────────── */
+type Lang = "en" | "hi";
+const STR: Record<string,{en:string;hi:string}> = {
+  newWarrior:{en:"I'm a New Warrior 🔥",hi:"मैं नया योद्धा हूँ 🔥"},
+  alreadyHustle:{en:"I Already Hustle 💪",hi:"मैं पहले से जुटा हूँ 💪"},
+  tagline:{en:"Eat Better. Change.",hi:"बेहतर खाओ। बदलो।"},
+  todaysSpark:{en:"Today's spark",hi:"आज की प्रेरणा"},
+  notMedical:{en:"Not medical advice — consult your doctor for any condition.",hi:"यह चिकित्सकीय सलाह नहीं है — किसी भी स्थिति के लिए डॉक्टर से सलाह लें।"},
+  skip:{en:"Skip",hi:"छोड़ें"},
+  back:{en:"Back",hi:"पीछे"},
+  next:{en:"Next",hi:"आगे"},
+  buildPlan:{en:"Build my plan",hi:"मेरी योजना बनाएँ"},
+  building:{en:"Building…",hi:"बन रही है…"},
+  question:{en:"Question",hi:"प्रश्न"},
+  of:{en:"of",hi:"में से"},
+  logout:{en:"Logout",hi:"लॉग आउट"},
+  perfectDays:{en:"day streak",hi:"दिन की लय"},
+  todaysMeals:{en:"today's meals",hi:"आज के भोजन"},
+  protein:{en:"protein",hi:"प्रोटीन"},
+  proteinTarget:{en:"Protein target",hi:"प्रोटीन लक्ष्य"},
+  tickOff:{en:"tick off as you eat",hi:"जैसे-जैसे खाएँ, टिक करें"},
+  foodDiary:{en:"Food Diary",hi:"भोजन डायरी"},
+  addFood:{en:"+ Add food eaten",hi:"+ खाया हुआ भोजन जोड़ें"},
+  water:{en:"Water",hi:"पानी"},
+  weightLog:{en:"Weight log",hi:"वज़न रिकॉर्ड"},
+  trends:{en:"Weekly trends",hi:"साप्ताहिक रुझान"},
+  insights:{en:"Your insights",hi:"आपकी जानकारी"},
+  community:{en:"Community",hi:"समुदाय"},
+  leaderboard:{en:"Leaderboard",hi:"लीडरबोर्ड"},
+  challenges:{en:"Challenges",hi:"चुनौतियाँ"},
+  swap:{en:"Swap",hi:"बदलें"},
+  coachTips:{en:"Coach's tips",hi:"कोच के सुझाव"},
+};
+function makeT(lang: Lang){ return (k: keyof typeof STR)=> STR[k]?.[lang] ?? STR[k]?.en ?? String(k); }
+
 /* ─────────────── UI primitives ─────────────── */
 function Logo({size=40}:{size?:number}) {
   const id="lg"+size;
@@ -992,10 +1098,11 @@ function Onboarding({onDone}:{onDone:()=>void}) {
 }
 
 /* ─────────────── Welcome ─────────────── */
-function Welcome({onNew,onLogin}:{onNew:()=>void;onLogin:()=>void}) {
+function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;onNew:()=>void;onLogin:()=>void}) {
+  const t=makeT(lang);
   const [quote]=useState(pickQuote);
   const [visible,setVisible]=useState(false);
-  useEffect(()=>{const t=setTimeout(()=>setVisible(true),80);return()=>clearTimeout(t);},[]);
+  useEffect(()=>{const tm=setTimeout(()=>setVisible(true),80);return()=>clearTimeout(tm);},[]);
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-5 py-10 relative overflow-hidden"
       style={{background:"linear-gradient(160deg,#064E30 0%,#0E8A4D 40%,#1DAA61 75%,#2DCE78 100%)"}}>
@@ -1004,11 +1111,22 @@ function Welcome({onNew,onLogin}:{onNew:()=>void;onLogin:()=>void}) {
         <div className="absolute rounded-full" style={{width:260,height:260,background:"rgba(255,255,255,0.05)",bottom:"-60px",left:"-60px"}}/>
         <div className="absolute rounded-full" style={{width:160,height:160,background:"rgba(255,255,255,0.07)",top:"45%",right:"-40px"}}/>
       </div>
+      {/* Language toggle */}
+      <div className="absolute z-20 flex items-center gap-1 rounded-full p-1" style={{top:20,right:20,background:"rgba(255,255,255,0.15)",backdropFilter:"blur(6px)"}}>
+        <Globe size={14} className="text-white/80 ml-1.5"/>
+        {(["en","hi"] as Lang[]).map(l=>(
+          <button key={l} onClick={()=>onLang(l)}
+            className="text-xs font-bold px-2.5 py-1 rounded-full transition"
+            style={lang===l?{background:"#fff",color:GREEN}:{color:"rgba(255,255,255,0.85)"}}>
+            {l==="en"?"EN":"हिं"}
+          </button>
+        ))}
+      </div>
       <div className={`relative z-10 w-full max-w-sm transition-all duration-700 ${visible?"opacity-100 translate-y-0":"opacity-0 translate-y-8"}`}>
         <div className="flex flex-col items-center mb-7">
           <Logo size={76}/>
           <h1 className="text-5xl font-black text-white mt-3 tracking-tight">EatBC</h1>
-          <p className="text-green-200 font-medium text-base mt-1 tracking-wide">Eat Better. Change.</p>
+          <p className="text-green-200 font-medium text-base mt-1 tracking-wide">{t("tagline")}</p>
         </div>
         <div className="relative mb-7 rounded-3xl overflow-hidden"
           style={{background:"linear-gradient(135deg,rgba(255,255,255,0.18) 0%,rgba(255,255,255,0.08) 100%)",
@@ -1020,7 +1138,7 @@ function Welcome({onNew,onLogin}:{onNew:()=>void;onLogin:()=>void}) {
               style={{textShadow:"0 1px 8px rgba(0,0,0,0.18)"}}>{quote}</p>
             <div className="flex items-center justify-center gap-1.5 mt-4">
               <div className="h-px w-8 bg-white/30"/>
-              <span className="text-green-200 text-xs font-semibold uppercase tracking-widest">Today's spark</span>
+              <span className="text-green-200 text-xs font-semibold uppercase tracking-widest">{t("todaysSpark")}</span>
               <div className="h-px w-8 bg-white/30"/>
             </div>
           </div>
@@ -1030,19 +1148,19 @@ function Welcome({onNew,onLogin}:{onNew:()=>void;onLogin:()=>void}) {
             className="group relative w-full py-4 px-5 rounded-2xl shadow-xl transition-all duration-150 active:scale-[0.97]"
             style={{background:"#ffffff",color:GREEN}}>
             <span className="absolute left-5 top-1/2 -translate-y-1/2"><UserPlus size={21}/></span>
-            <span className="block text-center font-black text-[1.05rem]">I'm a New Warrior 🔥</span>
+            <span className="block text-center font-black text-[1.05rem]">{t("newWarrior")}</span>
             <span className="absolute right-5 top-1/2 -translate-y-1/2 opacity-40 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all"><ArrowRight size={19}/></span>
           </button>
           <button onClick={onLogin}
             className="group relative w-full py-4 px-5 rounded-2xl transition-all duration-150 active:scale-[0.97] hover:bg-white/10"
             style={{border:"2px solid rgba(255,255,255,0.55)",color:"#ffffff"}}>
             <span className="absolute left-5 top-1/2 -translate-y-1/2"><User size={21}/></span>
-            <span className="block text-center font-black text-[1.05rem]">I Already Hustle 💪</span>
+            <span className="block text-center font-black text-[1.05rem]">{t("alreadyHustle")}</span>
             <span className="absolute right-5 top-1/2 -translate-y-1/2 opacity-40 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all"><ArrowRight size={19}/></span>
           </button>
         </div>
         <p className="text-center text-green-200/60 text-xs mt-6 flex items-center justify-center gap-1.5">
-          <Stethoscope size={12}/> Not medical advice — consult your doctor for any condition.
+          <Stethoscope size={12}/> {t("notMedical")}
         </p>
       </div>
     </div>
@@ -1143,20 +1261,29 @@ function Signup({profile,plan,onDone,onBack}:{profile:Profile;plan:Plan|null;onD
 }
 
 /* ─────────────── Food Logger ─────────────── */
-function FoodLogger({log,onUpdate}:{log:FoodLog[];onUpdate:(l:FoodLog[])=>void}) {
+function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t}:{
+  log:FoodLog[];customFoods:LogFood[];onSaveCustom:(f:LogFood)=>void;
+  onUpdate:(l:FoodLog[])=>void;t:(k:keyof typeof STR)=>string;
+}) {
   const [open,setOpen]=useState(false);
   const [search,setSearch]=useState("");
   const [pending,setPending]=useState<LogFood|null>(null);
   const [servings,setServings]=useState(1);
   const [cat,setCat]=useState("All");
+  const [mode,setMode]=useState<"search"|"custom"|"barcode">("search");
+  /* custom food form */
+  const [cName,setCName]=useState(""); const [cQty,setCQty]=useState(""); const [cCal,setCCal]=useState(""); const [cProt,setCProt]=useState("");
+  /* barcode lookup */
+  const [bar,setBar]=useState(""); const [barBusy,setBarBusy]=useState(false); const [barErr,setBarErr]=useState("");
 
   const total=log.reduce((s,x)=>s+x.cal,0);
-  const CATS=["All",...Array.from(new Set(LOG_DB.map(f=>f.cat)))];
-  const filtered=LOG_DB.filter(f=>{
+  const ALL_FOODS=[...customFoods,...LOG_DB];
+  const CATS=["All",...Array.from(new Set(ALL_FOODS.map(f=>f.cat)))];
+  const filtered=ALL_FOODS.filter(f=>{
     const matchSearch=!search||f.n.toLowerCase().includes(search.toLowerCase());
     const matchCat=cat==="All"||f.cat===cat;
     return matchSearch&&matchCat;
-  }).slice(0,30);
+  }).slice(0,40);
 
   function addFood(){
     if(!pending)return;
@@ -1164,15 +1291,41 @@ function FoodLogger({log,onUpdate}:{log:FoodLog[];onUpdate:(l:FoodLog[])=>void})
     const p=Math.round((pending.p||0)*servings);
     const s=servings===1?"":`${servings}× `;
     onUpdate([...log,{n:pending.n,cal,p,qty:`${s}${pending.q}`,servings}]);
-    setPending(null); setServings(1); setSearch(""); setOpen(false);
+    setPending(null); setServings(1); setSearch(""); setOpen(false); setMode("search");
   }
   function remove(i:number){onUpdate(log.filter((_,idx)=>idx!==i));}
+
+  function saveCustom(){
+    if(!cName.trim()||!cCal) return;
+    const f:LogFood={n:cName.trim(),c:Math.round(+cCal),p:cProt?Math.round(+cProt):0,q:cQty.trim()||"1 serving",cat:"My Foods"};
+    onSaveCustom(f); setPending(f); setServings(1);
+    setCName("");setCQty("");setCCal("");setCProt("");setMode("search");
+  }
+
+  async function lookupBarcode(){
+    if(!bar.trim()) return;
+    setBarBusy(true); setBarErr("");
+    try {
+      const r=await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(bar.trim())}.json?fields=product_name,nutriments,serving_size`);
+      const d=await r.json();
+      if(d.status!==1||!d.product){ setBarErr("Product not found. Try entering it manually."); return; }
+      const pr=d.product;
+      const kcal=pr.nutriments?.["energy-kcal_serving"]??pr.nutriments?.["energy-kcal_100g"];
+      const prot=pr.nutriments?.["proteins_serving"]??pr.nutriments?.["proteins_100g"];
+      setCName(pr.product_name||"Scanned product");
+      setCQty(pr.serving_size||"per 100g");
+      setCCal(kcal?String(Math.round(kcal)):"");
+      setCProt(prot?String(Math.round(prot)):"");
+      setMode("custom");
+    } catch { setBarErr("Lookup failed — check your connection."); }
+    finally { setBarBusy(false); }
+  }
 
   return(
     <Card className="p-5 mb-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="font-bold text-gray-800 flex items-center gap-2">
-          <Utensils size={18} style={{color:GREEN}}/> Food Diary
+          <Utensils size={18} style={{color:GREEN}}/> {t("foodDiary")}
         </h3>
         {total>0&&<span className="text-sm font-bold px-3 py-1 rounded-full" style={{background:"#EAF7F0",color:GREEN}}>{total} kcal</span>}
       </div>
@@ -1196,7 +1349,7 @@ function FoodLogger({log,onUpdate}:{log:FoodLog[];onUpdate:(l:FoodLog[])=>void})
         <button onClick={()=>setOpen(true)}
           className="w-full py-2.5 rounded-2xl border-2 border-dashed text-sm font-bold transition hover:bg-green-50"
           style={{borderColor:GREEN,color:GREEN}}>
-          + Add food eaten
+          {t("addFood")}
         </button>
       ):(
         <div className="mt-1">
@@ -1231,33 +1384,81 @@ function FoodLogger({log,onUpdate}:{log:FoodLog[];onUpdate:(l:FoodLog[])=>void})
             </div>
           ):(
             <>
-              <input value={search} onChange={e=>setSearch(e.target.value)}
-                placeholder="Search food — dal, rice, samosa…"
-                className="w-full px-4 py-2.5 rounded-2xl border-2 border-gray-200 outline-none focus:border-green-500 text-sm mb-2"
-                autoFocus/>
-              <div className="flex gap-1.5 overflow-x-auto pb-1 mb-2">
-                {CATS.map(c=>(
-                  <button key={c} onClick={()=>setCat(c)}
-                    className="px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition"
-                    style={cat===c?{background:GREEN,color:"#fff"}:{background:"#f3f4f6",color:"#6b7280"}}>
-                    {c}
-                  </button>
+              <div className="flex gap-1.5 mb-3 bg-gray-50 rounded-xl p-1">
+                {([["search","🔍 Search"],["custom","✏️ Custom"],["barcode","📷 Barcode"]] as [typeof mode,string][]).map(([m,label])=>(
+                  <button key={m} onClick={()=>setMode(m)}
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition ${mode===m?"text-white shadow-sm":"text-gray-500"}`}
+                    style={mode===m?{background:GREEN}:{}}>{label}</button>
                 ))}
               </div>
-              <div className="max-h-60 overflow-y-auto space-y-0.5">
-                {filtered.map((f,i)=>(
-                  <button key={i} onClick={()=>{setPending(f);setServings(1);}}
-                    className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl hover:bg-gray-50 text-left transition">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold text-gray-700 truncate">{f.n}</div>
-                      <div className="text-xs text-gray-400 truncate">{f.q}</div>
-                    </div>
-                    <span className="text-xs font-bold shrink-0" style={{color:GREEN}}>{f.c}</span>
+
+              {mode==="search"&&(
+                <>
+                  <input value={search} onChange={e=>setSearch(e.target.value)}
+                    placeholder="Search food — dal, rice, samosa…"
+                    className="w-full px-4 py-2.5 rounded-2xl border-2 border-gray-200 outline-none focus:border-green-500 text-sm mb-2"
+                    autoFocus/>
+                  <div className="flex gap-1.5 overflow-x-auto pb-1 mb-2">
+                    {CATS.map(c=>(
+                      <button key={c} onClick={()=>setCat(c)}
+                        className="px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition"
+                        style={cat===c?{background:GREEN,color:"#fff"}:{background:"#f3f4f6",color:"#6b7280"}}>
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="max-h-60 overflow-y-auto space-y-0.5">
+                    {filtered.map((f,i)=>(
+                      <button key={i} onClick={()=>{setPending(f);setServings(1);}}
+                        className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl hover:bg-gray-50 text-left transition">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-semibold text-gray-700 truncate">{f.n}{f.cat==="My Foods"&&<span className="ml-1 text-[10px] font-bold" style={{color:GREEN}}>★</span>}</div>
+                          <div className="text-xs text-gray-400 truncate">{f.q}</div>
+                        </div>
+                        <span className="text-xs font-bold shrink-0" style={{color:GREEN}}>{f.c}</span>
+                      </button>
+                    ))}
+                    {filtered.length===0&&<p className="text-sm text-gray-400 text-center py-6">No matches — add it as a custom food.</p>}
+                  </div>
+                </>
+              )}
+
+              {mode==="custom"&&(
+                <div className="space-y-2.5">
+                  <input value={cName} onChange={e=>setCName(e.target.value)} placeholder="Food name — e.g. Mom's rajma"
+                    className="w-full px-4 py-2.5 rounded-2xl border-2 border-gray-200 outline-none focus:border-green-500 text-sm"/>
+                  <input value={cQty} onChange={e=>setCQty(e.target.value)} placeholder="Serving — e.g. 1 bowl (200g)"
+                    className="w-full px-4 py-2.5 rounded-2xl border-2 border-gray-200 outline-none focus:border-green-500 text-sm"/>
+                  <div className="flex gap-2.5">
+                    <input value={cCal} onChange={e=>setCCal(e.target.value)} type="number" placeholder="Calories"
+                      className="flex-1 px-4 py-2.5 rounded-2xl border-2 border-gray-200 outline-none focus:border-green-500 text-sm"/>
+                    <input value={cProt} onChange={e=>setCProt(e.target.value)} type="number" placeholder="Protein (g)"
+                      className="flex-1 px-4 py-2.5 rounded-2xl border-2 border-gray-200 outline-none focus:border-green-500 text-sm"/>
+                  </div>
+                  <button onClick={saveCustom} disabled={!cName.trim()||!cCal}
+                    className="w-full py-2.5 rounded-2xl text-white font-bold text-sm disabled:opacity-50" style={{background:GREEN}}>
+                    Save &amp; use this food
                   </button>
-                ))}
-                {filtered.length===0&&<p className="text-sm text-gray-400 text-center py-6">No matches — try a different search</p>}
-              </div>
-              <button onClick={()=>{setOpen(false);setSearch("");setPending(null);}}
+                  <p className="text-xs text-gray-400 text-center">Saved foods are reusable from Search next time.</p>
+                </div>
+              )}
+
+              {mode==="barcode"&&(
+                <div className="space-y-2.5">
+                  <p className="text-xs text-gray-500">Enter the barcode number from a packaged product — we'll fetch its nutrition from the OpenFoodFacts database.</p>
+                  <div className="flex gap-2">
+                    <input value={bar} onChange={e=>setBar(e.target.value)} inputMode="numeric" placeholder="e.g. 8901058000016"
+                      className="flex-1 px-4 py-2.5 rounded-2xl border-2 border-gray-200 outline-none focus:border-green-500 text-sm"/>
+                    <button onClick={lookupBarcode} disabled={barBusy||!bar.trim()}
+                      className="px-5 rounded-2xl text-white font-bold text-sm disabled:opacity-50" style={{background:GREEN}}>
+                      {barBusy?<Loader2 className="animate-spin" size={16}/>:"Look up"}
+                    </button>
+                  </div>
+                  {barErr&&<div className="flex items-center gap-2 text-red-500 text-xs"><AlertCircle size={14}/>{barErr}</div>}
+                </div>
+              )}
+
+              <button onClick={()=>{setOpen(false);setSearch("");setPending(null);setMode("search");setBarErr("");}}
                 className="w-full mt-3 text-center text-gray-400 text-sm py-1 hover:text-gray-600">
                 Close
               </button>
@@ -1269,11 +1470,276 @@ function FoodLogger({log,onUpdate}:{log:FoodLog[];onUpdate:(l:FoodLog[])=>void})
   );
 }
 
-/* ─────────────── Dashboard ─────────────── */
-function Dash({session,plan,tracking,onUpdate,onLogout}:{
-  session:Session;plan:Plan|null;tracking:Tracking;
-  onUpdate:(t:Tracking)=>void;onLogout:()=>void;
+/* ─────────────── Weekly trends ─────────────── */
+function TrendsCard({history,calTarget,proteinTarget,weights,t}:{
+  history:Record<string,HistEntry>;calTarget:number;proteinTarget:number;
+  weights:Record<string,number>;t:(k:keyof typeof STR)=>string;
 }) {
+  const days=[...Array(7)].map((_,i)=>{
+    const iso=isoShift(-(6-i));
+    const e=history[iso];
+    return {label:weekdayOf(iso).slice(0,1),cal:e?.cal||0,protein:e?.protein||0};
+  });
+  const anyData=days.some(d=>d.cal>0);
+  const wEntries=Object.entries(weights).sort().slice(-10).map(([d,w])=>({label:d.slice(5),w}));
+  return (
+    <Card className="p-5 mb-4">
+      <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
+        <BarChart3 size={18} style={{color:GREEN}}/> {t("trends")}
+      </h3>
+      {anyData?(
+        <>
+          <div className="text-xs text-gray-400 mb-1">Calories — last 7 days</div>
+          <div style={{width:"100%",height:150}}>
+            <ResponsiveContainer>
+              <BarChart data={days} margin={{top:4,right:4,left:-18,bottom:0}}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef1f4"/>
+                <XAxis dataKey="label" tick={{fontSize:11,fill:"#9ca3af"}} axisLine={false} tickLine={false}/>
+                <YAxis tick={{fontSize:10,fill:"#9ca3af"}} axisLine={false} tickLine={false}/>
+                <RTooltip contentStyle={{borderRadius:12,border:"1px solid #eee",fontSize:12}}/>
+                {calTarget>0&&<ReferenceLine y={calTarget} stroke={GREEN} strokeDasharray="4 4"/>}
+                <Bar dataKey="cal" radius={[6,6,0,0]} fill={GREEN}/>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          {proteinTarget>0&&(
+            <>
+              <div className="text-xs text-gray-400 mt-3 mb-1">Protein (g) — last 7 days</div>
+              <div style={{width:"100%",height:120}}>
+                <ResponsiveContainer>
+                  <BarChart data={days} margin={{top:4,right:4,left:-18,bottom:0}}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef1f4"/>
+                    <XAxis dataKey="label" tick={{fontSize:11,fill:"#9ca3af"}} axisLine={false} tickLine={false}/>
+                    <YAxis tick={{fontSize:10,fill:"#9ca3af"}} axisLine={false} tickLine={false}/>
+                    <RTooltip contentStyle={{borderRadius:12,border:"1px solid #eee",fontSize:12}}/>
+                    <ReferenceLine y={proteinTarget} stroke="#8B5CF6" strokeDasharray="4 4"/>
+                    <Bar dataKey="protein" radius={[6,6,0,0]} fill="#8B5CF6"/>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </>
+          )}
+        </>
+      ):(
+        <p className="text-sm text-gray-400">Start ticking meals and logging food — your weekly trends will appear here.</p>
+      )}
+      {wEntries.length>=2&&(
+        <>
+          <div className="text-xs text-gray-400 mt-3 mb-1">Weight (kg)</div>
+          <div style={{width:"100%",height:120}}>
+            <ResponsiveContainer>
+              <LineChart data={wEntries} margin={{top:4,right:8,left:-18,bottom:0}}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef1f4"/>
+                <XAxis dataKey="label" tick={{fontSize:10,fill:"#9ca3af"}} axisLine={false} tickLine={false}/>
+                <YAxis domain={["dataMin-1","dataMax+1"]} tick={{fontSize:10,fill:"#9ca3af"}} axisLine={false} tickLine={false}/>
+                <RTooltip contentStyle={{borderRadius:12,border:"1px solid #eee",fontSize:12}}/>
+                <Line type="monotone" dataKey="w" stroke="#0E8A4D" strokeWidth={2.5} dot={{r:3}}/>
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </>
+      )}
+    </Card>
+  );
+}
+
+/* ─────────────── Insights ─────────────── */
+function InsightsCard({history,proteinTarget,t}:{
+  history:Record<string,HistEntry>;proteinTarget:number;t:(k:keyof typeof STR)=>string;
+}) {
+  const entries=Object.values(history);
+  const tracked=entries.length;
+  if (!tracked) return null;
+  const onTrack=entries.filter(e=>e.onTrack).length;
+  const rate=Math.round((onTrack/tracked)*100);
+  const avgProtein=Math.round(entries.reduce((a,e)=>a+e.protein,0)/tracked);
+  const proteinHitRate=proteinTarget>0?Math.round((entries.filter(e=>e.protein>=proteinTarget*0.9).length/tracked)*100):0;
+  const best=bestStreak(history);
+  const stats=[
+    {label:"On-track rate",val:`${rate}%`,emoji:"🎯"},
+    {label:"Best streak",val:`${best} days`,emoji:"🔥"},
+    {label:"Avg protein",val:`${avgProtein}g`,emoji:"💪"},
+    {label:"Days tracked",val:`${tracked}`,emoji:"📅"},
+  ];
+  let nudge="You're building a real habit — keep showing up.";
+  if (rate>=80) nudge="Outstanding consistency! You're in the top tier of EatBC warriors. 🏆";
+  else if (proteinTarget>0&&proteinHitRate<50) nudge="You're often short on protein — add dal, curd, eggs or paneer to a meal.";
+  else if (rate<40) nudge="Small steps win. Try ticking just your breakfast every day this week.";
+  return (
+    <Card className="p-5 mb-4">
+      <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-3">
+        <Lightbulb size={18} style={{color:"#F59E0B"}}/> {t("insights")}
+      </h3>
+      <div className="grid grid-cols-2 gap-2.5 mb-3">
+        {stats.map(s=>(
+          <div key={s.label} className="rounded-2xl px-3 py-2.5" style={{background:"#F7FAF8"}}>
+            <div className="text-lg font-black text-gray-800">{s.emoji} {s.val}</div>
+            <div className="text-xs text-gray-400">{s.label}</div>
+          </div>
+        ))}
+      </div>
+      <div className="rounded-2xl px-4 py-3 text-sm" style={{background:"#FFFBEB",color:"#92400E"}}>{nudge}</div>
+    </Card>
+  );
+}
+
+/* ─────────────── Challenges ─────────────── */
+function ChallengesCard({history,joined,onToggle,t}:{
+  history:Record<string,HistEntry>;joined:string[];
+  onToggle:(id:string)=>void;t:(k:keyof typeof STR)=>string;
+}) {
+  const entries=Object.values(history);
+  function progress(c:Challenge):number {
+    if (c.metric==="ontrack") return entries.filter(e=>e.onTrack).length;
+    if (c.metric==="water")   return entries.filter(e=>e.water>=8).length;
+    if (c.metric==="protein") return entries.filter(e=>e.protein>0).length; // proteinTarget compared elsewhere
+    return 0;
+  }
+  return (
+    <Card className="p-5 mb-4">
+      <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-3">
+        <Target size={18} style={{color:"#8B5CF6"}}/> {t("challenges")}
+      </h3>
+      <div className="space-y-2.5">
+        {CHALLENGES.map(c=>{
+          const on=joined.includes(c.id);
+          const done=Math.min(progress(c),c.target);
+          const pct=Math.round((done/c.target)*100);
+          const complete=done>=c.target;
+          return (
+            <div key={c.id} className="rounded-2xl p-3.5 border" style={{borderColor:on?GREEN:"#eef1f4",background:on?"#F2FBF6":"#fff"}}>
+              <div className="flex items-start gap-2.5">
+                <div className="text-2xl leading-none">{c.emoji}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-gray-800 text-sm">{c.title}</span>
+                    {complete&&<span className="text-xs font-bold px-2 py-0.5 rounded-full text-white" style={{background:GREEN}}>Done 🎉</span>}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-0.5">{c.desc}</p>
+                  {on&&(
+                    <div className="mt-2">
+                      <div className="h-1.5 rounded-full bg-gray-100">
+                        <div className="h-1.5 rounded-full transition-all" style={{width:`${pct}%`,background:GREEN}}/>
+                      </div>
+                      <div className="text-xs text-gray-400 mt-1">{done}/{c.target}</div>
+                    </div>
+                  )}
+                </div>
+                <button onClick={()=>onToggle(c.id)}
+                  className="text-xs font-bold px-3 py-1.5 rounded-xl shrink-0 transition"
+                  style={on?{background:"#fff",color:"#6b7280",border:"1.5px solid #e5e7eb"}:{background:GREEN,color:"#fff"}}>
+                  {on?"Leave":"Join"}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
+/* ─────────────── Leaderboard ─────────────── */
+interface LeaderRow { name: string; streak: number; points: number; }
+function Leaderboard({session,points,streak,t}:{
+  session:Session;points:number;streak:number;t:(k:keyof typeof STR)=>string;
+}) {
+  const [rows,setRows]=useState<LeaderRow[]|null>(null);
+  const [shared,setShared]=useState<boolean>(()=>!!sget<boolean>("eatbc:onboard:shared"));
+  const [busy,setBusy]=useState(false);
+
+  function load(){
+    apiGet("/api/leaderboard",session.token)
+      .then(d=>setRows(d.leaders||[]))
+      .catch(()=>setRows([]));
+  }
+  useEffect(()=>{ load(); /* eslint-disable-next-line */ },[]);
+
+  async function share(){
+    setBusy(true);
+    try {
+      await apiPost("/api/leaderboard",{name:session.name,streak,points},session.token);
+      sset("eatbc:onboard:shared",true); setShared(true); load();
+    } catch {} finally { setBusy(false); }
+  }
+
+  return (
+    <Card className="p-5 mb-4">
+      <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-1">
+        <Trophy size={18} style={{color:"#F59E0B"}}/> {t("leaderboard")}
+      </h3>
+      <p className="text-xs text-gray-400 mb-3">Opt-in. Only your name &amp; streak are shared — never your health data.</p>
+      {!shared&&(
+        <button disabled={busy} onClick={share}
+          className="w-full mb-3 py-2.5 rounded-2xl text-white font-bold text-sm disabled:opacity-60"
+          style={{background:GREEN}}>
+          {busy?"Joining…":"Join the board with my streak 🔥"}
+        </button>
+      )}
+      {rows===null?(
+        <div className="flex justify-center py-4"><Loader2 className="animate-spin text-gray-300" size={20}/></div>
+      ):rows.length===0?(
+        <p className="text-sm text-gray-400">Be the first to join the community board!</p>
+      ):(
+        <div className="space-y-1.5">
+          {rows.map((r,i)=>{
+            const me=r.name===session.name;
+            const medal=i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}`;
+            return (
+              <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-xl" style={{background:me?"#EAF7F0":"#fff"}}>
+                <span className="w-6 text-center font-bold text-gray-500 text-sm">{medal}</span>
+                <span className="flex-1 truncate font-semibold text-sm text-gray-700">{r.name}{me?" (you)":""}</span>
+                <span className="text-xs font-bold flex items-center gap-1" style={{color:"#F59E0B"}}><Flame size={12}/>{r.streak}</span>
+                <span className="text-xs font-bold" style={{color:GREEN}}>{r.points} pts</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/* ─────────────── Reminders ─────────────── */
+function ReminderToggle({t}:{t:(k:keyof typeof STR)=>string}) {
+  const [on,setOn]=useState<boolean>(()=>!!sget<boolean>("eatbc:reminders"));
+  const supported=typeof window!=="undefined"&&"Notification"in window;
+  async function enable(){
+    if (!supported) return;
+    const perm=await Notification.requestPermission();
+    if (perm==="granted"){
+      sset("eatbc:reminders",true); setOn(true);
+      new Notification("EatBC reminders on 🔔",{body:"We'll gently nudge you to log your meals.",icon:"/icon.svg"});
+    }
+  }
+  function disable(){ sset("eatbc:reminders",false); setOn(false); }
+  if (!supported) return null;
+  return (
+    <Card className="p-5 mb-4">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{background:"#FEF3C7"}}>
+          <Bell size={18} style={{color:"#F59E0B"}}/>
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="font-bold text-gray-800 text-sm">Daily reminders</div>
+          <div className="text-xs text-gray-400">Get a nudge to log your meals each day.</div>
+        </div>
+        <button onClick={on?disable:enable}
+          className="text-xs font-bold px-4 py-2 rounded-xl shrink-0 transition"
+          style={on?{background:"#fff",color:"#6b7280",border:"1.5px solid #e5e7eb"}:{background:GREEN,color:"#fff"}}>
+          {on?"On ✓":"Turn on"}
+        </button>
+      </div>
+    </Card>
+  );
+}
+
+/* ─────────────── Dashboard ─────────────── */
+function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout}:{
+  session:Session;plan:Plan|null;tracking:Tracking;lang:Lang;
+  onUpdate:(t:Tracking)=>void;onSwap:(day:DayName,mealIdx:number)=>void;onLogout:()=>void;
+}) {
+  const t=makeT(lang);
   const today=WEEK[(new Date().getDay()+6)%7];
   const [sel,setSel]=useState<DayName>(today);
   const dd=(tracking[sel] as DayTracking)||{meals:{},water:0};
@@ -1296,11 +1762,44 @@ function Dash({session,plan,tracking,onUpdate,onLogout}:{
   const proteinConsumed=proteinFromPlan+proteinFromDiary;
   const proteinTarget=plan?.proteinTarget||0;
   const doneCount=dp?dp.meals.filter((_,i)=>dd.meals[i]).length:0;
-  const streak=WEEK.filter(d=>{
-    const x=tracking[d] as DayTracking|undefined;
-    const p2=plan?.days?.find(y=>y.day===d);
-    return p2&&x&&p2.meals.every((_,i)=>x.meals[i]);
-  }).length;
+
+  const history=tracking.history||{};
+  const proteinTargetVal=proteinTarget;
+
+  /* Compute TODAY's snapshot (date-keyed) and persist it for streaks/trends. */
+  const todayPlan=plan?.days?.find(d=>d.day===today);
+  const todayTrack=(tracking[today] as DayTracking)||{meals:{},water:0};
+  const todayPlanCal=todayPlan?todayPlan.meals.reduce((a,m,i)=>a+(todayTrack.meals[i]?m.cal:0),0):0;
+  const todayDiaryCal=(todayTrack.log||[]).reduce((s,x)=>s+x.cal,0);
+  const todayCal=todayPlanCal+todayDiaryCal;
+  const todayProtein=(todayPlan?todayPlan.meals.reduce((a,m,i)=>a+(todayTrack.meals[i]?(m.p||0):0),0):0)
+    +(todayTrack.log||[]).reduce((s,x)=>s+(x.p||0),0);
+  const todayMeals=todayPlan?todayPlan.meals.filter((_,i)=>todayTrack.meals[i]).length:0;
+  const todayTotal=todayPlan?.meals.length||0;
+  const todayOnTrack=dayOnTrack(todayMeals,todayTotal,todayDiaryCal);
+
+  useEffect(()=>{
+    const iso=isoDate();
+    const entry:HistEntry={onTrack:todayOnTrack,cal:todayCal,protein:todayProtein,meals:todayMeals,total:todayTotal,water:todayTrack.water||0};
+    const prev=history[iso];
+    if (!prev||prev.onTrack!==entry.onTrack||prev.cal!==entry.cal||prev.protein!==entry.protein||prev.water!==entry.water){
+      onUpdate({...tracking,history:{...history,[iso]:entry}});
+    }
+    /* eslint-disable-next-line */
+  },[todayCal,todayProtein,todayOnTrack,todayTrack.water]);
+
+  const streak=currentStreak({...history,[isoDate()]:{onTrack:todayOnTrack,cal:todayCal,protein:todayProtein,meals:todayMeals,total:todayTotal,water:todayTrack.water||0}});
+  const points=totalPoints(history);
+
+  const joined=tracking.joinedChallenges||[];
+  const toggleChallenge=(id:string)=>onUpdate({...tracking,joinedChallenges:joined.includes(id)?joined.filter(x=>x!==id):[...joined,id]});
+  const saveCustom=(f:LogFood)=>onUpdate({...tracking,customFoods:[...(tracking.customFoods||[]),f]});
+
+  const [tab,setTab]=useState<"today"|"progress"|"community">("today");
+  const TABS:[typeof tab,string,React.ElementType][]=[
+    ["today","Today",Utensils],["progress","Progress",BarChart3],["community",t("community"),Users],
+  ];
+
   return (
     <Shell wide>
       <div style={{animation:"eFade .4s ease both"}}>
@@ -1312,17 +1811,17 @@ function Dash({session,plan,tracking,onUpdate,onLogout}:{
               <h2 className="text-2xl font-black">Hi {session.name} 👋</h2>
               <p className="text-white/70 text-sm">{session.id}</p>
               <div className="flex gap-4 mt-4">
-                <div><div className="text-2xl font-bold">{streak}/7</div><div className="text-white/70 text-xs">perfect days</div></div>
-                <div><div className="text-2xl font-bold">{doneCount}/{dp?.meals.length||0}</div><div className="text-white/70 text-xs">today's meals</div></div>
-                {proteinTarget>0&&<div><div className="text-2xl font-bold">{proteinConsumed}<span className="text-base font-normal text-white/60">/{proteinTarget}g</span></div><div className="text-white/70 text-xs">protein</div></div>}
+                <div><div className="text-2xl font-bold flex items-center gap-1"><Flame size={20}/>{streak}</div><div className="text-white/70 text-xs">{t("perfectDays")}</div></div>
+                <div><div className="text-2xl font-bold">{doneCount}/{dp?.meals.length||0}</div><div className="text-white/70 text-xs">{t("todaysMeals")}</div></div>
+                {proteinTargetVal>0&&<div><div className="text-2xl font-bold">{proteinConsumed}<span className="text-base font-normal text-white/60">/{proteinTargetVal}g</span></div><div className="text-white/70 text-xs">{t("protein")}</div></div>}
               </div>
-              {proteinTarget>0&&(
+              {proteinTargetVal>0&&(
                 <div className="mt-3">
                   <div className="flex justify-between text-xs text-white/60 mb-1">
-                    <span>Protein target</span><span>{Math.round(Math.min(proteinConsumed/proteinTarget,1)*100)}%</span>
+                    <span>{t("proteinTarget")}</span><span>{Math.round(Math.min(proteinConsumed/proteinTargetVal,1)*100)}%</span>
                   </div>
                   <div className="h-1.5 rounded-full" style={{background:"rgba(255,255,255,0.2)"}}>
-                    <div className="h-1.5 rounded-full transition-all duration-700" style={{width:`${Math.min(proteinConsumed/proteinTarget,1)*100}%`,background:"#86efac"}}/>
+                    <div className="h-1.5 rounded-full transition-all duration-700" style={{width:`${Math.min(proteinConsumed/proteinTargetVal,1)*100}%`,background:"#86efac"}}/>
                   </div>
                 </div>
               )}
@@ -1330,64 +1829,102 @@ function Dash({session,plan,tracking,onUpdate,onLogout}:{
             <CalRing pct={cal?consumed/cal:0} big={consumed} small={`/ ${cal}`} size={104}/>
           </div>
           <button onClick={onLogout} className="mt-4 text-white/80 inline-flex items-center gap-1 text-sm hover:text-white">
-            <LogOut size={15}/> Logout
+            <LogOut size={15}/> {t("logout")}
           </button>
         </div>
-        <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
-          {WEEK.map(d=>(
-            <button key={d} onClick={()=>setSel(d)}
-              className={`px-3.5 py-2 rounded-xl text-sm whitespace-nowrap font-semibold transition ${sel===d?"text-white shadow":"bg-white text-gray-500 border border-gray-100"}`}
-              style={sel===d?{background:GREEN}:{}}>
-              {d.slice(0,3)}{d===today?" •":""}
+
+        {/* Section tabs */}
+        <div className="flex gap-2 mb-4 bg-white rounded-2xl p-1 border border-gray-100">
+          {TABS.map(([id,label,Icon])=>(
+            <button key={id} onClick={()=>setTab(id)}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold transition ${tab===id?"text-white shadow":"text-gray-500"}`}
+              style={tab===id?{background:GREEN}:{}}>
+              <Icon size={15}/> {label}
             </button>
           ))}
         </div>
-        {dp?(
+
+        {tab==="today"&&(
           <>
-            <Card className="p-5 mb-4">
-              <h3 className="font-bold text-gray-800 mb-3">{sel} — tick off as you eat</h3>
-              <div className="space-y-1">
-                {dp.meals.map((m,i)=>{
-                  const ui=MEAL_UI[m.time]||MEAL_UI["Lunch"];
-                  const on=!!dd.meals[i];
-                  return (
-                    <button key={i} onClick={()=>toggle(i)}
-                      className="w-full flex items-center gap-3 text-left p-2.5 rounded-2xl hover:bg-gray-50 transition">
-                      <CheckCircle2 size={24} style={{color:on?GREEN:"#E5E7EB"}}/>
-                      <div className="flex-1 min-w-0">
-                        <span className="text-xs font-semibold uppercase tracking-wide" style={{color:ui.col}}>{m.time}</span>
-                        <div className={`text-sm font-medium truncate ${on?"line-through text-gray-300":"text-gray-700"}`}>{m.food}</div>
-                        <div className="flex items-center gap-1 mt-0.5">
-                          <Scale size={10} className="text-gray-400 shrink-0"/>
-                          <span className="text-xs text-gray-400 truncate">{m.qty}</span>
+            <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
+              {WEEK.map(d=>(
+                <button key={d} onClick={()=>setSel(d)}
+                  className={`px-3.5 py-2 rounded-xl text-sm whitespace-nowrap font-semibold transition ${sel===d?"text-white shadow":"bg-white text-gray-500 border border-gray-100"}`}
+                  style={sel===d?{background:GREEN}:{}}>
+                  {d.slice(0,3)}{d===today?" •":""}
+                </button>
+              ))}
+            </div>
+            {dp?(
+              <>
+                <Card className="p-5 mb-4">
+                  <h3 className="font-bold text-gray-800 mb-3">{sel} — {t("tickOff")}</h3>
+                  <div className="space-y-1">
+                    {dp.meals.map((m,i)=>{
+                      const ui=MEAL_UI[m.time]||MEAL_UI["Lunch"];
+                      const on=!!dd.meals[i];
+                      return (
+                        <div key={i} className="w-full flex items-center gap-3 p-2.5 rounded-2xl hover:bg-gray-50 transition">
+                          <button onClick={()=>toggle(i)} className="shrink-0"><CheckCircle2 size={24} style={{color:on?GREEN:"#E5E7EB"}}/></button>
+                          <button onClick={()=>toggle(i)} className="flex-1 min-w-0 text-left">
+                            <span className="text-xs font-semibold uppercase tracking-wide" style={{color:ui.col}}>{m.time}</span>
+                            <div className={`text-sm font-medium truncate ${on?"line-through text-gray-300":"text-gray-700"}`}>{m.food}</div>
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <Scale size={10} className="text-gray-400 shrink-0"/>
+                              <span className="text-xs text-gray-400 truncate">{m.qty}</span>
+                            </div>
+                          </button>
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            <span className="text-xs font-semibold" style={{color:GREEN}}>{m.cal}</span>
+                            <button onClick={()=>onSwap(sel,i)} title={t("swap")}
+                              className="text-gray-300 hover:text-green-600 transition"><RefreshCw size={14}/></button>
+                          </div>
                         </div>
-                      </div>
-                      <span className="text-xs font-semibold shrink-0" style={{color:GREEN}}>{m.cal}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </Card>
-            <FoodLogger
-              log={dd.log||[]}
-              onUpdate={l=>onUpdate({...tracking,[sel]:{...dd,log:l}})}
-            />
-            <Card className="p-5 mb-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-bold text-gray-800 flex items-center gap-2"><Droplet size={18} style={{color:GREEN}}/> Water</h3>
-                <span className="text-sm text-gray-400">{dd.water}/8 glasses</span>
-              </div>
-              <div className="flex gap-1.5">
-                {[...Array(8)].map((_,i)=>(
-                  <button key={i} onClick={()=>setWater(i+1===dd.water?i:i+1)}
-                    className="flex-1 h-9 rounded-lg transition" style={{background:i<dd.water?GREEN:"#E5E7EB"}}/>
-                ))}
-              </div>
-            </Card>
-            <WeightLog t={tracking} onLog={logW}/>
+                      );
+                    })}
+                  </div>
+                </Card>
+                <FoodLogger
+                  log={dd.log||[]}
+                  customFoods={tracking.customFoods||[]}
+                  onSaveCustom={saveCustom}
+                  onUpdate={l=>onUpdate({...tracking,[sel]:{...dd,log:l}})}
+                  t={t}
+                />
+                <Card className="p-5 mb-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-bold text-gray-800 flex items-center gap-2"><Droplet size={18} style={{color:GREEN}}/> {t("water")}</h3>
+                    <span className="text-sm text-gray-400">{dd.water}/8 glasses</span>
+                  </div>
+                  <div className="flex gap-1.5">
+                    {[...Array(8)].map((_,i)=>(
+                      <button key={i} onClick={()=>setWater(i+1===dd.water?i:i+1)}
+                        className="flex-1 h-9 rounded-lg transition" style={{background:i<dd.water?GREEN:"#E5E7EB"}}/>
+                    ))}
+                  </div>
+                </Card>
+              </>
+            ):(
+              <Card className="p-8 text-center text-gray-400">No plan loaded for this session.</Card>
+            )}
           </>
-        ):(
-          <Card className="p-8 text-center text-gray-400">No plan loaded for this session.</Card>
+        )}
+
+        {tab==="progress"&&(
+          <>
+            <TrendsCard history={history} calTarget={cal} proteinTarget={proteinTargetVal} weights={tracking.weights||{}} t={t}/>
+            <InsightsCard history={history} proteinTarget={proteinTargetVal} t={t}/>
+            <WeightLog t={tracking} onLog={logW}/>
+            <div className="mb-4"/>
+            <ReminderToggle t={t}/>
+          </>
+        )}
+
+        {tab==="community"&&(
+          <>
+            <Leaderboard session={session} points={points} streak={streak} t={t}/>
+            <ChallengesCard history={history} joined={joined} onToggle={toggleChallenge} t={t}/>
+          </>
         )}
       </div>
     </Shell>
@@ -1404,7 +1941,11 @@ export default function App() {
   const [err,setErr]=useState("");
   const [session,setSession]=useState<Session|null>(null);
   const [tracking,setTracking]=useState<Tracking>({});
+  const [lang,setLang]=useState<Lang>(()=>(sget<Lang>("eatbc:lang")||"en"));
+  const t=makeT(lang);
   const quoteRef=useRef(pickQuote());
+
+  function changeLang(l:Lang){ setLang(l); sset("eatbc:lang",l); }
 
   useEffect(()=>{
     const s=sget<Session>("eatbc:session");
@@ -1481,11 +2022,29 @@ export default function App() {
     if(token) apiPost("/api/logout",{},token).catch(()=>{});
   }
 
+  /* Swap a single planned meal for a fresh alternative in the same slot. */
+  function swapMeal(day:DayName,mealIdx:number) {
+    if(!plan) return;
+    const di=plan.days.findIndex(d=>d.day===day);
+    if(di<0) return;
+    const meal=plan.days[di].meals[mealIdx];
+    const code=LABEL2SLOT[meal.time]||"l";
+    const cands=DB.filter(f=>f.slot.includes(code)&&dietOK(f,plan.diet)&&f.n!==meal.food);
+    if(!cands.length) return;
+    cands.sort((a,b)=>Math.abs(a.c-meal.cal)-Math.abs(b.c-meal.cal));
+    const pick=cands[Math.floor(Math.random()*Math.min(5,cands.length))];
+    const newMeal:Meal={time:meal.time,food:pick.n,cal:pick.c,p:pick.p||0,qty:pick.q};
+    const newDays=plan.days.map((d,idx)=>idx===di?{...d,meals:d.meals.map((m,j)=>j===mealIdx?newMeal:m)}:d);
+    const newPlan={...plan,days:newDays};
+    setPlan(newPlan);
+    if(session?.token) apiPost("/api/plan",{plan:newPlan},session.token).catch(()=>{});
+  }
+
   function doneOnboarding(){sset("eatbc:onboarded",true);setScreen("welcome");}
 
   /* ── screens ── */
   if (screen==="onboarding") return <Onboarding onDone={doneOnboarding}/>;
-  if (screen==="welcome") return <Welcome onNew={()=>setScreen("quiz")} onLogin={()=>setScreen("login")}/>;
+  if (screen==="welcome") return <Welcome lang={lang} onLang={changeLang} onNew={()=>setScreen("quiz")} onLogin={()=>setScreen("login")}/>;
   if (screen==="login")   return <Login onDone={doLogin} onBack={()=>setScreen("welcome")}/>;
 
   if (screen==="quiz") return (
@@ -1494,7 +2053,7 @@ export default function App() {
         <div className="flex items-center gap-2 mb-6"><Logo size={28}/><span className="font-bold text-gray-700">EatBC</span></div>
         <div className="mb-6">
           <div className="flex justify-between text-xs text-gray-400 mb-2">
-            <span>Question {step+1} of {Q.length}</span><span>{Math.round(((step+1)/Q.length)*100)}%</span>
+            <span>{t("question")} {step+1} {t("of")} {Q.length}</span><span>{Math.round(((step+1)/Q.length)*100)}%</span>
           </div>
           <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
             <div className="h-2 rounded-full transition-all" style={{width:`${((step+1)/Q.length)*100}%`,background:GREEN}}/>
@@ -1554,18 +2113,18 @@ export default function App() {
         {err&&<div className="mt-4 flex items-center gap-2 text-red-500 text-sm"><AlertCircle size={16}/>{err}</div>}
         <div className="flex justify-between mt-8">
           <button onClick={()=>step>0?setStep(step-1):setScreen("welcome")}
-            className="px-5 py-2.5 text-gray-500 font-medium">Back</button>
+            className="px-5 py-2.5 text-gray-500 font-medium">{t("back")}</button>
           {step<Q.length-1?(
             <button disabled={!canNext} onClick={()=>setStep(step+1)}
               className="px-7 py-2.5 rounded-2xl text-white font-semibold disabled:opacity-40 inline-flex items-center gap-1 shadow-md"
               style={{background:GREEN}}>
-              Next <ChevronRight size={16}/>
+              {t("next")} <ChevronRight size={16}/>
             </button>
           ):(
             <button disabled={loading||!canNext} onClick={generate}
               className="px-7 py-2.5 rounded-2xl text-white font-semibold disabled:opacity-60 inline-flex items-center gap-2 shadow-md"
               style={{background:GREEN}}>
-              {loading?<><Loader2 className="animate-spin" size={16}/>Building…</>:<>Build my plan <Sparkles size={16}/></>}
+              {loading?<><Loader2 className="animate-spin" size={16}/>{t("building")}</>:<>{t("buildPlan")} <Sparkles size={16}/></>}
             </button>
           )}
         </div>
@@ -1630,7 +2189,7 @@ export default function App() {
 
         <div className="rounded-3xl p-5 mb-5" style={{background:"linear-gradient(135deg,#F0FAF4,#E7F7EF)"}}>
           <h3 className="font-bold mb-3 flex items-center gap-2" style={{color:GREEN}}>
-            <Sparkles size={18}/> Coach's tips
+            <Sparkles size={18}/> {t("coachTips")}
           </h3>
           <div className="grid md:grid-cols-2 gap-2.5">
             {plan.tips.map((tip,i)=>(
@@ -1659,8 +2218,9 @@ export default function App() {
   if (screen==="signup") return <Signup profile={profile} plan={plan} onDone={doSignup} onBack={()=>setScreen("plan")}/>;
 
   if (screen==="dash"&&session) return (
-    <Dash session={session} plan={plan} tracking={tracking}
-      onUpdate={(t)=>{setTracking(t);if(session?.token)apiPost("/api/tracking",{tracking:t},session.token).catch(()=>{});}}
+    <Dash session={session} plan={plan} tracking={tracking} lang={lang}
+      onUpdate={(tr)=>{setTracking(tr);if(session?.token)apiPost("/api/tracking",{tracking:tr},session.token).catch(()=>{});}}
+      onSwap={swapMeal}
       onLogout={logout}/>
   );
 

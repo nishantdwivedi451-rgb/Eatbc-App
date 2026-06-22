@@ -37,5 +37,16 @@ export async function ensureDb() {
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
+  /* Opt-in public leaderboard. Stores only display name + streak/points —
+     never health data — so it is intentionally NOT encrypted. */
+  await sql`
+    CREATE TABLE IF NOT EXISTS community (
+      user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      streak INTEGER NOT NULL DEFAULT 0,
+      points INTEGER NOT NULL DEFAULT 0,
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
   ready = true;
 }
