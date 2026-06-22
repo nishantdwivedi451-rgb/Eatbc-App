@@ -1406,11 +1406,13 @@ function Login({onDone,onBack}:{onDone:(sess:Session,plan?:Plan|null,tracking?:T
 /* ─────────────── Signup ─────────────── */
 function Signup({profile,plan,onDone,onBack}:{profile:Profile;plan:Plan|null;onDone:(sess:Session)=>void;onBack:()=>void}) {
   const [id,setId]=useState(""); const [pw,setPw]=useState(""); const [pw2,setPw2]=useState("");
+  const [consent,setConsent]=useState(false);
   const [err,setErr]=useState(""); const [busy,setBusy]=useState(false);
   async function submit() {
     setErr(""); if (!id.trim()||!pw){setErr("Enter both fields");return;}
     if (pw!==pw2){setErr("Passwords don't match");return;}
     if (pw.length<6){setErr("Password must be at least 6 characters");return;}
+    if (!consent){setErr("Please accept the consent & disclaimer to continue");return;}
     setBusy(true);
     try {
       const name=profile?.name||id;
@@ -1440,7 +1442,16 @@ function Signup({profile,plan,onDone,onBack}:{profile:Profile;plan:Plan|null;onD
         <input type="password" value={pw2} onChange={e=>setPw2(e.target.value)} placeholder="Repeat password"
           className="w-full px-4 py-3 rounded-2xl border-2 border-gray-200 outline-none focus:border-green-500 mb-2 mt-1"
           onKeyDown={e=>e.key==="Enter"&&submit()}/>
-        <p className="text-xs text-gray-400 mb-4">Your data is encrypted with AES-256 and stored securely.</p>
+        <p className="text-xs text-gray-400 mb-3">Your data is encrypted with AES-256 and stored securely.</p>
+        <label className="flex items-start gap-2.5 mb-4 cursor-pointer select-none">
+          <input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)}
+            className="mt-0.5 w-4 h-4 accent-green-600 shrink-0"/>
+          <span className="text-xs text-gray-500 leading-relaxed">
+            I consent to EatBC storing my health details to personalise my plan, and I understand EatBC
+            offers <strong className="text-gray-700">general wellness guidance — not medical advice</strong>.
+            I'll consult a doctor for any medical condition.
+          </span>
+        </label>
         {err&&<div className="mb-3 flex items-center gap-2 text-red-500 text-sm"><AlertCircle size={16}/>{err}</div>}
         <button disabled={busy} onClick={submit}
           className="w-full py-3.5 rounded-2xl text-white font-black text-base disabled:opacity-60 shadow-md"

@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 import { sql, ensureDb } from "./_lib/db.js";
 import { decrypt } from "./_lib/crypto.js";
+import { allow, clientIp } from "./_lib/ratelimit.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
@@ -13,6 +14,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: "Missing fields" });
 
   const userId = String(id).toLowerCase().trim();
+
+  // Throttle brute-force: 10 attempts / 15 min per IP, 8 per account.
+  const ip = clientIp(req);
+  const okIp = await allow(`login:ip:${ip}`, 10, 900);
+  const okAcct = await allow(`login:acct:${userId}`, 8, 900);
+  if (!okIp || !okAcct)
+    return res.status(429).json({ error: "Too many attempts — please wait a few minutes and try again." });
+
   const rows = await sql`SELECT id, name, password_hash FROM users WHERE id = ${userId}`;
   const user = rows[0] as { id: string; name: string; password_hash: string } | undefined;
   if (!user) return res.status(401).json({ error: "Invalid username or password" });
