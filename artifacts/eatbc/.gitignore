@@ -1,0 +1,8 @@
+node_modules
+dist
+.tsbuildinfo
+.vercel
+
+# Compiled API artifacts (TypeScript source is canonical)
+api/**/*.js
+api/**/*.js.map
