@@ -175,7 +175,7 @@ interface Profile {
   timeline?: string;
   goal?: string; condition?: string; diet?: string; region: string[];
   activity?: string; exercise?: string; meals?: string;
-  cooktime?: string; avoid?: string;
+  cooktime?: string; avoid?: string; weekend?: string;
 }
 interface Meal { time: string; food: string; cal: number; p?: number; qty: string; }
 interface PlanDay { day: DayName; meals: Meal[]; }
@@ -226,6 +226,9 @@ const Q: Question[] = [
   { k:"exercise",  label:"Exercise routine",                            type:"pick",   opts:["None","Walks / light","Gym 3x week","Gym 5x+ / sports"] },
   { k:"meals",     label:"Meals per day you prefer",                    type:"pick",   opts:["3 meals","3 meals + 2 snacks","5-6 small meals"] },
   { k:"cooktime",  label:"How do meals usually happen?",                type:"pick",   opts:["Minimal cooking (10-15 min)","Moderate (30 min)","I enjoy cooking","I get cooking help","I order online mostly"] },
+  { k:"weekend",   label:"What are weekends like for food?",            type:"pick",
+    sub:"Weekends often break routines — your plan adapts to your real life.",
+    opts:["Same as weekdays","Usually order in / eat out","Big family meals or parties","Gym + meal prep mode"] },
   { k:"avoid",     label:"Allergies / foods to avoid",                  type:"text",   sub:"Optional — skip if none.", ph:"e.g. lactose, peanuts" },
 ];
 
@@ -665,7 +668,7 @@ function buildPlan(profile: Profile): Plan {
       return {time:label,food:m.n,cal:m.c,p:m.p||0,qty:m.q};
     });
     const total=raw.reduce((a,b)=>a+b.cal,0);
-    let f=total?cal/total:1; f=Math.max(0.78,Math.min(1.28,f));
+    let f=total?cal/total:1; f=Math.max(0.78,Math.min(2.5,f));
     raw=raw.map(m=>({...m,cal:Math.round((m.cal*f)/5)*5}));
     if (di%7===6) weekUsed.clear();
     return {day:dn as DayName,meals:raw};
@@ -752,7 +755,7 @@ type Lang = "en" | "hi";
 const STR: Record<string,{en:string;hi:string}> = {
   newWarrior:{en:"I'm a New Warrior 🔥",hi:"मैं नया योद्धा हूँ 🔥"},
   alreadyHustle:{en:"I Already Hustle 💪",hi:"मैं पहले से जुटा हूँ 💪"},
-  tagline:{en:"Eat Better. Change.",hi:"बेहतर खाओ। बदलो।"},
+  tagline:{en:"Eat Better. Count.",hi:"बेहतर खाओ। गिनो।"},
   todaysSpark:{en:"Today's spark",hi:"आज की प्रेरणा"},
   notMedical:{en:"Not medical advice — consult your doctor for any condition.",hi:"यह चिकित्सकीय सलाह नहीं है — किसी भी स्थिति के लिए डॉक्टर से सलाह लें।"},
   skip:{en:"Skip",hi:"छोड़ें"},
@@ -933,16 +936,17 @@ function WeightLog({t,onLog}:{t:Tracking;onLog:(w:number)=>void}) {
 function OnbSlide1() {
   const [ct,setCt]=useState(0);
   useEffect(()=>{
-    const iv=setInterval(()=>setCt(c=>c>=2000?2000:c+55),30);
+    const iv=setInterval(()=>setCt(c=>c>=2000?2000:c+50),22);
     return()=>clearInterval(iv);
   },[]);
   return(
     <div className="flex flex-col items-center text-center">
-      <div className="mb-5" style={{fontSize:68}}>📚</div>
-      <div className="font-black text-white leading-none mb-3" style={{fontSize:76}}>{ct.toLocaleString()}+</div>
-      <p className="font-bold text-xl mb-5" style={{color:"#86efac"}}>Nutrition &amp; Dietetics<br/>Ebooks</p>
-      <p className="leading-relaxed text-[15px] max-w-[280px]" style={{color:"rgba(255,255,255,0.62)"}}>
-        Over <strong className="text-white">2,000 scientific ebooks</strong> on nutrition and dietetics were fed to the AI while building this app — so every recommendation is backed by real science.
+      <div className="mb-4" style={{fontSize:72,animation:"onbPulse 2.5s ease-in-out infinite",filter:"drop-shadow(0 0 28px rgba(0,255,157,0.45))"}}>🧬</div>
+      <div className="font-black leading-none mb-1 tabular-nums"
+        style={{fontSize:86,color:"#00FF9D",textShadow:"0 0 48px rgba(0,255,157,0.4)",letterSpacing:"-3px"}}>{ct.toLocaleString()}+</div>
+      <p className="font-black mb-4" style={{fontSize:20,color:"rgba(255,255,255,0.9)",letterSpacing:"-0.3px"}}>Nutrition Studies</p>
+      <p style={{color:"rgba(255,255,255,0.48)",fontSize:14,maxWidth:250,lineHeight:1.7}}>
+        Real science behind every meal. Peer-reviewed nutrition research — not influencer guesswork.
       </p>
     </div>
   );
@@ -950,14 +954,14 @@ function OnbSlide1() {
 function OnbSlide2() {
   return(
     <div className="flex flex-col items-center text-center">
-      <div className="mb-5 w-20 h-20 rounded-3xl flex items-center justify-center"
-        style={{background:"rgba(147,197,253,0.15)",backdropFilter:"blur(8px)",fontSize:38}}>🔐</div>
-      <span className="inline-block rounded-full px-4 py-1 text-xs font-black mb-4 tracking-widest uppercase"
-        style={{background:"rgba(147,197,253,0.15)",color:"#93c5fd"}}>Military-Grade Security</span>
-      <h2 className="font-black text-white mb-4" style={{fontSize:50,lineHeight:1.1,letterSpacing:"-1px"}}>AES-256<br/>Encrypted</h2>
-      <p className="leading-relaxed text-[15px] max-w-[280px]" style={{color:"rgba(255,255,255,0.62)"}}>
-        Your health and personal data uses <strong className="text-white">AES-256</strong> — the gold standard used by governments and banks.{" "}
-        <strong className="text-white">Your data is encrypted at rest — never readable in plain text on our servers.</strong>
+      <div className="mb-5" style={{fontSize:72,animation:"onbPulse 2.5s ease-in-out infinite",filter:"drop-shadow(0 0 28px rgba(96,165,250,0.5))"}}>🔐</div>
+      <div className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 mb-5"
+        style={{background:"rgba(96,165,250,0.14)",border:"1px solid rgba(96,165,250,0.28)"}}>
+        <span style={{color:"#60A5FA",fontSize:11,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase"}}>Military-Grade Security</span>
+      </div>
+      <h2 className="font-black text-white mb-4" style={{fontSize:62,lineHeight:0.92,letterSpacing:"-2.5px"}}>AES‑256<br/>Encrypted</h2>
+      <p style={{color:"rgba(255,255,255,0.48)",fontSize:14,maxWidth:250,lineHeight:1.7}}>
+        Your health data encrypted at rest. Not even we can read it in plain text.
       </p>
     </div>
   );
@@ -965,13 +969,14 @@ function OnbSlide2() {
 function OnbSlide3() {
   return(
     <div className="flex flex-col items-center text-center">
-      <div className="mb-5" style={{fontSize:68}}>🫂</div>
-      <span className="inline-block rounded-full px-4 py-1 text-xs font-black mb-4 tracking-widest uppercase"
-        style={{background:"rgba(216,180,254,0.15)",color:"#d8b4fe"}}>Community First</span>
-      <h2 className="font-black text-white mb-4" style={{fontSize:54,lineHeight:1.1,letterSpacing:"-1px"}}>Free.<br/>Forever.</h2>
-      <p className="leading-relaxed text-[15px] max-w-[280px]" style={{color:"rgba(255,255,255,0.62)"}}>
-        Unlike other health apps, EatBC is a <strong className="text-white">community tool</strong>.{" "}
-        It will <strong className="text-white">never charge a premium for any feature</strong> — no paywalls, no tiers, ever.
+      <div className="mb-5" style={{fontSize:72,animation:"onbPulse 2.5s ease-in-out infinite",filter:"drop-shadow(0 0 28px rgba(192,132,252,0.5))"}}>✊</div>
+      <div className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 mb-5"
+        style={{background:"rgba(192,132,252,0.14)",border:"1px solid rgba(192,132,252,0.28)"}}>
+        <span style={{color:"#C084FC",fontSize:11,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase"}}>Community First</span>
+      </div>
+      <h2 className="font-black text-white mb-4" style={{fontSize:72,lineHeight:0.92,letterSpacing:"-2.5px"}}>Free.<br/>Always.</h2>
+      <p style={{color:"rgba(255,255,255,0.48)",fontSize:14,maxWidth:250,lineHeight:1.7}}>
+        No paywalls. No premium tiers. No bullsh*t. Built for the community.
       </p>
     </div>
   );
@@ -1006,7 +1011,7 @@ function OnbSlide4({anim}:{anim:number}) {
             textShadow:anim>=3?"0 0 40px rgba(46,206,120,0.6),0 0 80px rgba(46,206,120,0.3)":"none",
             transition:"text-shadow 0.8s ease",
           }}>EatBC</h1>
-        <p className="font-bold text-lg mt-2" style={{color:"#86efac"}}>Eat Better. Change.</p>
+        <p className="font-bold text-lg mt-2" style={{color:"#86efac"}}>Eat Better. Count.</p>
       </div>
     </div>
   );
@@ -1050,10 +1055,10 @@ function Onboarding({onDone}:{onDone:()=>void}) {
   }
 
   const BKGS=[
-    "linear-gradient(155deg,#061c0f 0%,#083d1d 45%,#0c6130 100%)",
-    "linear-gradient(155deg,#060c1f 0%,#0d1e52 45%,#163087 100%)",
-    "linear-gradient(155deg,#130821 0%,#2d0f5e 45%,#5520a8 100%)",
-    "linear-gradient(155deg,#010905 0%,#031407 45%,#062916 100%)",
+    "linear-gradient(155deg,#050f08 0%,#071a0e 45%,#0a2415 100%)",
+    "linear-gradient(155deg,#050810 0%,#080f28 45%,#0c1840 100%)",
+    "linear-gradient(155deg,#0a0514 0%,#160a2e 45%,#23104a 100%)",
+    "linear-gradient(155deg,#030a05 0%,#050f08 45%,#071408 100%)",
   ];
 
   return(
@@ -1098,6 +1103,24 @@ function Onboarding({onDone}:{onDone:()=>void}) {
 }
 
 /* ─────────────── Welcome ─────────────── */
+const FLOAT_FOODS = ["🥗","🫓","🥑","🍎","🥦","🍚","🥛","🫐","🍊","🥚","🌾","🥜","🍋","🥕","🫑"];
+function FloatingFoods() {
+  const items = useRef(FLOAT_FOODS.map((emoji,i)=>({
+    emoji, left:`${6+i*6.2}%`, delay:`${i*0.7}s`, duration:`${8+i%4*1.5}s`, size: 20+i%3*4,
+  }))).current;
+  return(
+    <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{zIndex:1}}>
+      {items.map((f,i)=>(
+        <span key={i} className="absolute select-none"
+          style={{left:f.left,bottom:"-10%",fontSize:f.size,
+            animation:`floatFood ${f.duration} ${f.delay} ease-in infinite`,
+            opacity:0.55,filter:"drop-shadow(0 2px 6px rgba(0,0,0,0.15))"}}>
+          {f.emoji}
+        </span>
+      ))}
+    </div>
+  );
+}
 function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;onNew:()=>void;onLogin:()=>void}) {
   const t=makeT(lang);
   const [quote]=useState(pickQuote);
@@ -1105,11 +1128,11 @@ function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;on
   useEffect(()=>{const tm=setTimeout(()=>setVisible(true),80);return()=>clearTimeout(tm);},[]);
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-5 py-10 relative overflow-hidden"
-      style={{background:"linear-gradient(160deg,#064E30 0%,#0E8A4D 40%,#1DAA61 75%,#2DCE78 100%)"}}>
+      style={{background:"linear-gradient(160deg,#043d25 0%,#0a6e3c 35%,#1DAA61 70%,#28c46e 100%)"}}>
+      <FloatingFoods/>
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute rounded-full" style={{width:340,height:340,background:"rgba(255,255,255,0.06)",top:"-80px",right:"-80px"}}/>
-        <div className="absolute rounded-full" style={{width:260,height:260,background:"rgba(255,255,255,0.05)",bottom:"-60px",left:"-60px"}}/>
-        <div className="absolute rounded-full" style={{width:160,height:160,background:"rgba(255,255,255,0.07)",top:"45%",right:"-40px"}}/>
+        <div className="absolute rounded-full" style={{width:380,height:380,background:"rgba(255,255,255,0.05)",top:"-100px",right:"-100px"}}/>
+        <div className="absolute rounded-full" style={{width:280,height:280,background:"rgba(0,0,0,0.08)",bottom:"-70px",left:"-70px"}}/>
       </div>
       {/* Language toggle */}
       <div className="absolute z-20 flex items-center gap-1 rounded-full p-1" style={{top:20,right:20,background:"rgba(255,255,255,0.15)",backdropFilter:"blur(6px)"}}>
@@ -1225,7 +1248,8 @@ function Signup({profile,plan,onDone,onBack}:{profile:Profile;plan:Plan|null;onD
       const data=await apiPost("/api/register",{id:id.toLowerCase().trim(),name,password:pw});
       onDone({id:data.user.id,name:data.user.name,token:data.token});
     } catch(e:unknown) {
-      setErr((e as {error?:string})?.error||"Registration failed — try again.");
+      const msg=(e as {error?:string})?.error;
+      setErr(msg||(navigator.onLine?"Server not ready — make sure the Neon database is connected in Vercel Storage settings.":"No internet connection."));
     } finally { setBusy(false); }
   }
   return (
