@@ -180,7 +180,8 @@ interface Plan {
   tips: string[]; days: PlanDay[];
 }
 interface Session { id: string; name: string; token: string; }
-interface DayTracking { meals: Record<number, boolean>; water: number; }
+interface FoodLog { n: string; cal: number; qty: string; servings: number; }
+interface DayTracking { meals: Record<number, boolean>; water: number; log?: FoodLog[]; }
 interface Tracking {
   [day: string]: DayTracking | Record<string, number> | undefined;
   weights?: Record<string, number>;
@@ -341,6 +342,151 @@ const COND_SHORT: Record<string,string> = {
   "Pregnant":"pregnancy","Breastfeeding":"breastfeeding",
 };
 
+/* ─────────────── Food diary reference database ─────────────── */
+interface LogFood { n: string; c: number; q: string; cat: string; }
+const LOG_DB: LogFood[] = [
+  /* Grains & Staples */
+  {n:"Steamed rice",c:260,q:"1 cup cooked (180g)",cat:"Grains"},
+  {n:"Basmati rice",c:240,q:"1 cup cooked (180g)",cat:"Grains"},
+  {n:"Brown rice",c:215,q:"1 cup cooked (180g)",cat:"Grains"},
+  {n:"Whole wheat roti / chapati",c:80,q:"1 roti (30g)",cat:"Grains"},
+  {n:"Multigrain roti",c:75,q:"1 roti (30g)",cat:"Grains"},
+  {n:"Plain paratha",c:180,q:"1 paratha (60g)",cat:"Grains"},
+  {n:"Stuffed aloo paratha",c:300,q:"1 paratha (90g)",cat:"Grains"},
+  {n:"Naan",c:260,q:"1 naan (80g)",cat:"Grains"},
+  {n:"Puri",c:150,q:"2 puris (50g)",cat:"Grains"},
+  {n:"White bread",c:70,q:"1 slice (30g)",cat:"Grains"},
+  {n:"Brown/whole wheat bread",c:65,q:"1 slice (30g)",cat:"Grains"},
+  {n:"Poha (cooked)",c:300,q:"1.5 cups (220g)",cat:"Grains"},
+  {n:"Upma",c:230,q:"1 cup (180g)",cat:"Grains"},
+  {n:"Oats (cooked)",c:150,q:"1 cup (180g)",cat:"Grains"},
+  {n:"Daliya / broken wheat porridge",c:220,q:"1 cup (190g)",cat:"Grains"},
+  {n:"Semolina / suji upma",c:230,q:"1 cup (180g)",cat:"Grains"},
+  {n:"Idli",c:80,q:"1 idli (50g)",cat:"Grains"},
+  {n:"Dosa (plain)",c:175,q:"1 medium dosa (75g)",cat:"Grains"},
+  {n:"Uttapam",c:220,q:"1 medium (100g)",cat:"Grains"},
+  /* Dal & Legumes */
+  {n:"Dal tadka (yellow dal)",c:180,q:"1 cup (200g)",cat:"Dal & Legumes"},
+  {n:"Dal makhani",c:320,q:"1 cup (200g)",cat:"Dal & Legumes"},
+  {n:"Rajma curry",c:230,q:"1 cup (200g)",cat:"Dal & Legumes"},
+  {n:"Chana masala",c:280,q:"1 cup (200g)",cat:"Dal & Legumes"},
+  {n:"Moong dal",c:200,q:"1 cup (200g)",cat:"Dal & Legumes"},
+  {n:"Sambar",c:130,q:"1 cup (200g)",cat:"Dal & Legumes"},
+  {n:"Kadhi",c:160,q:"1 cup (200g)",cat:"Dal & Legumes"},
+  {n:"Chole",c:260,q:"1 cup (200g)",cat:"Dal & Legumes"},
+  {n:"Lobia / black-eyed peas",c:200,q:"1 cup (200g)",cat:"Dal & Legumes"},
+  /* Vegetables */
+  {n:"Aloo sabzi",c:200,q:"1 cup (180g)",cat:"Vegetables"},
+  {n:"Palak paneer",c:280,q:"1 cup (180g)",cat:"Vegetables"},
+  {n:"Paneer bhurji",c:250,q:"1 cup (150g)",cat:"Vegetables"},
+  {n:"Shahi paneer",c:340,q:"1 cup (180g)",cat:"Vegetables"},
+  {n:"Mixed veg sabzi",c:120,q:"1 cup (180g)",cat:"Vegetables"},
+  {n:"Gobi / cauliflower sabzi",c:130,q:"1 cup (180g)",cat:"Vegetables"},
+  {n:"Baingan bharta",c:150,q:"1 cup (180g)",cat:"Vegetables"},
+  {n:"Bhindi sabzi",c:130,q:"1 cup (180g)",cat:"Vegetables"},
+  {n:"Lauki / bottle gourd sabzi",c:80,q:"1 cup (180g)",cat:"Vegetables"},
+  {n:"Palak / spinach sabzi",c:100,q:"1 cup (180g)",cat:"Vegetables"},
+  {n:"Aloo matar",c:220,q:"1 cup (180g)",cat:"Vegetables"},
+  {n:"Raita",c:80,q:"1 cup (150g)",cat:"Vegetables"},
+  /* Protein */
+  {n:"Paneer (plain)",c:265,q:"100g",cat:"Protein"},
+  {n:"Egg — boiled",c:78,q:"1 large egg (50g)",cat:"Protein"},
+  {n:"Egg — omelette (2-egg)",c:190,q:"2-egg omelette (100g)",cat:"Protein"},
+  {n:"Egg bhurji (2-egg)",c:200,q:"2-egg scramble (100g)",cat:"Protein"},
+  {n:"Chicken curry",c:300,q:"1 cup (200g)",cat:"Protein"},
+  {n:"Chicken breast — grilled",c:165,q:"100g",cat:"Protein"},
+  {n:"Chicken — tandoori",c:220,q:"2 pieces (150g)",cat:"Protein"},
+  {n:"Fish curry",c:280,q:"1 cup (200g)",cat:"Protein"},
+  {n:"Fish — grilled / steamed",c:140,q:"100g",cat:"Protein"},
+  {n:"Mutton curry",c:380,q:"1 cup (200g)",cat:"Protein"},
+  {n:"Prawns — cooked",c:160,q:"100g",cat:"Protein"},
+  {n:"Tofu — plain",c:76,q:"100g",cat:"Protein"},
+  {n:"Soya chunks (dry)",c:345,q:"50g dry",cat:"Protein"},
+  /* Dairy */
+  {n:"Full fat milk",c:150,q:"1 glass (250ml)",cat:"Dairy"},
+  {n:"Toned milk",c:120,q:"1 glass (250ml)",cat:"Dairy"},
+  {n:"Dahi / curd",c:120,q:"1 cup (200g)",cat:"Dairy"},
+  {n:"Greek yogurt",c:100,q:"150g",cat:"Dairy"},
+  {n:"Butter",c:35,q:"1 tsp (5g)",cat:"Dairy"},
+  {n:"Ghee",c:45,q:"1 tsp (5g)",cat:"Dairy"},
+  {n:"Cheese slice",c:70,q:"1 slice (20g)",cat:"Dairy"},
+  {n:"Lassi — sweet",c:230,q:"1 glass (250ml)",cat:"Dairy"},
+  {n:"Lassi — salted",c:150,q:"1 glass (250ml)",cat:"Dairy"},
+  {n:"Buttermilk / chaas",c:70,q:"1 glass (250ml)",cat:"Dairy"},
+  {n:"Paneer (50g)",c:132,q:"50g",cat:"Dairy"},
+  /* Snacks & Street Food */
+  {n:"Samosa",c:260,q:"1 medium samosa",cat:"Snacks"},
+  {n:"Pakoda / bhajiya (4 pcs)",c:200,q:"4 pieces (80g)",cat:"Snacks"},
+  {n:"Vada pav",c:250,q:"1 piece",cat:"Snacks"},
+  {n:"Pav bhaji (2 pav)",c:450,q:"2 pav + bhaji",cat:"Snacks"},
+  {n:"Pani puri (6 pcs)",c:180,q:"6 pieces",cat:"Snacks"},
+  {n:"Bhel puri",c:180,q:"1 cup (120g)",cat:"Snacks"},
+  {n:"Dhokla (4 pcs)",c:200,q:"4 pieces (150g)",cat:"Snacks"},
+  {n:"Roasted chana",c:190,q:"50g",cat:"Snacks"},
+  {n:"Makhana / fox nuts",c:100,q:"30g",cat:"Snacks"},
+  {n:"Namkeen mixture",c:140,q:"30g",cat:"Snacks"},
+  {n:"Potato chips",c:160,q:"1 small pack (30g)",cat:"Snacks"},
+  {n:"Biscuits — Marie (4)",c:120,q:"4 biscuits (28g)",cat:"Snacks"},
+  {n:"Biscuits — digestive (2)",c:140,q:"2 biscuits (30g)",cat:"Snacks"},
+  /* Fruits */
+  {n:"Banana",c:90,q:"1 medium (100g)",cat:"Fruits"},
+  {n:"Apple",c:80,q:"1 medium (150g)",cat:"Fruits"},
+  {n:"Mango (Alfonso/Langra)",c:100,q:"1 cup chunks (150g)",cat:"Fruits"},
+  {n:"Papaya",c:55,q:"1 cup (150g)",cat:"Fruits"},
+  {n:"Watermelon",c:80,q:"2 cups (300g)",cat:"Fruits"},
+  {n:"Grapes",c:110,q:"1 cup (150g)",cat:"Fruits"},
+  {n:"Orange",c:62,q:"1 medium (130g)",cat:"Fruits"},
+  {n:"Guava",c:68,q:"1 medium (100g)",cat:"Fruits"},
+  {n:"Pineapple",c:82,q:"1 cup chunks (150g)",cat:"Fruits"},
+  {n:"Pomegranate",c:105,q:"1 cup arils (150g)",cat:"Fruits"},
+  {n:"Chickoo / sapota",c:120,q:"1 medium (100g)",cat:"Fruits"},
+  {n:"Dates",c:110,q:"3 pieces (30g)",cat:"Fruits"},
+  /* Beverages */
+  {n:"Chai — milk + sugar",c:80,q:"1 cup (200ml)",cat:"Beverages"},
+  {n:"Black tea / green tea",c:5,q:"1 cup (200ml)",cat:"Beverages"},
+  {n:"Coffee — with milk + sugar",c:90,q:"1 cup (200ml)",cat:"Beverages"},
+  {n:"Black coffee",c:5,q:"1 cup (200ml)",cat:"Beverages"},
+  {n:"Coconut water",c:60,q:"1 tender coconut (250ml)",cat:"Beverages"},
+  {n:"Cold drink / cola (can)",c:140,q:"1 can (330ml)",cat:"Beverages"},
+  {n:"Fresh fruit juice",c:100,q:"1 glass (200ml)",cat:"Beverages"},
+  {n:"Sugarcane juice",c:180,q:"1 glass (250ml)",cat:"Beverages"},
+  {n:"Protein shake (whey, 1 scoop)",c:120,q:"30g powder in water",cat:"Beverages"},
+  /* Restaurant & Takeout */
+  {n:"Biryani — chicken (plate)",c:540,q:"1 plate (350g)",cat:"Restaurant"},
+  {n:"Biryani — veg (plate)",c:450,q:"1 plate (300g)",cat:"Restaurant"},
+  {n:"Chole bhature",c:680,q:"2 bhature + chole",cat:"Restaurant"},
+  {n:"North Indian thali (full)",c:900,q:"1 full thali",cat:"Restaurant"},
+  {n:"Masala dosa",c:420,q:"1 dosa + chutney",cat:"Restaurant"},
+  {n:"Pizza — veg (1 slice)",c:250,q:"1 medium slice (100g)",cat:"Restaurant"},
+  {n:"Pizza — non-veg (1 slice)",c:290,q:"1 medium slice (110g)",cat:"Restaurant"},
+  {n:"Burger — veg",c:290,q:"1 standard burger",cat:"Restaurant"},
+  {n:"Burger — chicken",c:380,q:"1 standard burger",cat:"Restaurant"},
+  {n:"French fries — medium",c:340,q:"medium serving (115g)",cat:"Restaurant"},
+  {n:"Fried rice — veg",c:350,q:"1 plate (200g)",cat:"Restaurant"},
+  {n:"Noodles — Hakka (veg)",c:380,q:"1 plate (200g)",cat:"Restaurant"},
+  {n:"Paneer butter masala",c:360,q:"1 cup (180g)",cat:"Restaurant"},
+  /* Sweets & Desserts */
+  {n:"Gulab jamun",c:125,q:"1 piece (50g)",cat:"Sweets"},
+  {n:"Ladoo — besan",c:175,q:"1 piece (40g)",cat:"Sweets"},
+  {n:"Kheer / rice pudding",c:280,q:"1 cup (200g)",cat:"Sweets"},
+  {n:"Gajar halwa",c:250,q:"1 cup (150g)",cat:"Sweets"},
+  {n:"Rasgulla",c:100,q:"1 piece (50g)",cat:"Sweets"},
+  {n:"Ice cream (vanilla)",c:130,q:"1 scoop (65g)",cat:"Sweets"},
+  {n:"Chocolate (dark)",c:170,q:"30g (3 squares)",cat:"Sweets"},
+  {n:"Jalebi",c:150,q:"2 pieces (50g)",cat:"Sweets"},
+  /* Nuts, Seeds & Fats */
+  {n:"Almonds",c:70,q:"10 almonds (12g)",cat:"Nuts & Fats"},
+  {n:"Cashews",c:85,q:"10 cashews (14g)",cat:"Nuts & Fats"},
+  {n:"Walnuts",c:130,q:"6 halves (14g)",cat:"Nuts & Fats"},
+  {n:"Peanuts — roasted",c:160,q:"¼ cup (40g)",cat:"Nuts & Fats"},
+  {n:"Peanut butter",c:95,q:"1 tbsp (16g)",cat:"Nuts & Fats"},
+  {n:"Cooking oil",c:40,q:"1 tsp (5ml)",cat:"Nuts & Fats"},
+  {n:"Ghee",c:45,q:"1 tsp (5g)",cat:"Nuts & Fats"},
+  {n:"Coconut — grated",c:90,q:"¼ cup (20g)",cat:"Nuts & Fats"},
+  {n:"Honey",c:64,q:"1 tbsp (21g)",cat:"Nuts & Fats"},
+  {n:"Sugar",c:48,q:"1 tbsp (12g)",cat:"Nuts & Fats"},
+];
+
 /* ─────────────── calorie calculation ─────────────── */
 function mapRegions(arr: string[]): string[] {
   if (!arr||!arr.length) return ["n","s","e","w","all"];
@@ -351,43 +497,57 @@ function mapRegions(arr: string[]): string[] {
 
 function calcStats(d: Profile) {
   const cm=((+(d.heightFt||0))*12+(+(d.heightIn||0)))*2.54;
-  const h=cm/100, w=+(d.weight||0), age=+(d.age||30);
-  const bmi=w&&h?w/(h*h):0;
-  const bmr=d.sex==="Female"?10*w+6.25*cm-5*age-161:10*w+6.25*cm-5*age+5;
-  const mult: Record<string,number>={"Mostly desk job":1.3,"On feet / moderate":1.5,"Physically active":1.7};
-  let tdee=bmr*(mult[d.activity||""]||1.4);
+  const w=+(d.weight||70), age=+(d.age||30);
+  const isFemale=d.sex==="Female";
+
+  /* Mifflin-St Jeor BMR — most validated equation for Indian adults */
+  const bmr=isFemale?(10*w+6.25*cm-5*age-161):(10*w+6.25*cm-5*age+5);
+
+  /* Activity × Exercise combined PAL matrix (based on WHO/FAO 2001 recommendations) */
+  const PAL: Record<string,Record<string,number>>={
+    "Mostly desk job":    {"None":1.2,"Walks / light":1.375,"Gym 3x week":1.55,"Gym 5x+ / sports":1.65},
+    "On feet / moderate": {"None":1.375,"Walks / light":1.475,"Gym 3x week":1.6,"Gym 5x+ / sports":1.75},
+    "Physically active":  {"None":1.55,"Walks / light":1.65,"Gym 3x week":1.75,"Gym 5x+ / sports":1.9},
+  };
+  const pal=PAL[d.activity||"Mostly desk job"]?.[d.exercise||"None"]??1.4;
+  let tdee=bmr*pal;
+  const baseTdee=tdee;
 
   const cond=d.condition||"None";
-  const timeline=d.timeline||"6 months (recommended)";
+  /* Condition adjustments backed by clinical guidelines */
+  if (cond==="Thyroid (hypothyroid)") tdee*=0.9;        // 10% reduced resting metabolism
+  if (cond==="Pregnant")              tdee+=340;          // ACOG: +340 kcal in 2nd trimester
+  else if (cond==="Breastfeeding")    tdee+=500;          // +500 kcal for full milk production
 
-  /* Timeline-based deficit / surplus for weight loss & muscle gain */
+  const timeline=d.timeline||"6 months (recommended)";
+  /* Safe deficit/surplus: 0.5–1 kg/week fat loss, 0.25 kg/week muscle gain */
   const deficitMap: Record<string,number>={
-    "1 month (aggressive)":700,"3 months":500,
+    "1 month (aggressive)":750,"3 months":500,
     "6 months (recommended)":350,"1 year":200,"No fixed timeline":150,
   };
   const surplusMap: Record<string,number>={
-    "1 month (aggressive)":450,"3 months":350,
-    "6 months (recommended)":250,"1 year":200,"No fixed timeline":150,
+    "1 month (aggressive)":500,"3 months":350,
+    "6 months (recommended)":250,"1 year":150,"No fixed timeline":100,
   };
+  if (!["Pregnant","Breastfeeding"].includes(cond)) {
+    if (d.goal==="Weight loss")  tdee-=deficitMap[timeline]??350;
+    else if (d.goal==="Muscle gain") tdee+=surplusMap[timeline]??250;
+  }
 
-  if (cond==="Pregnant")      { tdee+=300; }          // no deficit, +300 for pregnancy
-  else if (cond==="Breastfeeding") { tdee+=500; }     // no deficit, +500 for milk production
-  else if (d.goal==="Weight loss")  { tdee-=deficitMap[timeline]||350; }
-  else if (d.goal==="Muscle gain")  { tdee+=surplusMap[timeline]||250; }
+  /* Floor: never drop below BMR (starvation risk) or absolute minimum */
+  const absMin=["Pregnant","Breastfeeding"].includes(cond)?1800:isFemale?1200:1500;
+  tdee=Math.max(Math.max(bmr,absMin),tdee);
 
-  const minCal=["Pregnant","Breastfeeding"].includes(cond)?1800:1300;
-  tdee=Math.max(minCal,tdee);
+  /* Weekly estimate based on caloric differential */
+  const weeklyKcal=(tdee-baseTdee)*7;                   // negative=deficit, positive=surplus
+  const weeklyKg=(Math.abs(weeklyKcal)/7700).toFixed(2);// 1 kg fat ≈ 7700 kcal
+  const direction=weeklyKcal<-50?"loss":weeklyKcal>50?"gain":"";
 
-  /* Weekly loss/gain estimate */
-  const diff=(tdee-(bmr*(mult[d.activity||""]||1.4)))*7;
-  const weeklyKg=(Math.abs(diff)/7700).toFixed(2);
-  const direction=diff<0?"loss":diff>0?"gain":"";
+  const bmi=w&&cm?w/((cm/100)**2):0;
+  /* Asian BMI cutoffs (WHO Asia-Pacific, 2004) — standard Western cutoffs underestimate risk for Indians */
+  const bmiCat=bmi<18.5?"Underweight":bmi<23?"Normal":bmi<27.5?"Overweight":"Obese";
 
-  return {
-    cm,bmi:bmi.toFixed(1),tdee:Math.round(tdee/10)*10,
-    bmiCat:bmi<18.5?"Underweight":bmi<25?"Normal":bmi<30?"Overweight":"Obese",
-    weeklyKg,direction,
-  };
+  return {cm,bmi:bmi.toFixed(1),bmiCat,tdee:Math.round(tdee/10)*10,weeklyKg,direction};
 }
 
 function dietOK(f: FoodItem, diet: string) {
@@ -977,6 +1137,132 @@ function Signup({profile,plan,onDone,onBack}:{profile:Profile;plan:Plan|null;onD
   );
 }
 
+/* ─────────────── Food Logger ─────────────── */
+function FoodLogger({log,onUpdate}:{log:FoodLog[];onUpdate:(l:FoodLog[])=>void}) {
+  const [open,setOpen]=useState(false);
+  const [search,setSearch]=useState("");
+  const [pending,setPending]=useState<LogFood|null>(null);
+  const [servings,setServings]=useState(1);
+  const [cat,setCat]=useState("All");
+
+  const total=log.reduce((s,x)=>s+x.cal,0);
+  const CATS=["All",...Array.from(new Set(LOG_DB.map(f=>f.cat)))];
+  const filtered=LOG_DB.filter(f=>{
+    const matchSearch=!search||f.n.toLowerCase().includes(search.toLowerCase());
+    const matchCat=cat==="All"||f.cat===cat;
+    return matchSearch&&matchCat;
+  }).slice(0,30);
+
+  function addFood(){
+    if(!pending)return;
+    const cal=Math.round(pending.c*servings);
+    const s=servings===1?"":`${servings}× `;
+    onUpdate([...log,{n:pending.n,cal,qty:`${s}${pending.q}`,servings}]);
+    setPending(null); setServings(1); setSearch(""); setOpen(false);
+  }
+  function remove(i:number){onUpdate(log.filter((_,idx)=>idx!==i));}
+
+  return(
+    <Card className="p-5 mb-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-bold text-gray-800 flex items-center gap-2">
+          <Utensils size={18} style={{color:GREEN}}/> Food Diary
+        </h3>
+        {total>0&&<span className="text-sm font-bold px-3 py-1 rounded-full" style={{background:"#EAF7F0",color:GREEN}}>{total} kcal</span>}
+      </div>
+      {log.length>0?(
+        <div className="space-y-1.5 mb-3">
+          {log.map((item,i)=>(
+            <div key={i} className="flex items-center gap-2 py-2 px-3 rounded-xl bg-gray-50">
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold text-gray-700 truncate">{item.n}</div>
+                <div className="text-xs text-gray-400">{item.qty}</div>
+              </div>
+              <span className="text-xs font-bold shrink-0 mr-1" style={{color:GREEN}}>{item.cal} kcal</span>
+              <button onClick={()=>remove(i)} className="text-gray-300 hover:text-red-400 transition text-base leading-none">✕</button>
+            </div>
+          ))}
+        </div>
+      ):(
+        <p className="text-sm text-gray-400 mb-3">Nothing logged yet — tap below to add what you actually ate.</p>
+      )}
+      {!open?(
+        <button onClick={()=>setOpen(true)}
+          className="w-full py-2.5 rounded-2xl border-2 border-dashed text-sm font-bold transition hover:bg-green-50"
+          style={{borderColor:GREEN,color:GREEN}}>
+          + Add food eaten
+        </button>
+      ):(
+        <div className="mt-1">
+          {pending?(
+            <div className="rounded-2xl p-4" style={{background:"#EAF7F0"}}>
+              <div className="font-bold text-gray-800 mb-0.5">{pending.n}</div>
+              <div className="text-xs text-gray-500 mb-4">1 serving = {pending.q} · {pending.c} kcal</div>
+              <p className="text-xs font-semibold text-gray-600 mb-2">How many servings?</p>
+              <div className="flex flex-wrap gap-1.5 mb-4">
+                {[0.25,0.5,0.75,1,1.25,1.5,2,2.5,3].map(s=>(
+                  <button key={s} onClick={()=>setServings(s)}
+                    className="px-3 py-1.5 rounded-xl text-xs font-bold transition"
+                    style={servings===s?{background:GREEN,color:"#fff"}:{background:"#fff",color:"#555",border:"1.5px solid #e5e7eb"}}>
+                    {s}×
+                  </button>
+                ))}
+              </div>
+              <div className="text-base font-black mb-4" style={{color:GREEN}}>
+                = {Math.round(pending.c*servings)} kcal
+              </div>
+              <div className="flex gap-2">
+                <button onClick={addFood}
+                  className="flex-1 py-2.5 rounded-xl text-white font-bold text-sm"
+                  style={{background:GREEN}}>
+                  Add to Diary
+                </button>
+                <button onClick={()=>setPending(null)}
+                  className="px-4 py-2.5 rounded-xl text-gray-500 text-sm border border-gray-200 bg-white">
+                  ← Back
+                </button>
+              </div>
+            </div>
+          ):(
+            <>
+              <input value={search} onChange={e=>setSearch(e.target.value)}
+                placeholder="Search food — dal, rice, samosa…"
+                className="w-full px-4 py-2.5 rounded-2xl border-2 border-gray-200 outline-none focus:border-green-500 text-sm mb-2"
+                autoFocus/>
+              <div className="flex gap-1.5 overflow-x-auto pb-1 mb-2">
+                {CATS.map(c=>(
+                  <button key={c} onClick={()=>setCat(c)}
+                    className="px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition"
+                    style={cat===c?{background:GREEN,color:"#fff"}:{background:"#f3f4f6",color:"#6b7280"}}>
+                    {c}
+                  </button>
+                ))}
+              </div>
+              <div className="max-h-60 overflow-y-auto space-y-0.5">
+                {filtered.map((f,i)=>(
+                  <button key={i} onClick={()=>{setPending(f);setServings(1);}}
+                    className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl hover:bg-gray-50 text-left transition">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold text-gray-700 truncate">{f.n}</div>
+                      <div className="text-xs text-gray-400 truncate">{f.q}</div>
+                    </div>
+                    <span className="text-xs font-bold shrink-0" style={{color:GREEN}}>{f.c}</span>
+                  </button>
+                ))}
+                {filtered.length===0&&<p className="text-sm text-gray-400 text-center py-6">No matches — try a different search</p>}
+              </div>
+              <button onClick={()=>{setOpen(false);setSearch("");setPending(null);}}
+                className="w-full mt-3 text-center text-gray-400 text-sm py-1 hover:text-gray-600">
+                Close
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 /* ─────────────── Dashboard ─────────────── */
 function Dash({session,plan,tracking,onUpdate,onLogout}:{
   session:Session;plan:Plan|null;tracking:Tracking;
@@ -996,7 +1282,9 @@ function Dash({session,plan,tracking,onUpdate,onLogout}:{
     [new Date().toISOString().slice(0,10)]:w
   }
 } as Tracking);
-  const consumed=dp?dp.meals.reduce((a,m,i)=>a+(dd.meals[i]?m.cal:0),0):0;
+  const planConsumed=dp?dp.meals.reduce((a,m,i)=>a+(dd.meals[i]?m.cal:0),0):0;
+  const diaryTotal=(dd.log||[]).reduce((s,x)=>s+x.cal,0);
+  const consumed=planConsumed+diaryTotal;
   const doneCount=dp?dp.meals.filter((_,i)=>dd.meals[i]).length:0;
   const streak=WEEK.filter(d=>{
     const x=tracking[d] as DayTracking|undefined;
@@ -1059,6 +1347,10 @@ function Dash({session,plan,tracking,onUpdate,onLogout}:{
                 })}
               </div>
             </Card>
+            <FoodLogger
+              log={dd.log||[]}
+              onUpdate={l=>onUpdate({...tracking,[sel]:{...dd,log:l}})}
+            />
             <Card className="p-5 mb-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-bold text-gray-800 flex items-center gap-2"><Droplet size={18} style={{color:GREEN}}/> Water</h3>
