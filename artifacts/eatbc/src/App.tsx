@@ -5,7 +5,7 @@ import {
   AlertCircle, Sunrise, Apple, Cookie, Moon, HeartPulse,
   Sparkles, Stethoscope, User, UserPlus, ArrowRight, Scale,
   Flame, BarChart3, Trophy, Users, Bell, Plus, RefreshCw,
-  Lightbulb, Globe, X, Check, Target,
+  Lightbulb, Globe, X, Check, Target, Dumbbell, CalendarDays,
 } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -176,14 +176,23 @@ interface Profile {
   goal?: string; condition?: string; diet?: string; region: string[];
   activity?: string; exercise?: string; meals?: string;
   cooktime?: string; avoid?: string; weekend?: string; foodPicks?: string[];
+  wantWorkout?: string; workoutPlace?: string; workoutFocus?: string; workoutDays?: string;
 }
 interface Meal { time: string; food: string; cal: number; p?: number; qty: string; }
 interface PlanDay { day: DayName; meals: Meal[]; }
+/* ── Workout plan types ── */
+interface WorkoutItem { name: string; sets: number; reps: string; note?: string; }
+interface WorkoutDay { label: string; focus: string; items: WorkoutItem[]; }
+interface WorkoutPlan {
+  place: string; focus: string; daysPerWeek: number;
+  schedule: (number | null)[];   // Mon..Sun → day index into days[], or null = rest
+  days: WorkoutDay[]; notes: string[];
+}
 interface Plan {
   summary: string; dailyCalories: number; proteinTarget: number; bmi: string; bmiCat: string;
   goal: string; diet: string; condition: string; regLabel: string;
   timeline: string; weeklyLoss: string;
-  tips: string[]; days: PlanDay[];
+  tips: string[]; days: PlanDay[]; workout?: WorkoutPlan | null;
 }
 interface Session { id: string; name: string; token: string; }
 interface FoodLog { n: string; cal: number; p?: number; qty: string; servings: number; }
@@ -191,11 +200,13 @@ interface DayTracking { meals: Record<number, boolean>; water: number; log?: Foo
 /* Date-keyed daily snapshot — powers real streaks, trends and insights. */
 interface HistEntry { onTrack: boolean; cal: number; protein: number; meals: number; total: number; water: number; }
 interface Tracking {
-  [day: string]: DayTracking | Record<string, number> | Record<string, HistEntry> | LogFood[] | string[] | string | undefined;
+  [day: string]: DayTracking | Record<string, number> | Record<string, HistEntry> | Record<string, boolean> | Record<string, number[]> | LogFood[] | string[] | string | undefined;
   weights?: Record<string, number>;
   history?: Record<string, HistEntry>;
   customFoods?: LogFood[];     // user-saved foods
   joinedChallenges?: string[]; // challenge ids the user opted into
+  workouts?: Record<string, boolean>;   // date → workout session completed
+  workoutSets?: Record<string, number[]>; // date → completed exercise indices
   lang?: string;
 }
 type Screen = "welcome" | "quiz" | "foodgame" | "plan" | "login" | "signup" | "dash" | "onboarding";
@@ -205,6 +216,7 @@ interface Question {
   k: keyof Profile; label: string;
   type: "text" | "number" | "pick" | "multi" | "height";
   ph?: string; sub?: string; opts?: string[];
+  showIf?: (p: Profile) => boolean;   // conditional questions (e.g. workout branch)
 }
 const Q: Question[] = [
   { k:"name",      label:"What should we call you?",                    type:"text",   ph:"e.g. Nishant" },
@@ -219,11 +231,24 @@ const Q: Question[] = [
     opts:["1 month (aggressive)","3 months","6 months (recommended)","1 year","No fixed timeline"] },
   { k:"goal",      label:"Your primary goal",                           type:"pick",   opts:["Weight loss","Muscle gain","Maintain weight","General fitness"] },
   { k:"condition", label:"Any medical condition we should plan around?", type:"pick",
-    opts:["None","Diabetes / pre-diabetes","High BP (hypertension)","High cholesterol","Thyroid (hypothyroid)","Pregnant","Breastfeeding","Other"] },
+    opts:["None","Diabetes / pre-diabetes","High BP (hypertension)","High cholesterol","Thyroid (hypothyroid)","PCOS / PCOD","Pregnant","Breastfeeding","Other"] },
   { k:"diet",      label:"Your food preference",                        type:"pick",   opts:["Pure veg","Egg + veg","Non-veg","Vegan","Jain"] },
   { k:"region",    label:"Which cuisines do you enjoy?",                type:"multi",  sub:"Pick one or more — your plan mixes from these.", opts:["North Indian","South Indian","East Indian","West Indian","Punjabi","Gujarati","Rajasthani","Bengali","Goan","Coastal","Continental","East Asian"] },
   { k:"activity",  label:"Your daily activity level",                   type:"pick",   opts:["Mostly desk job","On feet / moderate","Physically active"] },
   { k:"exercise",  label:"Exercise routine",                            type:"pick",   opts:["None","Walks / light","Gym 3x week","Gym 5x+ / sports"] },
+  { k:"wantWorkout", label:"Want a workout plan too?",                   type:"pick",
+    sub:"We'll build a weekly training plan with a tracker, right alongside your diet.",
+    opts:["Yes, build my workout 💪","No, just the diet"],
+    showIf:(p)=>!!p.exercise&&p.exercise!=="None" },
+  { k:"workoutPlace", label:"Where will you train?",                     type:"pick",
+    opts:["Home — no equipment","Home — dumbbells / bands","Full gym","Outdoor / cardio"],
+    showIf:(p)=>p.wantWorkout==="Yes, build my workout 💪" },
+  { k:"workoutFocus", label:"What's your training focus?",               type:"pick",
+    opts:["Build muscle","Get stronger","Burn fat","Stay fit & mobile"],
+    showIf:(p)=>p.wantWorkout==="Yes, build my workout 💪" },
+  { k:"workoutDays", label:"How many days a week can you train?",        type:"pick",
+    opts:["2 days","3 days","4 days","5 days","6 days"],
+    showIf:(p)=>p.wantWorkout==="Yes, build my workout 💪" },
   { k:"meals",     label:"Meals per day you prefer",                    type:"pick",   opts:["3 meals","3 meals + 2 snacks","5-6 small meals"] },
   { k:"cooktime",  label:"How do meals usually happen?",                type:"pick",   opts:["Minimal cooking (10-15 min)","Moderate (30 min)","I enjoy cooking","I get cooking help","I order online mostly"] },
   { k:"weekend",   label:"What are weekends like for food?",            type:"pick",
@@ -271,6 +296,10 @@ const DB: FoodItem[] = [
   {n:"Misal pav",                         c:450,p:14,q:"1 cup misal (200g) + 2 pavs",                             slot:["b"],reg:["w"],t:["fiber","protein"]},
   {n:"Sabudana khichdi",                  c:350,p:4, q:"1½ cups (220g)",                                           slot:["b","es"],reg:["w"],t:[]},
   {n:"Banana peanut-butter toast",       c:320,p:10,q:"2 toast slices + 2 tbsp peanut butter + 1 banana",       slot:["b"],reg:["all"],jain:1,simple:1,t:[]},
+  {n:"Cinnamon oats with flaxseed",      c:290,p:11,q:"½ cup oats + 1 tbsp flaxseed + cinnamon + 200ml milk", slot:["b"],reg:["all"],dairy:1,simple:1,t:["lowgi","fiber","protein"]},
+  {n:"Besan-veg chilla with flaxseed",   c:300,p:15,q:"2 chillas (160g) + 1 tsp flaxseed",                     slot:["b"],reg:["n","all"],jain:1,simple:1,t:["protein","lowgi","fiber"]},
+  {n:"Ragi & walnut porridge",           c:270,p:8, q:"1½ cups (250ml) + 4 walnut halves",                     slot:["b"],reg:["s","all"],dairy:1,jain:1,simple:1,t:["lowgi","fiber"]},
+  {n:"Greek yogurt, berries & pumpkin seeds", c:240,p:16,q:"150g yogurt + ½ cup berries + 1 tbsp seeds",       slot:["b","ms"],reg:["all"],dairy:1,jain:1,simple:1,t:["protein","lowgi","fiber"]},
 
   /* ── Mid-morning snacks ── */
   {n:"Seasonal fruit bowl",              c:90, p:1, q:"1 cup mixed fruit (150g)",                                 slot:["ms","es"],reg:["all"],jain:1,simple:1,t:["lowgi","fiber"]},
@@ -332,6 +361,10 @@ const DB: FoodItem[] = [
   {n:"Dal with 2 roti & salad",         c:460,p:16,q:"2 rotis (60g each) + 1 cup dal + 1 cup salad",                  slot:["l","d"],reg:["all"],jain:1,simple:1,t:["fiber","protein"]},
   {n:"Missi roti with seasonal sabzi",  c:440,p:14,q:"2 missi rotis (70g each) + 1 cup sabzi",                        slot:["l","d"],reg:["n","all"],jain:1,simple:1,t:["fiber"]},
   {n:"Veg pulao with raita",            c:480,p:14,q:"1½ cups pulao (280g) + ½ cup raita",                             slot:["l","d"],reg:["all"],dairy:1,jain:1,simple:1,t:["fiber"]},
+  {n:"Grilled paneer & quinoa bowl",    c:480,p:26,q:"100g paneer + 1 cup quinoa + 1 cup veggies",                     slot:["l","d"],reg:["all"],dairy:1,jain:1,simple:1,t:["protein","lowgi","fiber"]},
+  {n:"Bajra khichdi with veggies",      c:440,p:14,q:"1½ cups (300g) bajra-moong khichdi",                            slot:["l","d"],reg:["w","all"],jain:1,simple:1,t:["lowgi","fiber","protein"]},
+  {n:"Sprout, chickpea & flax salad",   c:340,p:18,q:"1½ cups sprouts+chickpea + 1 tsp flaxseed + lemon",            slot:["l","d","es"],reg:["all"],jain:1,simple:1,t:["protein","lowgi","fiber"]},
+  {n:"Grilled chicken & millet bowl",   c:520,p:40,q:"150g chicken + 1 cup foxtail millet + sautéed greens",         slot:["l","d"],reg:["all"],meat:1,simple:1,t:["protein","lowgi","fiber"]},
 
   /* ── Bedtime ── */
   {n:"Turmeric milk",  c:120,p:8, q:"1 glass (250ml)",             slot:["bt"],reg:["all"],dairy:1,jain:1,simple:1,t:["lowgi"]},
@@ -357,7 +390,7 @@ const LABEL2SLOT: Record<string,string> = {
 const COND_SHORT: Record<string,string> = {
   "Diabetes / pre-diabetes":"blood sugar","High BP (hypertension)":"blood pressure",
   "High cholesterol":"cholesterol","Thyroid (hypothyroid)":"thyroid",
-  "Pregnant":"pregnancy","Breastfeeding":"breastfeeding",
+  "PCOS / PCOD":"PCOS/PCOD","Pregnant":"pregnancy","Breastfeeding":"breastfeeding",
 };
 
 /* ─────────────── community challenges ─────────────── */
@@ -592,6 +625,8 @@ function condOK(f: FoodItem, cond: string) {
   if (cond==="High BP (hypertension)") return !f.t.includes("highsalt");
   if (cond==="High cholesterol") return !f.t.includes("fried");
   if (cond==="Thyroid (hypothyroid)") return !f.t.includes("goitrogen");
+  /* PCOS/PCOD: insulin resistance — steer off high-sugar, high-GI items. */
+  if (cond==="PCOS / PCOD") return !f.t.includes("sugary");
   return true;
 }
 
@@ -624,7 +659,8 @@ function pickMeal(slot: string, target: number, di: number, used: Set<string>, c
   const scored=list.map(f=>{
     let s=-Math.abs(f.c-target)/Math.max(target,1);
     if (ctx.goal==="Muscle gain"&&f.t.includes("protein")) s+=0.45;
-    if ((ctx.goal==="Weight loss"||ctx.cond==="Diabetes / pre-diabetes")&&(f.t.includes("lowgi")||f.t.includes("fiber"))) s+=0.3;
+    if ((ctx.goal==="Weight loss"||ctx.cond==="Diabetes / pre-diabetes"||ctx.cond==="PCOS / PCOD")&&(f.t.includes("lowgi")||f.t.includes("fiber"))) s+=0.3;
+    if (ctx.cond==="PCOS / PCOD"&&f.t.includes("protein")) s+=0.3;   // protein steadies insulin response
     if (ctx.cond==="High cholesterol"&&f.t.includes("fiber")) s+=0.2;
     if (["Pregnant","Breastfeeding"].includes(ctx.cond)&&f.t.includes("protein")) s+=0.35;
     if (ctx.simplePref&&f.simple) s+=0.25;
@@ -648,6 +684,7 @@ function makeTips(p: Profile, _cal: number): string[] {
     "High BP (hypertension)":["Keep salt low — go easy on pickles, papad and packaged food.","Add potassium-rich foods like banana and coconut water."],
     "High cholesterol":["Avoid deep-fried food; use minimal oil for tadka.","Oats and soluble fibre help — keep them in your week."],
     "Thyroid (hypothyroid)":["Take thyroid medicine on an empty stomach, well before breakfast.","Don't skip meals — keep energy steady through the day."],
+    "PCOS / PCOD":["Favour low-GI carbs (millets, oats, whole dals) over white rice/maida to steady insulin.","Pair every carb with protein or healthy fat to blunt sugar spikes.","Add omega-3 & fibre — flaxseed, walnuts, methi and leafy greens help hormone balance.","Regular movement (even brisk walks) improves insulin sensitivity in PCOS."],
     "Pregnant":["Take iron, folate & calcium supplements as prescribed by your doctor.","Eat 5-6 small meals — large gaps can cause nausea.","Avoid raw/undercooked meat, raw sprouts and unpasteurised dairy."],
     "Breastfeeding":["Eat an extra 400–500 kcal for milk production — don't skip meals.","Stay very well hydrated — aim for 3+ litres of water a day.","Calcium-rich foods like curd, paneer and ragi support bone health."],
     "Other":["Review this plan with your doctor before starting."],
@@ -658,6 +695,129 @@ function makeTips(p: Profile, _cal: number): string[] {
     ?["When ordering, pick grilled, dal, roti, curd and salad over fried/creamy dishes."]
     :["Drink 2.5–3L water daily and aim for 7+ hours of sleep."];
   return [...g,...c,...extra].slice(0,5);
+}
+
+/* ─────────────── workout engine ─────────────── */
+type ExDef = { n: string; note?: string; hold?: boolean };
+/* Exercise pools by environment, grouped by movement pattern. */
+const EX: Record<string, Record<string, ExDef[]>> = {
+  home: {
+    push: [{n:"Push-ups"},{n:"Incline push-ups",note:"hands on a sofa"},{n:"Pike push-ups",note:"shoulders"},{n:"Bench dips",note:"on a chair"},{n:"Diamond push-ups",note:"triceps"}],
+    pull: [{n:"Towel door rows",note:"loop a towel around a door handle"},{n:"Superman hold",hold:true},{n:"Reverse snow angels"},{n:"Prone Y-T-W raises"}],
+    legs: [{n:"Bodyweight squats"},{n:"Reverse lunges",note:"each leg"},{n:"Glute bridges"},{n:"Wall sit",hold:true},{n:"Calf raises"},{n:"Bulgarian split squat",note:"each leg"}],
+    core: [{n:"Plank",hold:true},{n:"Bicycle crunches"},{n:"Mountain climbers"},{n:"Leg raises"},{n:"Side plank",hold:true,note:"each side"},{n:"Dead bug"}],
+    cardio:[{n:"Jumping jacks"},{n:"High knees"},{n:"Burpees"},{n:"Skater hops"}],
+  },
+  dumbbell: {
+    push: [{n:"DB floor / bench press"},{n:"DB shoulder press"},{n:"DB lateral raise"},{n:"Push-ups"},{n:"DB overhead triceps extension"}],
+    pull: [{n:"DB bent-over row"},{n:"DB reverse fly"},{n:"DB bicep curl"},{n:"DB shrug"},{n:"Single-arm DB row",note:"each side"}],
+    legs: [{n:"DB goblet squat"},{n:"DB Romanian deadlift"},{n:"DB walking lunge",note:"each leg"},{n:"DB calf raise"},{n:"DB step-ups",note:"each leg"}],
+    core: [{n:"Plank",hold:true},{n:"DB Russian twist"},{n:"Leg raises"},{n:"Dead bug"},{n:"Side plank",hold:true,note:"each side"}],
+    cardio:[{n:"DB thrusters"},{n:"Burpees"},{n:"Mountain climbers"}],
+  },
+  gym: {
+    push: [{n:"Barbell bench press"},{n:"Incline DB press"},{n:"Seated shoulder press"},{n:"Cable fly"},{n:"Triceps pushdown"}],
+    pull: [{n:"Lat pulldown"},{n:"Seated cable row"},{n:"Barbell / machine row"},{n:"Face pulls"},{n:"Barbell / DB curl"}],
+    legs: [{n:"Barbell squat"},{n:"Leg press"},{n:"Romanian deadlift"},{n:"Leg curl"},{n:"Leg extension"},{n:"Standing calf raise"}],
+    core: [{n:"Hanging leg raise"},{n:"Cable crunch"},{n:"Plank",hold:true},{n:"Cable woodchopper",note:"each side"}],
+    cardio:[{n:"Treadmill incline walk",note:"12 min"},{n:"Rowing machine",note:"10 min"},{n:"Cycling intervals",note:"12 min"}],
+  },
+  outdoor: {
+    cardio:[{n:"Brisk walk / jog",note:"25–30 min"},{n:"Run intervals",note:"1 min hard / 2 min easy ×6"},{n:"Stair climbs",note:"10 min"},{n:"Skipping rope"},{n:"Cycling",note:"20 min"}],
+    legs: [{n:"Bodyweight squats"},{n:"Walking lunges",note:"each leg"},{n:"Bench step-ups",note:"each leg"},{n:"Glute bridges"}],
+    core: [{n:"Plank",hold:true},{n:"Mountain climbers"},{n:"Bicycle crunches"}],
+    push: [{n:"Push-ups"},{n:"Bench dips"}],
+    pull: [{n:"Park bar rows",note:"if a bar is available"},{n:"Superman hold",hold:true}],
+  },
+};
+const PLACE_KEY: Record<string,string> = {
+  "Home — no equipment":"home","Home — dumbbells / bands":"dumbbell",
+  "Full gym":"gym","Outdoor / cardio":"outdoor",
+};
+const REP: Record<string,{sets:number;reps:string}> = {
+  "Build muscle":{sets:4,reps:"8–12"},
+  "Get stronger":{sets:5,reps:"4–6"},
+  "Burn fat":{sets:3,reps:"12–15"},
+  "Stay fit & mobile":{sets:3,reps:"10–15"},
+};
+/* which weekdays (Mon=0 … Sun=6) host a session for a given days/week */
+const WSCHED: Record<number,number[]> = {
+  2:[0,3], 3:[0,2,4], 4:[0,1,3,4], 5:[0,1,2,4,5], 6:[0,1,2,3,4,5],
+};
+
+function buildWorkout(p: Profile): WorkoutPlan | null {
+  if (!p.wantWorkout || !p.wantWorkout.startsWith("Yes")) return null;
+  const placeKey = PLACE_KEY[p.workoutPlace||""] || "home";
+  const pool = EX[placeKey];
+  const focus = p.workoutFocus || "Stay fit & mobile";
+  const rep = REP[focus] || REP["Stay fit & mobile"];
+  const days = parseInt(p.workoutDays||"3") || 3;
+  const muscle = focus==="Build muscle" || focus==="Get stronger";
+  const burn = focus==="Burn fat";
+  const cardioPlace = placeKey==="outdoor";
+
+  type Slot = { cat: string; n: number };
+  const FB=(label:string):{label:string;focus:string;cats:Slot[]}=>(
+    {label,focus:"Full body",cats:[{cat:"legs",n:1},{cat:"push",n:1},{cat:"pull",n:1},{cat:"core",n:1}]});
+  const push={label:"Push",focus:"Chest · shoulders · triceps",cats:[{cat:"push",n:3},{cat:"core",n:1}]};
+  const pull={label:"Pull",focus:"Back · biceps",cats:[{cat:"pull",n:3},{cat:"core",n:1}]};
+  const legs={label:"Legs",focus:"Quads · hamstrings · glutes",cats:[{cat:"legs",n:3},{cat:"core",n:1}]};
+  const upper={label:"Upper Body",focus:"Chest · back · arms",cats:[{cat:"push",n:2},{cat:"pull",n:2},{cat:"core",n:1}]};
+  const lower={label:"Lower Body",focus:"Legs · core",cats:[{cat:"legs",n:3},{cat:"core",n:1}]};
+
+  let templates:{label:string;focus:string;cats:Slot[]}[];
+  if (cardioPlace) {
+    templates = Array.from({length:Math.min(days,6)},(_,i)=>(
+      {label:`Session ${i+1}`,focus:"Cardio + circuit",
+       cats:[{cat:"cardio",n:1},{cat:"legs",n:1},{cat:"core",n:1},{cat:"push",n:1}]}));
+  } else if (days<=2) templates=[FB("Full Body A"),FB("Full Body B")];
+  else if (days===3) templates=muscle?[push,pull,legs]:[FB("Full Body A"),FB("Full Body B"),FB("Full Body C")];
+  else if (days===4) templates=[upper,lower,upper,lower];
+  else if (days===5) templates=[push,pull,legs,upper,lower];
+  else templates=[push,pull,legs,push,pull,legs];
+
+  const mkItem=(e:ExDef,cat:string):WorkoutItem=>{
+    const each = !!e.note && e.note.includes("each");
+    const tip = e.note && !each ? e.note : undefined;       // keep only real tips as note
+    if (cat==="cardio") return {name:e.n,sets:1,reps:e.note||"10–12 min"};
+    if (e.hold) return {name:e.n,sets:rep.sets,reps:`30–45 sec${each?" each side":""}`,note:tip};
+    return {name:e.n,sets:rep.sets,reps:`${rep.reps}${each?" each side":""}`,note:tip};
+  };
+
+  const dayObjs:WorkoutDay[]=templates.map((tpl,di)=>{
+    const items:WorkoutItem[]=[];
+    tpl.cats.forEach(slot=>{
+      const list=pool[slot.cat]||[];
+      for (let i=0;i<slot.n && i<list.length;i++){
+        const e=list[(di*2+i)%list.length];
+        if (!items.some(x=>x.name===e.n)) items.push(mkItem(e,slot.cat));
+      }
+    });
+    if (burn && pool.cardio?.length){
+      const c=pool.cardio[di%pool.cardio.length];
+      items.push({name:`Finisher: ${c.n}`,sets:1,reps:c.note||"6–8 min"});
+    }
+    return {label:`Day ${di+1} — ${tpl.label}`,focus:tpl.focus,items};
+  });
+
+  /* map to weekdays */
+  const wdays=WSCHED[Math.min(Math.max(days,2),6)]||WSCHED[3];
+  const schedule:(number|null)[]=Array(7).fill(null);
+  wdays.forEach((wd,order)=>{ schedule[wd]=order%dayObjs.length; });
+
+  const restNote=days>=6?"One full rest day keeps recovery on track.":"Rest days are when muscle actually rebuilds — don't skip them.";
+  const intensity=focus==="Get stronger"?"Rest 2–3 min between heavy sets."
+    :burn?"Keep rest short (30–45 sec) to keep the heart rate up."
+    :"Rest 60–90 sec between sets.";
+  const notes=[
+    "Warm up 5 min (light cardio + dynamic stretches) before every session.",
+    intensity,
+    "Add a little weight or 1–2 reps whenever a set feels easy — progressive overload drives results.",
+    restNote,
+    "Form first, ego last. Stop if you feel sharp pain.",
+  ];
+
+  return {place:p.workoutPlace||"Home",focus,daysPerWeek:days,schedule,days:dayObjs,notes};
 }
 
 function buildPlan(profile: Profile): Plan {
@@ -711,7 +871,7 @@ function buildPlan(profile: Profile): Plan {
     dailyCalories:cal,proteinTarget,bmi:st.bmi,bmiCat:st.bmiCat,
     goal:profile.goal||"General fitness",diet:profile.diet||"Pure veg",
     condition:cond,regLabel,timeline,weeklyLoss,
-    tips:makeTips(profile,cal),days,
+    tips:makeTips(profile,cal),days,workout:buildWorkout(profile),
   };
 }
 
@@ -1938,6 +2098,157 @@ function ReminderToggle({t}:{t:(k:keyof typeof STR)=>string}) {
   );
 }
 
+/* ─────────────── Workout tab + tracker ─────────────── */
+function workoutStreak(workouts: Record<string,boolean>): number {
+  let streak=0;
+  for (let i=0;i<400;i++){
+    const iso=isoShift(-i);
+    if (workouts[iso]) streak++;
+    else if (i===0) continue;     // today not done yet — keep counting back
+    else break;
+  }
+  return streak;
+}
+function WorkoutTab({workout,tracking,onUpdate}:{
+  workout:WorkoutPlan;tracking:Tracking;onUpdate:(t:Tracking)=>void;
+}) {
+  const todayIdx=(new Date().getDay()+6)%7;            // Mon=0
+  const iso=isoDate();
+  const dayIdx=workout.schedule[todayIdx];
+  const isRest=dayIdx===null||dayIdx===undefined;
+  const session=isRest?null:workout.days[dayIdx];
+  const workouts=tracking.workouts||{};
+  const sets=tracking.workoutSets||{};
+  const doneIdx=sets[iso]||[];
+  const completedToday=!!workouts[iso];
+  const streak=workoutStreak(workouts);
+  const weekDone=Array.from({length:7}).filter((_,i)=>workouts[isoShift(-i)]).length;
+
+  const toggleEx=(i:number)=>{
+    const cur=sets[iso]||[];
+    const next=cur.includes(i)?cur.filter(x=>x!==i):[...cur,i];
+    onUpdate({...tracking,workoutSets:{...sets,[iso]:next}});
+  };
+  const markDone=()=>onUpdate({...tracking,workouts:{...workouts,[iso]:!completedToday}});
+
+  const DOW=["M","T","W","T","F","S","S"];
+  return (
+    <>
+      {/* streak header */}
+      <div className="rounded-3xl p-5 mb-4 text-white shadow-lg"
+        style={{background:"linear-gradient(135deg,#5B21B6 0%,#7C3AED 55%,#9333EA 100%)"}}>
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-1"><Dumbbell size={18}/><span className="font-bold text-sm">Your Training</span></div>
+            <div className="text-3xl font-black flex items-center gap-1.5"><Flame size={24}/>{streak}</div>
+            <div className="text-white/70 text-xs">workout day streak</div>
+          </div>
+          <div className="text-right">
+            <div className="text-2xl font-bold">{weekDone}<span className="text-base font-normal text-white/60">/{workout.daysPerWeek}</span></div>
+            <div className="text-white/70 text-xs">sessions this week</div>
+          </div>
+        </div>
+        <div className="text-white/80 text-xs mt-3">{workout.focus} · {workout.place} · {workout.daysPerWeek} days/week</div>
+      </div>
+
+      {/* weekly schedule strip */}
+      <div className="bg-white rounded-2xl border border-gray-100 p-3 mb-4 flex justify-between">
+        {DOW.map((d,i)=>{
+          const wi=workout.schedule[i];
+          const rest=wi===null||wi===undefined;
+          const isToday=i===todayIdx;
+          return (
+            <div key={i} className="flex flex-col items-center gap-1 flex-1">
+              <span className={`text-[11px] font-bold ${isToday?"text-purple-600":"text-gray-400"}`}>{d}</span>
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-bold"
+                style={rest?{background:"#F3F4F6",color:"#9CA3AF"}:{background:isToday?"#7C3AED":"#EDE9FE",color:isToday?"#fff":"#7C3AED"}}>
+                {rest?"·":(workouts[isoShift(-(todayIdx-i))]&&i<=todayIdx?"✓":(wi as number)+1)}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* today's session */}
+      {isRest?(
+        <div className="bg-white rounded-3xl border border-gray-100 p-7 text-center mb-4">
+          <div className="text-5xl mb-3">😌</div>
+          <h3 className="font-black text-gray-800 text-lg">Rest day</h3>
+          <p className="text-gray-500 text-sm mt-1">Recovery is where progress happens. A light walk or stretch is perfect today.</p>
+        </div>
+      ):session&&(
+        <div className="bg-white rounded-3xl border border-gray-100 p-5 mb-4">
+          <div className="flex items-center justify-between mb-1">
+            <h3 className="font-black text-gray-800 text-lg">{session.label}</h3>
+            {completedToday&&<span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{background:"#EDE9FE",color:"#7C3AED"}}>Done ✓</span>}
+          </div>
+          <p className="text-gray-400 text-sm mb-4">{session.focus}</p>
+          <div className="space-y-2">
+            {session.items.map((it,i)=>{
+              const on=doneIdx.includes(i);
+              return (
+                <button key={i} onClick={()=>toggleEx(i)}
+                  className="w-full flex items-center gap-3 p-3 rounded-2xl border-2 text-left transition"
+                  style={on?{background:"#F5F3FF",borderColor:"#C4B5FD"}:{borderColor:"#F3F4F6"}}>
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 border-2"
+                    style={on?{background:"#7C3AED",borderColor:"#7C3AED"}:{borderColor:"#D1D5DB"}}>
+                    {on&&<Check size={14} color="#fff" strokeWidth={3}/>}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className={`font-semibold text-sm ${on?"text-purple-900":"text-gray-800"}`}>{it.name}</div>
+                    {it.note&&<div className="text-[11px] text-gray-400">{it.note}</div>}
+                  </div>
+                  <div className="text-xs font-bold text-gray-500 shrink-0 text-right">
+                    {it.sets>1&&<span>{it.sets} × </span>}{it.reps}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          <button onClick={markDone}
+            className="w-full mt-4 py-3 rounded-2xl font-black text-white transition active:scale-[0.98]"
+            style={{background:completedToday?"#9CA3AF":"#7C3AED"}}>
+            {completedToday?"Mark as not done":"Complete workout 💪"}
+          </button>
+        </div>
+      )}
+
+      {/* full plan */}
+      <div className="bg-white rounded-3xl border border-gray-100 p-5 mb-4">
+        <div className="flex items-center gap-2 mb-3"><CalendarDays size={16} className="text-purple-600"/><h3 className="font-black text-gray-800">Full weekly plan</h3></div>
+        <div className="space-y-3">
+          {workout.days.map((d,i)=>(
+            <details key={i} className="rounded-2xl border border-gray-100 overflow-hidden">
+              <summary className="px-4 py-3 cursor-pointer font-semibold text-sm text-gray-800 flex items-center justify-between">
+                <span>{d.label}</span><span className="text-xs text-gray-400">{d.items.length} exercises</span>
+              </summary>
+              <div className="px-4 pb-3 space-y-1.5">
+                <p className="text-xs text-gray-400 mb-2">{d.focus}</p>
+                {d.items.map((it,j)=>(
+                  <div key={j} className="flex justify-between text-sm">
+                    <span className="text-gray-700">{it.name}{it.note?<span className="text-gray-400"> · {it.note}</span>:""}</span>
+                    <span className="text-gray-500 font-medium shrink-0 ml-2">{it.sets>1?`${it.sets} × `:""}{it.reps}</span>
+                  </div>
+                ))}
+              </div>
+            </details>
+          ))}
+        </div>
+      </div>
+
+      {/* coaching notes */}
+      <div className="rounded-3xl p-5 mb-4" style={{background:"#F5F3FF"}}>
+        <div className="flex items-center gap-2 mb-2"><Lightbulb size={16} className="text-purple-600"/><h3 className="font-black text-purple-900 text-sm">Training notes</h3></div>
+        <ul className="space-y-1.5">
+          {workout.notes.map((n,i)=>(
+            <li key={i} className="text-xs text-purple-900/80 flex gap-2"><span className="text-purple-400">•</span>{n}</li>
+          ))}
+        </ul>
+      </div>
+    </>
+  );
+}
+
 /* ─────────────── Dashboard ─────────────── */
 function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout}:{
   session:Session;plan:Plan|null;tracking:Tracking;lang:Lang;
@@ -1999,9 +2310,12 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout}:{
   const toggleChallenge=(id:string)=>onUpdate({...tracking,joinedChallenges:joined.includes(id)?joined.filter(x=>x!==id):[...joined,id]});
   const saveCustom=(f:LogFood)=>onUpdate({...tracking,customFoods:[...(tracking.customFoods||[]),f]});
 
-  const [tab,setTab]=useState<"today"|"progress"|"community">("today");
+  const [tab,setTab]=useState<"today"|"train"|"progress"|"community">("today");
+  const hasWorkout=!!plan?.workout;
   const TABS:[typeof tab,string,React.ElementType][]=[
-    ["today","Today",Utensils],["progress","Progress",BarChart3],["community",t("community"),Users],
+    ["today","Today",Utensils],
+    ...(hasWorkout?[["train","Train",Dumbbell] as [typeof tab,string,React.ElementType]]:[]),
+    ["progress","Progress",BarChart3],["community",t("community"),Users],
   ];
 
   return (
@@ -2114,6 +2428,10 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout}:{
           </>
         )}
 
+        {tab==="train"&&plan?.workout&&(
+          <WorkoutTab workout={plan.workout} tracking={tracking} onUpdate={onUpdate}/>
+        )}
+
         {tab==="progress"&&(
           <>
             <TrendsCard history={history} calTarget={cal} proteinTarget={proteinTargetVal} weights={tracking.weights||{}} t={t}/>
@@ -2169,7 +2487,10 @@ export default function App() {
     }
   },[]);
 
-  const cur=Q[step];
+  /* Active question list respects conditional questions (workout branch). */
+  const activeQ=Q.filter(q=>!q.showIf||q.showIf(profile));
+  const stepClamped=Math.min(step,activeQ.length-1);
+  const cur=activeQ[stepClamped];
   const setVal=(v:string|string[])=>setProfile(p=>({...p,[cur.k]:v}));
   const toggleMulti=(o:string)=>setProfile(p=>{
     const a=(p[cur.k] as string[])||[];
@@ -2264,10 +2585,10 @@ export default function App() {
         <div className="flex items-center gap-2 mb-6"><Logo size={28}/><span className="font-bold text-gray-700">EatBC</span></div>
         <div className="mb-6">
           <div className="flex justify-between text-xs text-gray-400 mb-2">
-            <span>{t("question")} {step+1} {t("of")} {Q.length}</span><span>{Math.round(((step+1)/Q.length)*100)}%</span>
+            <span>{t("question")} {stepClamped+1} {t("of")} {activeQ.length}</span><span>{Math.round(((stepClamped+1)/activeQ.length)*100)}%</span>
           </div>
           <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-            <div className="h-2 rounded-full transition-all" style={{width:`${((step+1)/Q.length)*100}%`,background:GREEN}}/>
+            <div className="h-2 rounded-full transition-all" style={{width:`${((stepClamped+1)/activeQ.length)*100}%`,background:GREEN}}/>
           </div>
         </div>
         <h2 className="text-2xl font-bold text-gray-800">{cur.label}</h2>
@@ -2323,10 +2644,10 @@ export default function App() {
         </div>
         {err&&<div className="mt-4 flex items-center gap-2 text-red-500 text-sm"><AlertCircle size={16}/>{err}</div>}
         <div className="flex justify-between mt-8">
-          <button onClick={()=>step>0?setStep(step-1):setScreen("welcome")}
+          <button onClick={()=>stepClamped>0?setStep(stepClamped-1):setScreen("welcome")}
             className="px-5 py-2.5 text-gray-500 font-medium">{t("back")}</button>
-          {step<Q.length-1?(
-            <button disabled={!canNext} onClick={()=>setStep(step+1)}
+          {stepClamped<activeQ.length-1?(
+            <button disabled={!canNext} onClick={()=>setStep(stepClamped+1)}
               className="px-7 py-2.5 rounded-2xl text-white font-semibold disabled:opacity-40 inline-flex items-center gap-1 shadow-md"
               style={{background:GREEN}}>
               {t("next")} <ChevronRight size={16}/>
@@ -2397,6 +2718,23 @@ export default function App() {
         </div>
 
         <PlanWeek plan={plan}/>
+
+        {plan.workout&&(
+          <div className="rounded-3xl p-5 mb-5 text-white shadow-lg"
+            style={{background:"linear-gradient(135deg,#5B21B6 0%,#7C3AED 60%,#9333EA 100%)"}}>
+            <div className="flex items-center gap-2 mb-3"><Dumbbell size={18}/><h3 className="font-black">Your workout plan</h3></div>
+            <p className="text-white/80 text-sm mb-3">{plan.workout.focus} · {plan.workout.place} · {plan.workout.daysPerWeek} days/week. Track it live on your dashboard.</p>
+            <div className="grid grid-cols-2 gap-2">
+              {plan.workout.days.slice(0,4).map((d,i)=>(
+                <div key={i} className="bg-white/10 rounded-2xl px-3 py-2.5 border border-white/15">
+                  <div className="font-bold text-sm">{d.label}</div>
+                  <div className="text-white/70 text-[11px]">{d.items.length} exercises · {d.focus}</div>
+                </div>
+              ))}
+            </div>
+            {plan.workout.days.length>4&&<p className="text-white/60 text-xs mt-2">+ {plan.workout.days.length-4} more sessions inside</p>}
+          </div>
+        )}
 
         <div className="rounded-3xl p-5 mb-5" style={{background:"linear-gradient(135deg,#F0FAF4,#E7F7EF)"}}>
           <h3 className="font-bold mb-3 flex items-center gap-2" style={{color:GREEN}}>
