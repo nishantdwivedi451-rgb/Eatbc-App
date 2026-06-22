@@ -204,7 +204,7 @@ interface DayTracking { meals: Record<number, boolean>; water: number; log?: Foo
 /* Date-keyed daily snapshot — powers real streaks, trends and insights. */
 interface HistEntry { onTrack: boolean; cal: number; protein: number; meals: number; total: number; water: number; }
 interface Tracking {
-  [day: string]: DayTracking | Record<string, number> | Record<string, HistEntry> | Record<string, boolean> | Record<string, number[]> | LogFood[] | string[] | string | undefined;
+  [day: string]: DayTracking | Record<string, number> | Record<string, HistEntry> | Record<string, boolean> | Record<string, number[]> | Record<string, Record<string, string>> | LogFood[] | string[] | string | number | undefined;
   weights?: Record<string, number>;
   history?: Record<string, HistEntry>;
   customFoods?: LogFood[];     // user-saved foods
@@ -2057,7 +2057,7 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet}:{
           ):(
             <>
               <div className="flex gap-1.5 mb-3 bg-gray-50 rounded-xl p-1">
-                {([["search","🔍 Search"],["custom","✏️ Custom"],["barcode","📷 Barcode"]] as [typeof mode,string][]).map(([m,label])=>(
+                {([["search","🔍 Search"],["custom","✏️ Custom"],["barcode","📷 Barcode"],["photo","📸 Photo"]] as [typeof mode,string][]).map(([m,label])=>(
                   <button key={m} onClick={()=>setMode(m)}
                     className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition ${mode===m?"text-white shadow-sm":"text-gray-500"}`}
                     style={mode===m?{background:GREEN}:{}}>{label}</button>
@@ -2127,6 +2127,28 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet}:{
                     </button>
                   </div>
                   {barErr&&<div className="flex items-center gap-2 text-red-500 text-xs"><AlertCircle size={14}/>{barErr}</div>}
+                </div>
+              )}
+
+              {mode==="photo"&&(
+                <div className="mt-3">
+                  {photoScanning?(
+                    <div className="flex flex-col items-center py-8 gap-3">
+                      <Loader2 className="animate-spin text-purple-500" size={28}/>
+                      <p className="text-sm text-gray-500">{t("photoAnalyzing")}</p>
+                    </div>
+                  ):(
+                    <div className="space-y-2">
+                      <p className="text-xs text-gray-500 mb-2">Best matches from your photo:</p>
+                      {photoSuggestions.map((f,i)=>(
+                        <button key={i} onClick={()=>{setPending(f);setServings(1);setMode("search");}}
+                          className="w-full text-left px-4 py-3 rounded-2xl border-2 border-gray-100 hover:border-purple-300 transition">
+                          <div className="font-semibold text-gray-800 text-sm">{f.n}</div>
+                          <div className="text-xs text-gray-400">{f.q} · {f.c} kcal</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -2865,7 +2887,14 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccou
   const dd=(tracking[sel] as DayTracking)||{meals:{},water:0};
   const dp=plan?.days?.find(d=>d.day===sel);
   const cal=plan?.dailyCalories||0;
-  const toggle=(i:number)=>onUpdate({...tracking,[sel]:{...dd,meals:{...dd.meals,[i]:!dd.meals[i]}}});
+  const toggle=(i:number)=>{
+    const nowTs=new Date().toISOString();
+    const prevOn=!!dd.meals[i];
+    const newMeals={...dd.meals,[i]:!prevOn};
+    const prevTimes=((tracking.mealTimes||{})[sel]||{}) as Record<string,string>;
+    const newTimes={...prevTimes,...(!prevOn?{[String(i)]:nowTs}:{})};
+    onUpdate({...tracking,[sel]:{...dd,meals:newMeals},mealTimes:{...(tracking.mealTimes||{}),[sel]:newTimes}});
+  };
   const setWater=(n:number)=>onUpdate({...tracking,[sel]:{...dd,water:n}});
   const logW=(w:number)=>onUpdate({
   ...tracking,
@@ -2914,6 +2943,18 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccou
   const joined=tracking.joinedChallenges||[];
   const toggleChallenge=(id:string)=>onUpdate({...tracking,joinedChallenges:joined.includes(id)?joined.filter(x=>x!==id):[...joined,id]});
   const saveCustom=(f:LogFood)=>onUpdate({...tracking,customFoods:[...(tracking.customFoods||[]),f]});
+
+  /* ── Set joinDate on first history entry ── */
+  useEffect(()=>{
+    if(!tracking.joinDate&&Object.keys(history).length>0){
+      const earliest=Object.keys(history).sort()[0];
+      onUpdate({...tracking,joinDate:earliest});
+    }
+    /* eslint-disable-next-line */
+  },[Object.keys(history).length]);
+
+  const joinDate=tracking.joinDate||isoDate();
+  const daysActive=Math.max(1,Math.floor((Date.now()-new Date(joinDate).getTime())/86400000)+1);
 
   /* ── Nudge banner: show if nothing logged today and not dismissed ── */
   const nudgeDismissKey=`eatbc:nudgeDismissed:${isoDate()}`;
@@ -3021,6 +3062,15 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccou
 
         {tab==="today"&&(
           <>
+            <AdaptiveRecalcBanner
+              weights={tracking.weights||{}}
+              lastRecalcDate={tracking.lastRecalcDate}
+              lastRecalcWeight={tracking.lastRecalcWeight}
+              goal={plan?.goal||""}
+              onRecalc={onRecalc}
+            />
+            <DietitianCard condition={plan?.condition||""} t={t}/>
+            <ProgressionTracker daysActive={daysActive} t={t}/>
             <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
               {WEEK.map(d=>(
                 <button key={d} onClick={()=>setSel(d)}
@@ -3071,6 +3121,7 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccou
                   onSaveCustom={saveCustom}
                   onUpdate={l=>onUpdate({...tracking,[sel]:{...dd,log:l}})}
                   t={t}
+                  diet={plan?.diet}
                 />
                 <Card className="p-5 mb-4">
                   <div className="flex items-center justify-between mb-3">
@@ -3098,6 +3149,7 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccou
         {tab==="progress"&&(
           <>
             <TrendsCard history={history} calTarget={cal} proteinTarget={proteinTargetVal} weights={tracking.weights||{}} t={t}/>
+            <EatingWindowCard mealTimes={tracking.mealTimes||{}} today={today}/>
             <InsightsCard history={history} proteinTarget={proteinTargetVal} t={t}/>
             <WeightLog t={tracking} onLog={logW}/>
             <div className="mb-4"/>
@@ -3316,6 +3368,29 @@ export default function App() {
     quoteRef.current=pickQuote();
   }
 
+  function recalcPlan() {
+    if (!plan) return;
+    const wEntries = Object.entries(tracking.weights||{}).sort();
+    if (!wEntries.length) return;
+    const newWeight = wEntries[wEntries.length-1][1];
+    const newProfile = {...profile, weight: String(newWeight)};
+    try {
+      const newPlan = buildPlan(newProfile);
+      const newTracking:Tracking = {
+        ...tracking,
+        lastRecalcDate: isoDate(),
+        lastRecalcWeight: newWeight,
+      };
+      setProfile(newProfile);
+      setPlan(newPlan);
+      setTracking(newTracking);
+      if (session?.token) {
+        apiPost("/api/plan", {plan:newPlan, profile:newProfile}, session.token).catch(()=>{});
+        apiPost("/api/tracking", {tracking:newTracking}, session.token).catch(()=>{});
+      }
+    } catch {}
+  }
+
   function doneOnboarding(){sset("eatbc:onboarded",true);setScreen("welcome");}
 
   /* ── screens ── */
@@ -3520,7 +3595,8 @@ export default function App() {
       onUpdate={(tr)=>{setTracking(tr);if(session?.token)apiPost("/api/tracking",{tracking:tr},session.token).catch(()=>{});}}
       onSwap={swapMeal}
       onLogout={logout}
-      onDeleteAccount={deleteAccount}/>
+      onDeleteAccount={deleteAccount}
+      onRecalc={recalcPlan}/>
   );
 
   return <Shell><Card className="p-10 text-center text-gray-400">Loading…</Card></Shell>;
