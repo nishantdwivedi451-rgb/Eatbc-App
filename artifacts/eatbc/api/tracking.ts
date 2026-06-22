@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { sql, ensureDb } from "./_lib/db";
-import { verifyToken } from "./_lib/auth";
-import { encrypt, decrypt } from "./_lib/crypto";
+import { sql, ensureDb } from "./_lib/db.js";
+import { verifyToken } from "./_lib/auth.js";
+import { encrypt, decrypt } from "./_lib/crypto.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   await ensureDb();
