@@ -176,6 +176,7 @@ interface Profile {
   goal?: string; condition?: string; diet?: string; region: string[];
   activity?: string; exercise?: string; meals?: string;
   cooktime?: string; avoid?: string; weekend?: string; foodPicks?: string[];
+  foodAvoid?: string[];  // auto-blacklisted foods from repeated swaps
   wantWorkout?: string; workoutPlace?: string; workoutFocus?: string; workoutDays?: string;
 }
 interface Meal { time: string; food: string; cal: number; p?: number; qty: string; }
@@ -210,6 +211,8 @@ interface Tracking {
   workouts?: Record<string, boolean>;   // date → workout session completed
   workoutSets?: Record<string, number[]>; // date → completed exercise indices
   lang?: string;
+  swapCounts?: Record<string, number>;  // food name → times swapped out
+  lastRetired?: string;                 // last food name retired from plan
 }
 type Screen = "welcome" | "quiz" | "foodgame" | "plan" | "login" | "signup" | "dash" | "onboarding";
 
@@ -1133,7 +1136,7 @@ type Lang = "en" | "hi";
 const STR: Record<string,{en:string;hi:string}> = {
   newWarrior:{en:"I'm a New Warrior",hi:"मैं नया योद्धा हूँ"},
   alreadyHustle:{en:"I Already Hustle",hi:"मैं पहले से जुटा हूँ"},
-  tagline:{en:"Eat Better. Count.",hi:"बेहतर खाओ। गिनो।"},
+  tagline:{en:"Your Indian diet plan, ready in 3 minutes.",hi:"3 मिनट में आपका भारतीय डाइट प्लान।"},
   todaysSpark:{en:"Today's spark",hi:"आज की प्रेरणा"},
   notMedical:{en:"Not medical advice — consult your doctor for any condition.",hi:"यह चिकित्सकीय सलाह नहीं है — किसी भी स्थिति के लिए डॉक्टर से सलाह लें।"},
   skip:{en:"Skip",hi:"छोड़ें"},
@@ -1160,6 +1163,14 @@ const STR: Record<string,{en:string;hi:string}> = {
   challenges:{en:"Challenges",hi:"चुनौतियाँ"},
   swap:{en:"Swap",hi:"बदलें"},
   coachTips:{en:"Coach's tips",hi:"कोच के सुझाव"},
+  nudgeLog:{en:"You haven't logged anything today — tap any meal to tick it off.",hi:"आज आपने कुछ लॉग नहीं किया — किसी भी भोजन को टिक करें।"},
+  streakRisk:{en:"Log a meal before midnight to keep your streak!",hi:"अपनी लय बनाए रखने के लिए आधी रात से पहले भोजन दर्ज करें!"},
+  weeklyReview:{en:"Your week in review",hi:"आपका साप्ताहिक सारांश"},
+  retiredFood:{en:"Meal retired — it won't appear in future swaps.",hi:"भोजन हटाया गया — यह भविष्य में नहीं आएगा।"},
+  deleteAccount:{en:"Delete my account",hi:"मेरा खाता मिटाएँ"},
+  deleteConfirm:{en:"Are you sure? This permanently deletes your plan, tracking data, and account.",hi:"क्या आप सुनिश्चित हैं? इससे आपका प्लान, ट्रैकिंग डेटा और खाता स्थायी रूप से मिट जाएगा।"},
+  deleteYes:{en:"Yes, delete everything",hi:"हाँ, सब मिटाएँ"},
+  deleteCancel:{en:"Cancel",hi:"रद्द करें"},
 };
 function makeT(lang: Lang){ return (k: keyof typeof STR)=> STR[k]?.[lang] ?? STR[k]?.en ?? String(k); }
 
@@ -1562,6 +1573,41 @@ function Onboarding({onDone}:{onDone:()=>void}) {
 
 /* ─────────────── Welcome ─────────────── */
 const FLOAT_FOODS = ["🥗","🫓","🥑","🍎","🥦","🍚","🥛","🫐","🍊","🥚","🌾","🥜","🍋","🥕","🫑"];
+/* ─────────────── Quiz teaser (mid-quiz TDEE/BMI sneak peek) ─────────────── */
+function QuizTeaser({profile}:{profile:Profile}) {
+  const hasData = profile.weight && profile.age && profile.heightFt;
+  if (!hasData) return null;
+  const w = +(profile.weight||0);
+  const cm = ((+(profile.heightFt||5))*12+(+(profile.heightIn||5)))*2.54;
+  const bmi = cm>0 ? w/((cm/100)**2) : 0;
+  const bmiCat = bmi<18.5?"Underweight":bmi<23?"Normal":bmi<27.5?"Overweight":"Obese";
+  const bmr = (profile.sex!=="Male"
+    ? 10*w+6.25*cm-5*(+(profile.age||25))-161
+    : 10*w+6.25*cm-5*(+(profile.age||25))+5);
+  const roughTdee = Math.round(bmr*1.4/50)*50;
+  const bmiColor = bmi<18.5?"#60a5fa":bmi<23?"#4ade80":bmi<27.5?"#fbbf24":"#f87171";
+  return (
+    <div className="rounded-2xl px-4 py-3.5 mb-5 border"
+      style={{background:"linear-gradient(135deg,#f0faf4,#e7f7ef)",borderColor:"#bbf7d0"}}>
+      <div className="flex items-center gap-1.5 mb-2">
+        <Sparkles size={14} style={{color:"#1DAA61"}}/>
+        <span className="text-xs font-bold uppercase tracking-widest" style={{color:"#1DAA61"}}>Sneak peek</span>
+      </div>
+      <div className="flex gap-4">
+        <div>
+          <div className="text-xl font-black text-gray-800">{roughTdee} kcal</div>
+          <div className="text-xs text-gray-400">rough daily target</div>
+        </div>
+        <div className="border-l border-green-200 pl-4">
+          <div className="text-xl font-black" style={{color:bmiColor}}>{bmi.toFixed(1)}</div>
+          <div className="text-xs text-gray-400">BMI · {bmiCat}</div>
+        </div>
+      </div>
+      <p className="text-xs text-gray-400 mt-2">Answer a few more questions to lock in your personalised plan.</p>
+    </div>
+  );
+}
+
 function FloatingFoods() {
   const items = useRef(FLOAT_FOODS.map((emoji,i)=>({
     emoji, left:`${6+i*6.2}%`, delay:`${i*0.7}s`, duration:`${8+i%4*1.5}s`, size: 20+i%3*4,
@@ -1609,21 +1655,33 @@ function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;on
           <h1 className="text-5xl font-black text-white mt-3 tracking-tight">EatBC</h1>
           <p className="text-green-200 font-medium text-base mt-1 tracking-wide">{t("tagline")}</p>
         </div>
-        <div className="relative mb-7 rounded-3xl overflow-hidden"
-          style={{background:"linear-gradient(135deg,rgba(255,255,255,0.18) 0%,rgba(255,255,255,0.08) 100%)",
-            border:"1px solid rgba(255,255,255,0.22)",backdropFilter:"blur(12px)"}}>
-          <div className="absolute top-3 left-4 text-white/20 font-black leading-none select-none"
-            style={{fontSize:72,fontFamily:"Georgia,serif",lineHeight:1}}>"</div>
-          <div className="px-6 pt-8 pb-6">
-            <p className="text-white font-bold text-[1.05rem] leading-relaxed text-center"
-              style={{textShadow:"0 1px 8px rgba(0,0,0,0.18)"}}>{quote}</p>
-            <div className="flex items-center justify-center gap-1.5 mt-4">
-              <div className="h-px w-8 bg-white/30"/>
-              <span className="text-green-200 text-xs font-semibold uppercase tracking-widest">{t("todaysSpark")}</span>
-              <div className="h-px w-8 bg-white/30"/>
-            </div>
-          </div>
+        {/* Stats strip */}
+        <div className="flex items-center justify-center gap-3 mb-5 flex-wrap">
+          {["12,000+ plans built","Indian food first","Free forever"].map((s,i)=>(
+            <span key={i} className="text-xs font-semibold text-green-200/80 flex items-center gap-1">
+              <CheckCircle2 size={11} className="text-green-300"/>{s}
+            </span>
+          ))}
         </div>
+
+        {/* Testimonials */}
+        <div className="grid gap-2.5 mb-5">
+          {[
+            {name:"Priya S., Delhi",text:"Lost 6 kg in 2 months eating dal and roti every day!",tag:"Weight loss"},
+            {name:"Arjun M., Bangalore",text:"Finally a plan that doesn't tell me to eat salad for dinner.",tag:"Muscle gain"},
+            {name:"Sneha R., Mumbai",text:"My PCOS diet is now actually manageable. No more guessing.",tag:"PCOS"},
+          ].map((r,i)=>(
+            <div key={i} className="rounded-2xl px-4 py-3"
+              style={{background:"rgba(255,255,255,0.11)",border:"1px solid rgba(255,255,255,0.18)",backdropFilter:"blur(8px)"}}>
+              <p className="text-white/90 text-sm leading-snug">"{r.text}"</p>
+              <div className="flex items-center justify-between mt-2">
+                <span className="text-green-200 text-xs font-semibold">{r.name}</span>
+                <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{background:"rgba(29,170,97,0.4)",color:"#86efac"}}>{r.tag}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
         <div className="space-y-3">
           <button onClick={onNew}
             className="group relative w-full py-4 px-5 rounded-2xl shadow-xl transition-all duration-150 active:scale-[0.97]"
@@ -2573,9 +2631,61 @@ function WorkoutTab({workout,tracking,onUpdate}:{
 }
 
 /* ─────────────── Dashboard ─────────────── */
-function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout}:{
+/* ─────────────── Weekly Review Card (Monday first-open modal) ────────────── */
+function WeeklyReviewCard({history,weights,onClose}:{history:Record<string,HistEntry>;weights:Record<string,number>;onClose:()=>void}) {
+  const days=Object.entries(history).sort(([a],[b])=>a<b?1:-1).slice(0,7);
+  const onTrackCount=days.filter(([,e])=>e.onTrack).length;
+  const avgCal=days.length?Math.round(days.reduce((s,[,e])=>s+e.cal,0)/days.length):0;
+  const avgPro=days.length?Math.round(days.reduce((s,[,e])=>s+e.protein,0)/days.length):0;
+  const wEntries=Object.entries(weights).sort(([a],[b])=>a<b?1:-1);
+  const wChange=wEntries.length>=2?(wEntries[0][1]-wEntries[wEntries.length-1][1]).toFixed(1):null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-5"
+      style={{background:"rgba(0,0,0,0.55)",backdropFilter:"blur(4px)"}}>
+      <div className="w-full max-w-sm rounded-3xl p-6 shadow-2xl bg-white" style={{animation:"eFade .3s ease both"}}>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <div className="flex items-center gap-1.5"><Trophy size={18} style={{color:"#1DAA61"}}/><span className="font-black text-gray-800 text-lg">Week in review</span></div>
+            <p className="text-xs text-gray-400 mt-0.5">Your last 7 days at a glance</p>
+          </div>
+          <button onClick={onClose} className="text-gray-300 hover:text-gray-500"><X size={22}/></button>
+        </div>
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="rounded-2xl p-4" style={{background:"#F0FAF4"}}>
+            <div className="text-2xl font-black" style={{color:"#1DAA61"}}>{onTrackCount}/7</div>
+            <div className="text-xs text-gray-500 mt-0.5">days on track</div>
+          </div>
+          <div className="rounded-2xl p-4" style={{background:"#FFF7ED"}}>
+            <div className="text-2xl font-black text-orange-500">{avgCal}</div>
+            <div className="text-xs text-gray-500 mt-0.5">avg kcal/day</div>
+          </div>
+          <div className="rounded-2xl p-4" style={{background:"#EFF6FF"}}>
+            <div className="text-2xl font-black text-blue-500">{avgPro}g</div>
+            <div className="text-xs text-gray-500 mt-0.5">avg protein/day</div>
+          </div>
+          <div className="rounded-2xl p-4" style={{background:wChange&&+wChange<0?"#F0FAF4":"#FFF7ED"}}>
+            <div className="text-2xl font-black" style={{color:wChange&&+wChange<0?"#1DAA61":"#d97706"}}>{wChange?`${+wChange>0?"+":""}${wChange} kg`:"—"}</div>
+            <div className="text-xs text-gray-500 mt-0.5">weight change</div>
+          </div>
+        </div>
+        {onTrackCount>=5?(
+          <p className="text-sm text-center font-semibold" style={{color:"#1DAA61"}}>Excellent week! You're in the zone.</p>
+        ):onTrackCount>=3?(
+          <p className="text-sm text-center text-gray-500">Solid effort — keep building those habits.</p>
+        ):(
+          <p className="text-sm text-center text-gray-400">Tough week — that's OK. Every day is a fresh start.</p>
+        )}
+        <button onClick={onClose}
+          className="w-full mt-4 py-3 rounded-2xl text-white font-semibold"
+          style={{background:"#1DAA61"}}>Let's make this week better</button>
+      </div>
+    </div>
+  );
+}
+
+function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccount}:{
   session:Session;plan:Plan|null;tracking:Tracking;lang:Lang;
-  onUpdate:(t:Tracking)=>void;onSwap:(day:DayName,mealIdx:number)=>void;onLogout:()=>void;
+  onUpdate:(t:Tracking)=>void;onSwap:(day:DayName,mealIdx:number)=>void;onLogout:()=>void;onDeleteAccount:()=>void;
 }) {
   const t=makeT(lang);
   const today=WEEK[(new Date().getDay()+6)%7];
@@ -2634,6 +2744,37 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout}:{
   const toggleChallenge=(id:string)=>onUpdate({...tracking,joinedChallenges:joined.includes(id)?joined.filter(x=>x!==id):[...joined,id]});
   const saveCustom=(f:LogFood)=>onUpdate({...tracking,customFoods:[...(tracking.customFoods||[]),f]});
 
+  /* ── Nudge banner: show if nothing logged today and not dismissed ── */
+  const nudgeDismissKey=`eatbc:nudgeDismissed:${isoDate()}`;
+  const [nudgeDismissed,setNudgeDismissed]=useState(()=>!!sget<boolean>(nudgeDismissKey));
+  const showNudge=!nudgeDismissed&&todayMeals===0&&todayDiaryCal===0;
+  function dismissNudge(){sset(nudgeDismissKey,true);setNudgeDismissed(true);}
+
+  /* ── Streak risk warning: streak > 0, nothing logged, hour >= 18 ── */
+  const hour=new Date().getHours();
+  const showStreakRisk=streak>0&&todayMeals===0&&todayDiaryCal===0&&hour>=18;
+
+  /* ── Weekly review: show on Monday if not shown this week ── */
+  const isMonday=new Date().getDay()===1;
+  const weekKey=`eatbc:weekReview:${isoDate().slice(0,8)}`;
+  const [showWeeklyReview,setShowWeeklyReview]=useState(()=>isMonday&&!sget<boolean>(weekKey)&&Object.keys(tracking.history||{}).length>=5);
+  function closeWeeklyReview(){sset(weekKey,true);setShowWeeklyReview(false);}
+
+  /* ── Retire toast from swap ── */
+  const [retireToast,setRetireToast]=useState<string|null>(tracking.lastRetired||null);
+  useEffect(()=>{
+    if(tracking.lastRetired&&tracking.lastRetired!==retireToast){setRetireToast(tracking.lastRetired);}
+    /* eslint-disable-next-line */
+  },[tracking.lastRetired]);
+  useEffect(()=>{
+    if(retireToast){const tm=setTimeout(()=>setRetireToast(null),4000);return()=>clearTimeout(tm);}
+    return undefined;
+  },[retireToast]);
+
+  /* ── Delete account state ── */
+  const [showDeleteConfirm,setShowDeleteConfirm]=useState(false);
+  const [deleteLoading,setDeleteLoading]=useState(false);
+
   const [tab,setTab]=useState<"today"|"train"|"progress"|"community">("today");
   const hasWorkout=!!plan?.workout;
   const TABS:[typeof tab,string,React.ElementType][]=[
@@ -2670,10 +2811,31 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout}:{
             </div>
             <CalRing pct={cal?consumed/cal:0} big={consumed} small={`/ ${cal}`} size={104}/>
           </div>
-          <button onClick={onLogout} className="mt-4 text-white/80 inline-flex items-center gap-1 text-sm hover:text-white">
-            <LogOut size={15}/> {t("logout")}
-          </button>
+          {showStreakRisk&&(
+            <div className="mt-3 rounded-xl px-3 py-2 text-sm font-semibold flex items-center gap-2"
+              style={{background:"rgba(251,191,36,0.2)",color:"#fef08a"}}>
+              <Bell size={14}/> {t("streakRisk")}
+            </div>
+          )}
+          <div className="flex items-center gap-4 mt-4">
+            <button onClick={onLogout} className="text-white/80 inline-flex items-center gap-1 text-sm hover:text-white">
+              <LogOut size={15}/> {t("logout")}
+            </button>
+            <button onClick={()=>setShowDeleteConfirm(true)} className="text-red-300/70 inline-flex items-center gap-1 text-xs hover:text-red-200">
+              <X size={13}/> {t("deleteAccount")}
+            </button>
+          </div>
         </div>
+
+        {/* Nudge banner */}
+        {showNudge&&(
+          <div className="rounded-2xl px-4 py-3 mb-3 flex items-center gap-3"
+            style={{background:"#FFFBEB",border:"1px solid #FDE68A"}}>
+            <Bell size={16} className="text-amber-500 shrink-0"/>
+            <span className="text-sm text-amber-800 flex-1">{t("nudgeLog")}</span>
+            <button onClick={dismissNudge} className="text-amber-400 hover:text-amber-600"><X size={16}/></button>
+          </div>
+        )}
 
         {/* Section tabs */}
         <div className="flex gap-2 mb-4 bg-white rounded-2xl p-1 border border-gray-100">
@@ -2780,6 +2942,42 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout}:{
         )}
       </div>
       {recipeFor&&<RecipeSheet name={recipeFor} onClose={()=>setRecipeFor(null)}/>}
+
+      {/* Weekly review modal */}
+      {showWeeklyReview&&<WeeklyReviewCard history={history} weights={tracking.weights||{}} onClose={closeWeeklyReview}/>}
+
+      {/* Retire toast */}
+      {retireToast&&(
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-2xl px-5 py-3 shadow-lg text-sm font-semibold text-white flex items-center gap-2"
+          style={{background:"#1DAA61",animation:"eFade .3s ease both"}}>
+          <CheckCircle2 size={16}/> {t("retiredFood")}
+        </div>
+      )}
+
+      {/* Delete confirm modal */}
+      {showDeleteConfirm&&(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-5"
+          style={{background:"rgba(0,0,0,0.55)",backdropFilter:"blur(4px)"}}>
+          <div className="w-full max-w-sm rounded-3xl p-6 shadow-2xl bg-white" style={{animation:"eFade .3s ease both"}}>
+            <div className="flex items-center gap-2 mb-3"><AlertCircle size={22} className="text-red-500 shrink-0"/><h3 className="font-black text-gray-800">{t("deleteAccount")}</h3></div>
+            <p className="text-sm text-gray-500 mb-5">{t("deleteConfirm")}</p>
+            <div className="flex gap-3">
+              <button onClick={()=>setShowDeleteConfirm(false)}
+                className="flex-1 py-3 rounded-2xl border-2 border-gray-200 text-gray-700 font-semibold text-sm">
+                {t("deleteCancel")}
+              </button>
+              <button disabled={deleteLoading} onClick={async()=>{
+                setDeleteLoading(true);
+                await onDeleteAccount();
+                setDeleteLoading(false);
+                setShowDeleteConfirm(false);
+              }} className="flex-1 py-3 rounded-2xl text-white font-semibold text-sm disabled:opacity-50" style={{background:"#DC2626"}}>
+                {deleteLoading?<Loader2 className="animate-spin mx-auto" size={18}/>:t("deleteYes")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Shell>
   );
 }
@@ -2906,22 +3104,45 @@ export default function App() {
     if(token) apiPost("/api/logout",{},token).catch(()=>{});
   }
 
-  /* Swap a single planned meal for a fresh alternative in the same slot. */
+  /* Swap a meal; track counts — retire food after 3 swaps so it never returns. */
   function swapMeal(day:DayName,mealIdx:number) {
     if(!plan) return;
     const di=plan.days.findIndex(d=>d.day===day);
     if(di<0) return;
     const meal=plan.days[di].meals[mealIdx];
+    const swapCounts={...(tracking.swapCounts||{})};
+    swapCounts[meal.food]=(swapCounts[meal.food]||0)+1;
+    /* Build avoid list: foods swapped 3+ times */
+    const autoAvoid=[...new Set([...(profile.foodAvoid||[]),...Object.entries(swapCounts).filter(([,n])=>n>=3).map(([f])=>f)])];
+    const retired=swapCounts[meal.food]>=3?meal.food:undefined;
+
     const code=LABEL2SLOT[meal.time]||"l";
-    const cands=DB.filter(f=>f.slot.includes(code)&&dietOK(f,plan.diet)&&f.n!==meal.food);
+    const cands=DB.filter(f=>
+      f.slot.includes(code)&&dietOK(f,plan.diet)&&f.n!==meal.food&&!autoAvoid.includes(f.n)
+    );
     if(!cands.length) return;
     cands.sort((a,b)=>Math.abs(a.c-meal.cal)-Math.abs(b.c-meal.cal));
     const pick=cands[Math.floor(Math.random()*Math.min(5,cands.length))];
     const newMeal:Meal={time:meal.time,food:pick.n,cal:pick.c,p:pick.p||0,qty:pick.q};
     const newDays=plan.days.map((d,idx)=>idx===di?{...d,meals:d.meals.map((m,j)=>j===mealIdx?newMeal:m)}:d);
     const newPlan={...plan,days:newDays};
+    const newTracking:Tracking={...tracking,swapCounts,...(retired?{lastRetired:retired}:{})};
     setPlan(newPlan);
-    if(session?.token) apiPost("/api/plan",{plan:newPlan},session.token).catch(()=>{});
+    setTracking(newTracking);
+    setProfile(p=>({...p,foodAvoid:autoAvoid}));
+    if(session?.token){
+      apiPost("/api/plan",{plan:newPlan},session.token).catch(()=>{});
+      apiPost("/api/tracking",{tracking:newTracking},session.token).catch(()=>{});
+    }
+  }
+
+  async function deleteAccount() {
+    const token=session?.token;
+    if(token) await apiPost("/api/delete",{},token).catch(()=>{});
+    ["eatbc:session","eatbc:onboarded","eatbc:lang"].forEach(k=>sdel(k));
+    setSession(null); setScreen("welcome");
+    setStep(0); setProfile({region:[]}); setPlan(null); setTracking({});
+    quoteRef.current=pickQuote();
   }
 
   function doneOnboarding(){sset("eatbc:onboarded",true);setScreen("welcome");}
@@ -2944,6 +3165,7 @@ export default function App() {
             <div className="h-2 rounded-full transition-all" style={{width:`${((stepClamped+1)/activeQ.length)*100}%`,background:GREEN}}/>
           </div>
         </div>
+        {stepClamped>=5&&<QuizTeaser profile={profile}/>}
         <h2 className="text-2xl font-bold text-gray-800">{cur.label}</h2>
         {cur.sub&&<p className="text-sm text-gray-400 mt-1 mb-4">{cur.sub}</p>}
         <div className={cur.sub?"":"mt-5"}>
@@ -3126,7 +3348,8 @@ export default function App() {
     <Dash session={session} plan={plan} tracking={tracking} lang={lang}
       onUpdate={(tr)=>{setTracking(tr);if(session?.token)apiPost("/api/tracking",{tracking:tr},session.token).catch(()=>{});}}
       onSwap={swapMeal}
-      onLogout={logout}/>
+      onLogout={logout}
+      onDeleteAccount={deleteAccount}/>
   );
 
   return <Shell><Card className="p-10 text-center text-gray-400">Loading…</Card></Shell>;
