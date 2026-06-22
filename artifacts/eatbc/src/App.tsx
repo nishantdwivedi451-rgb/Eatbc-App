@@ -379,6 +379,12 @@ const SLOTSET: Record<string,[string,number,string][]> = {
   "3 meals + 2 snacks": [["b",.25,"Breakfast"],["ms",.10,"Mid-morning"],["l",.30,"Lunch"],["es",.12,"Evening snack"],["d",.23,"Dinner"]],
   "5-6 small meals":    [["b",.22,"Breakfast"],["ms",.12,"Mid-morning"],["l",.26,"Lunch"],["es",.12,"Evening snack"],["d",.20,"Dinner"],["bt",.08,"Bedtime"]],
 };
+/* Hard calorie ceiling per meal slot — breakfast/lunch are heavy,
+   snacks stay ≤250, dinner is lighter than lunch. Prevents the
+   "1135 kcal dinner" problem on high-calorie plans.             */
+const SLOT_CAL_CAP: Record<string,number> = {
+  b:650, ms:250, l:780, es:250, d:620, bt:150,
+};
 const RMAP: Record<string,string> = {
   "North Indian":"n","South Indian":"s","East Indian":"e","West Indian":"w",
   "Punjabi":"n","Gujarati":"w","Rajasthani":"n","Bengali":"e",
@@ -881,16 +887,23 @@ function buildPlan(profile: Profile): Plan {
     simplePref:["Minimal cooking (10-15 min)","I order online mostly"].includes(profile.cooktime||""),
     picks:profile.foodPicks||[],
   };
-  const slots=SLOTSET[profile.meals||"3 meals"]||SLOTSET["3 meals"];
+  /* Auto-select meal pattern: more frequent meals for higher-calorie needs
+     so no single slot balloons beyond its realistic ceiling.            */
+  const autoSlotKey = cal>2500?"5-6 small meals":cal>1900?"3 meals + 2 snacks":(profile.meals||"3 meals");
+  const slots=SLOTSET[autoSlotKey]||SLOTSET["3 meals"];
   const weekUsed=new Set<string>();
   const days: PlanDay[]=(WEEK as readonly string[]).map((dn,di)=>{
     let raw=slots.map(([code,frac,label])=>{
-      const m=pickMeal(code,Math.round(cal*frac),di,weekUsed,ctx);
+      /* Cap each slot so breakfast/lunch stay heavy and dinner + snacks stay realistic */
+      const slotCap=SLOT_CAL_CAP[code]||700;
+      const targetCal=Math.min(Math.round(cal*frac),slotCap);
+      const m=pickMeal(code,targetCal,di,weekUsed,ctx);
       weekUsed.add(m.n);
       return {time:label,food:m.n,cal:m.c,p:m.p||0,qty:m.q};
     });
     const total=raw.reduce((a,b)=>a+b.cal,0);
-    let f=total?cal/total:1; f=Math.max(0.78,Math.min(2.5,f));
+    /* Gentle scale only — never inflate a dish beyond 1.25× its real calories */
+    let f=total?cal/total:1; f=Math.max(0.85,Math.min(1.25,f));
     raw=raw.map(m=>({...m,cal:Math.round((m.cal*f)/5)*5}));
     if (di%7===6) weekUsed.clear();
     return {day:dn as DayName,meals:raw};
@@ -2529,6 +2542,7 @@ export default function App() {
   const [session,setSession]=useState<Session|null>(null);
   const [tracking,setTracking]=useState<Tracking>({});
   const [lang,setLang]=useState<Lang>(()=>(sget<Lang>("eatbc:lang")||"en"));
+  const [qErr,setQErr]=useState("");
   const t=makeT(lang);
   const quoteRef=useRef(pickQuote());
 
@@ -2556,7 +2570,7 @@ export default function App() {
   const activeQ=Q.filter(q=>!q.showIf||q.showIf(profile));
   const stepClamped=Math.min(step,activeQ.length-1);
   const cur=activeQ[stepClamped];
-  const setVal=(v:string|string[])=>setProfile(p=>({...p,[cur.k]:v}));
+  const setVal=(v:string|string[])=>{setQErr("");setProfile(p=>({...p,[cur.k]:v}));};
   const toggleMulti=(o:string)=>setProfile(p=>{
     const a=(p[cur.k] as string[])||[];
     return {...p,[cur.k]:a.includes(o)?a.filter(x=>x!==o):[...a,o]};
@@ -2566,6 +2580,27 @@ export default function App() {
     :cur.type==="height"?(profile.heightFt??"")!==""
     :cur.k==="avoid"?true
     :(profile[cur.k]||"")!=="";
+
+  /* Validate current quiz step before advancing — catches impossible values
+     like age=9999 or weight=0.001 that break the calorie engine.            */
+  function nextStep() {
+    setQErr("");
+    const v = profile[cur.k];
+    if (cur.type === "number") {
+      const n = Number(v);
+      if (!v || isNaN(n)) { setQErr("Please enter a valid number."); return; }
+      if (cur.k === "age")    { if (n < 10 || n > 100)  { setQErr("Age must be between 10 and 100."); return; } }
+      if (cur.k === "weight") { if (n < 25 || n > 300)  { setQErr("Weight must be between 25 and 300 kg."); return; } }
+      if (cur.k === "target") { if (n < 25 || n > 300)  { setQErr("Target weight must be between 25 and 300 kg."); return; } }
+    }
+    if (cur.type === "height") {
+      const ft = Number(profile.heightFt);
+      const ins = Number(profile.heightIn ?? 0);
+      if (!profile.heightFt || isNaN(ft) || ft < 3 || ft > 8) { setQErr("Height (feet) must be between 3 and 8."); return; }
+      if (isNaN(ins) || ins < 0 || ins > 11)                   { setQErr("Height (inches) must be 0–11."); return; }
+    }
+    setStep(stepClamped + 1);
+  }
 
   /* Quiz done → play the food-picking game first, then build the plan. */
   function generate() {
@@ -2688,12 +2723,12 @@ export default function App() {
             <div className="flex gap-3">
               <div className="flex-1">
                 <label className="text-xs text-gray-400">Feet</label>
-                <input type="number" value={profile.heightFt||""} onChange={e=>setProfile(p=>({...p,heightFt:e.target.value}))}
+                <input type="number" value={profile.heightFt||""} onChange={e=>{setQErr("");setProfile(p=>({...p,heightFt:e.target.value}));}}
                   placeholder="5" className="w-full mt-1 px-4 py-3.5 rounded-2xl border-2 border-gray-200 outline-none focus:border-green-500 text-lg" autoFocus/>
               </div>
               <div className="flex-1">
                 <label className="text-xs text-gray-400">Inches</label>
-                <input type="number" value={profile.heightIn||""} onChange={e=>setProfile(p=>({...p,heightIn:e.target.value}))}
+                <input type="number" value={profile.heightIn||""} onChange={e=>{setQErr("");setProfile(p=>({...p,heightIn:e.target.value}));}}
                   placeholder="9" className="w-full mt-1 px-4 py-3.5 rounded-2xl border-2 border-gray-200 outline-none focus:border-green-500 text-lg"/>
               </div>
             </div>
@@ -2707,12 +2742,12 @@ export default function App() {
               placeholder={cur.ph} className="w-full px-5 py-3.5 rounded-2xl border-2 border-gray-200 outline-none focus:border-green-500 text-lg" autoFocus/>
           )}
         </div>
-        {err&&<div className="mt-4 flex items-center gap-2 text-red-500 text-sm"><AlertCircle size={16}/>{err}</div>}
+        {(qErr||err)&&<div className="mt-4 flex items-center gap-2 text-red-500 text-sm"><AlertCircle size={16}/>{qErr||err}</div>}
         <div className="flex justify-between mt-8">
-          <button onClick={()=>stepClamped>0?setStep(stepClamped-1):setScreen("welcome")}
+          <button onClick={()=>{setQErr("");stepClamped>0?setStep(stepClamped-1):setScreen("welcome");}}
             className="px-5 py-2.5 text-gray-500 font-medium">{t("back")}</button>
           {stepClamped<activeQ.length-1?(
-            <button disabled={!canNext} onClick={()=>setStep(stepClamped+1)}
+            <button disabled={!canNext} onClick={nextStep}
               className="px-7 py-2.5 rounded-2xl text-white font-semibold disabled:opacity-40 inline-flex items-center gap-1 shadow-md"
               style={{background:GREEN}}>
               {t("next")} <ChevronRight size={16}/>
