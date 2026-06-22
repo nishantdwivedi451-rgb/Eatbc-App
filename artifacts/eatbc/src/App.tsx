@@ -5,7 +5,7 @@ import {
   AlertCircle, Sunrise, Apple, Cookie, Moon, HeartPulse,
   Sparkles, Stethoscope, User, UserPlus, ArrowRight, Scale,
   Flame, BarChart3, Trophy, Users, Bell, Plus, RefreshCw,
-  Lightbulb, Globe, X, Check, Target, Dumbbell, CalendarDays,
+  Lightbulb, Globe, X, Check, Target, Dumbbell, CalendarDays, Clock, BookOpen, ChefHat,
 } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -188,6 +188,8 @@ interface WorkoutPlan {
   schedule: (number | null)[];   // Mon..Sun → day index into days[], or null = rest
   days: WorkoutDay[]; notes: string[];
 }
+interface ExGuide { muscles: string[]; steps: string[]; tip: string; emoji: string; burnType: "cardio"|"compound"|"isolation"|"hold"; }
+interface Recipe { time: string; ingredients?: string[]; steps: string[]; tip?: string; }
 interface Plan {
   summary: string; dailyCalories: number; proteinTarget: number; bmi: string; bmiCat: string;
   goal: string; diet: string; condition: string; regLabel: string;
@@ -752,6 +754,107 @@ function makeTips(p: Profile, _cal: number): string[] {
   return [...g,...c,...extra].slice(0,5);
 }
 
+/* ─────────────── exercise guides ─────────────── */
+const EXERCISE_GUIDE: Record<string, ExGuide> = {
+  "Push-ups":{muscles:["Chest","Triceps","Shoulders","Core"],steps:["Start in a high plank with hands shoulder-width apart","Lower your chest to just above the floor, elbows at 45°","Press back up explosively to full arm extension","Keep your core braced throughout — no sagging hips","Breathe in on the way down, out on the way up"],tip:"Place hands slightly wider for more chest, closer for more triceps.",emoji:"🫸",burnType:"compound"},
+  "Incline push-ups":{muscles:["Upper chest","Shoulders","Triceps"],steps:["Place hands on a raised surface (sofa/bench) shoulder-width apart","Walk feet back to a diagonal plank position","Lower chest toward the surface, elbows flared 45°","Push back to start, squeezing chest at the top","Keep abs tight and back flat"],tip:"The lower the surface, the harder it gets — progress toward the floor over time.",emoji:"📐",burnType:"compound"},
+  "Pike push-ups":{muscles:["Shoulders","Triceps","Upper chest"],steps:["Start in downward-dog position — hips high, hands and feet on the floor","Bend elbows to lower your head toward the floor between your hands","Press back up to the starting pike position","Keep legs as straight as possible","Focus on using your shoulders, not your chest"],tip:"The more vertical your torso, the more shoulder work you'll get.",emoji:"⬆️",burnType:"compound"},
+  "Bench dips":{muscles:["Triceps","Chest","Front shoulders"],steps:["Sit on the edge of a chair/bench, hands gripping the edge beside your hips","Slide your hips off the edge, legs extended or bent for easier","Bend elbows to lower your hips toward the floor, stopping at 90°","Press through your palms to return to start","Keep your back close to the chair throughout"],tip:"Straighten your legs to increase difficulty; bend them to make it easier.",emoji:"🪑",burnType:"isolation"},
+  "Diamond push-ups":{muscles:["Triceps","Inner chest","Shoulders"],steps:["Form a diamond shape with your thumbs and index fingers on the floor","Assume a high plank with arms under your chest","Lower your chest toward your hands, keeping elbows close to your sides","Press back up, squeezing the triceps","Keep your core tight and hips level"],tip:"If full reps are too hard, do them from your knees to build tricep strength first.",emoji:"💎",burnType:"compound"},
+  "Towel door rows":{muscles:["Back","Biceps","Rear shoulders"],steps:["Loop a towel around a door handle and hold both ends","Lean back at ~45°, arms extended, feet close to the door base","Pull your chest toward the door handle, squeezing shoulder blades","Lower under control back to the start position","Keep elbows close to your body as you pull"],tip:"The more upright you stand, the easier it is — lean further back to increase difficulty.",emoji:"🚪",burnType:"compound"},
+  "Superman hold":{muscles:["Lower back","Glutes","Rear shoulders","Hamstrings"],steps:["Lie face-down on a mat, arms extended overhead","Simultaneously lift your arms, chest, and legs off the floor","Squeeze your glutes and lower back at the top","Hold the peak position for 1–2 seconds","Lower slowly and repeat"],tip:"Focus on length rather than height — reach your arms and legs away from your centre.",emoji:"🦸",burnType:"hold"},
+  "Reverse snow angels":{muscles:["Rear deltoids","Rhomboids","Trapezius"],steps:["Lie face-down, arms at your sides, thumbs pointing up","Sweep both arms overhead like a snow angel, keeping them off the floor","Bring them back to your sides with control","Keep your head neutral","Squeeze your shoulder blades at the end of each rep"],tip:"Go slowly and feel the squeeze between your shoulder blades on every rep.",emoji:"❄️",burnType:"isolation"},
+  "Prone Y-T-W raises":{muscles:["Lower trapezius","Rear deltoids","Rotator cuff"],steps:["Lie face-down, arms extended","Y: arms at 30° overhead, thumbs up — raise and lower","T: arms straight out to the sides — raise and lower","W: elbows bent 90°, pulled back with external rotation — raise and lower","Move slowly through each letter, pausing at the top"],tip:"Use very light or no weight — this is control work, not strength work.",emoji:"🔤",burnType:"isolation"},
+  "Bodyweight squats":{muscles:["Quads","Glutes","Hamstrings","Core"],steps:["Stand with feet shoulder-width apart, toes slightly out","Push hips back and bend knees to lower as if sitting in a chair","Keep chest up and knees tracking over toes","Lower until thighs are parallel to the floor","Drive through your heels to stand, squeezing glutes at the top"],tip:"Keep your weight on your heels — you should be able to wiggle your toes at the bottom.",emoji:"🦵",burnType:"compound"},
+  "Reverse lunges":{muscles:["Quads","Glutes","Hamstrings","Balance"],steps:["Stand tall, feet hip-width apart","Step one foot back and lower your back knee toward the floor","Front thigh should be parallel to the floor, front knee over ankle","Push through your front heel to return to standing","Alternate legs each rep"],tip:"Look straight ahead and keep your torso upright — don't lean forward.",emoji:"↩️",burnType:"compound"},
+  "Glute bridges":{muscles:["Glutes","Hamstrings","Lower back","Core"],steps:["Lie on your back, knees bent, feet flat and hip-width apart","Press through heels and squeeze glutes to lift hips off the floor","Drive hips up until your body forms a straight line from knees to shoulders","Hold 1–2 seconds at the top, squeezing hard","Lower slowly to just above the floor and repeat"],tip:"Tuck your chin to your chest to protect your neck and keep the focus on your glutes.",emoji:"🍑",burnType:"compound"},
+  "Wall sit":{muscles:["Quads","Glutes","Core"],steps:["Stand with your back flat against a wall","Slide down until your thighs are parallel to the floor (90° at knees)","Feet flat, hip-width apart, directly below your knees","Arms at sides or on thighs","Hold the position, breathing steadily throughout"],tip:"If your knees hurt, don't go as deep — stop at a comfortable angle above 90°.",emoji:"🧱",burnType:"hold"},
+  "Calf raises":{muscles:["Gastrocnemius","Soleus"],steps:["Stand on the edge of a step or flat floor, feet hip-width apart","Rise up onto your toes as high as possible","Hold the peak position for 1 second","Lower your heels slowly for a full stretch","Repeat with control — avoid bouncing"],tip:"Use a step for extra range of motion; hold a wall for balance if needed.",emoji:"🦶",burnType:"isolation"},
+  "Bulgarian split squat":{muscles:["Quads","Glutes","Hamstrings","Balance"],steps:["Stand a stride's length in front of a bench or chair","Place one foot behind you on the surface, laces down","Lower your back knee toward the floor, keeping torso upright","Front thigh parallel to floor at the bottom","Press through your front heel to stand — complete all reps then switch"],tip:"Keep most of your weight on the front foot — you should feel the working quad and glute.",emoji:"🏋️",burnType:"compound"},
+  "Plank":{muscles:["Core","Shoulders","Glutes","Back"],steps:["Place forearms on the floor, elbows below shoulders","Extend legs behind you in a straight line — toes on the floor","Brace abs, squeeze glutes, keep hips level","Look at the floor a few centimetres ahead of your hands","Breathe steadily and hold for the target time"],tip:"Think of pulling your belly button toward your spine — that single cue makes the plank dramatically harder.",emoji:"🧘",burnType:"hold"},
+  "Bicycle crunches":{muscles:["Rectus abdominis","Obliques","Hip flexors"],steps:["Lie on your back, hands behind your head, knees raised 90°","Lift your shoulder blades off the floor and rotate one elbow toward the opposite knee","Simultaneously extend the other leg straight","Switch sides in a smooth pedalling motion","Keep the movement controlled — don't pull on your neck"],tip:"Slow and deliberate beats fast and sloppy — slow reps give your obliques a full squeeze.",emoji:"🚲",burnType:"isolation"},
+  "Mountain climbers":{muscles:["Core","Shoulders","Hip flexors","Cardio"],steps:["Start in a high plank — hands below shoulders, body in a straight line","Drive one knee toward your chest","Quickly switch legs, extending the first leg back","Continue alternating as fast as you can while maintaining a flat back","Keep hips level — don't let them bounce"],tip:"Go as fast as you can while keeping your lower back flat — quality over speed.",emoji:"🏔️",burnType:"cardio"},
+  "Leg raises":{muscles:["Lower abs","Hip flexors","Core"],steps:["Lie flat on your back, hands under your glutes for support","Legs straight, raise them to 90° (vertical)","Lower slowly — stop just before your heels touch the floor","Pause and repeat without letting heels rest on the ground","Keep your lower back pressed into the floor throughout"],tip:"If this strains your lower back, bend your knees slightly to reduce the lever arm.",emoji:"🦵",burnType:"isolation"},
+  "Side plank":{muscles:["Obliques","Hip abductors","Core"],steps:["Lie on one side, forearm on the floor directly below your shoulder","Stack feet or stagger them for balance","Lift hips off the floor so your body forms a straight diagonal line","Keep core tight and hips stacked — don't let hips sag","Hold for target time, then switch sides"],tip:"Drive your hips toward the ceiling — this keeps the obliques under tension the whole time.",emoji:"📐",burnType:"hold"},
+  "Dead bug":{muscles:["Deep core","Transverse abdominis","Hip flexors"],steps:["Lie on your back, arms straight up, knees bent 90° (tabletop position)","Slowly lower one arm overhead and the opposite leg toward the floor","Keep your lower back pressed firmly into the floor throughout","Return to start and repeat on the other side","Breathe out as you lower, in as you return"],tip:"The key rule: lower back must stay glued to the floor. Sacrifice range of motion over that.",emoji:"🐛",burnType:"isolation"},
+  "Jumping jacks":{muscles:["Full body","Cardio","Shoulders","Legs"],steps:["Stand with feet together, arms at sides","Jump feet out to shoulder-width while raising arms overhead","Jump back to starting position, lowering arms","Maintain a steady, rhythmic pace","Land softly on the balls of your feet"],tip:"If you need low-impact, step side to side instead of jumping while still moving your arms.",emoji:"⭐",burnType:"cardio"},
+  "High knees":{muscles:["Cardio","Hip flexors","Core","Legs"],steps:["Stand tall with feet hip-width apart","Drive one knee up toward your chest","Quickly switch to drive the other knee up","Pump your arms in sync with your legs","Aim for a jogging-on-the-spot pace or faster"],tip:"Keep your core tight and back straight — don't lean back as you drive the knees up.",emoji:"🏃",burnType:"cardio"},
+  "Burpees":{muscles:["Full body","Cardio","Chest","Legs","Core"],steps:["Stand, then drop into a squat and place hands on the floor","Jump feet back into a plank position","Do one push-up (optional for beginners)","Jump feet back toward hands","Explode up, jumping with arms overhead"],tip:"Modify by stepping feet back instead of jumping to reduce intensity while keeping the full movement.",emoji:"💥",burnType:"cardio"},
+  "Skater hops":{muscles:["Glutes","Quads","Cardio","Balance"],steps:["Stand on one leg, slight knee bend","Push off and jump laterally to the opposite leg","Swing the free leg behind the landing leg for balance","Land softly on the other foot, absorbing impact through your knee","Immediately hop back — keep a rhythm going"],tip:"Touch your hand to the ground on each landing to deepen the athletic position and balance challenge.",emoji:"⛸️",burnType:"cardio"},
+  "DB floor / bench press":{muscles:["Chest","Triceps","Front shoulders"],steps:["Lie on the floor or a bench, a dumbbell in each hand at chest level","Press both weights up until arms are nearly extended over your chest","Lower under control until upper arms touch the floor/bench","Keep wrists straight and core braced throughout","Breathe in on the way down, out on the press"],tip:"Floor press naturally limits the range of motion, protecting your shoulders — great for beginners.",emoji:"🏋️",burnType:"compound"},
+  "DB shoulder press":{muscles:["Shoulders","Triceps","Upper traps"],steps:["Sit or stand holding dumbbells at shoulder height, palms forward","Press both weights overhead until arms are fully extended","Don't lock out your elbows — keep a slight bend at the top","Lower the weights back to shoulder level under control","Keep your core tight and lower back neutral"],tip:"Seated version reduces lower back involvement — good if you have back issues.",emoji:"🏆",burnType:"compound"},
+  "DB lateral raise":{muscles:["Side deltoids","Rotator cuff"],steps:["Stand holding light dumbbells at your sides, slight bend in elbows","Raise both arms out to the sides to shoulder height","Lead with your elbows, not your wrists","Hold briefly at the top, then lower slowly with control","Don't use momentum — slow negatives are key for shoulder development"],tip:"Think of pouring a cup of water at the top — tilt the front slightly down for better deltoid activation.",emoji:"↔️",burnType:"isolation"},
+  "DB overhead triceps extension":{muscles:["Triceps (long head)"],steps:["Hold one dumbbell with both hands overhead","Keep upper arms beside your ears — they stay stationary","Bend elbows to lower the weight behind your head","Extend back overhead, squeezing triceps at the top","Keep wrists straight and don't flare elbows out"],tip:"Keep upper arms truly vertical and still — if they move, you're losing the isolation.",emoji:"💪",burnType:"isolation"},
+  "DB bent-over row":{muscles:["Back","Biceps","Rear shoulders"],steps:["Hold dumbbells, hinge at hips to 45°, back flat, slight knee bend","Let arms hang straight down, palms facing each other","Pull the weights to your hip bones, squeezing shoulder blades together","Hold briefly at the top, then lower with control","Keep neck neutral — look at the floor a metre ahead"],tip:"Imagine you're trying to put your elbows in your back pockets — this cue fires the lats perfectly.",emoji:"🏋️",burnType:"compound"},
+  "DB reverse fly":{muscles:["Rear deltoids","Rhomboids","Trapezius"],steps:["Hinge forward at hips, dumbbells hanging below you, palms facing each other","Raise both arms out to the sides like wings","Lead with elbows, keep a slight bend in them","Squeeze shoulder blades at the top","Lower slowly — 3 seconds down"],tip:"Use very light weight and focus on the squeeze between your shoulder blades.",emoji:"🦅",burnType:"isolation"},
+  "DB bicep curl":{muscles:["Biceps","Forearms"],steps:["Stand with dumbbells at sides, palms facing forward","Curl both weights toward your shoulders, keeping elbows fixed at your sides","Squeeze biceps hard at the top","Lower slowly — 3 seconds — back to full extension","Don't swing your back; keep everything still except your forearms"],tip:"Full extension at the bottom gives you the full stretch — that's where a lot of growth happens.",emoji:"💪",burnType:"isolation"},
+  "Single-arm DB row":{muscles:["Back (lats)","Biceps","Core"],steps:["Place one knee and same-side hand on a bench for support","Hold a dumbbell in the free hand, arm hanging straight","Pull the weight to your hip, elbow driving back past your torso","Squeeze the lat at the top, hold briefly","Lower under control to full extension and repeat"],tip:"Think of your arm as a hook — it just holds the dumbbell; the back does the pulling.",emoji:"🏋️",burnType:"compound"},
+  "DB goblet squat":{muscles:["Quads","Glutes","Core","Upper back"],steps:["Hold a single dumbbell vertically at your chest with both hands cupping the top","Stand feet shoulder-width, toes slightly out","Sit deep into a squat, keeping elbows inside your knees at the bottom","Keep chest upright and weight on your heels","Drive through heels to stand, squeezing glutes at the top"],tip:"The goblet position forces an upright torso — great for practicing good squat form.",emoji:"🏆",burnType:"compound"},
+  "DB Romanian deadlift":{muscles:["Hamstrings","Glutes","Lower back"],steps:["Hold dumbbells at hips, feet hip-width apart","Push hips back and hinge forward, keeping back flat and weights close to legs","Lower weights to mid-shin level — feel the hamstring stretch","Drive hips forward to return to standing, squeezing glutes at the top","Don't round your back at any point"],tip:"Think of closing a car door with your glutes at the top — hard squeeze = full hip extension.",emoji:"🏋️",burnType:"compound"},
+  "DB walking lunge":{muscles:["Quads","Glutes","Hamstrings","Balance"],steps:["Hold dumbbells at sides and stand tall","Step forward with one leg and lower until both knees form 90°","Keep front knee over ankle — don't let it cave in","Push through front heel to bring feet together and step forward with the other leg","Continue alternating for the set distance or rep count"],tip:"Keep your torso upright and take long enough strides so your front shin stays vertical.",emoji:"🚶",burnType:"compound"},
+  "DB calf raise":{muscles:["Gastrocnemius","Soleus"],steps:["Hold dumbbells at sides, stand on floor or a step edge","Rise up onto the balls of both feet as high as possible","Pause for 1 second at the top","Lower slowly — 3 seconds — for a full calf stretch","Avoid bouncing — the slow lower is where it works"],tip:"Single-leg version dramatically increases difficulty without needing heavier weights.",emoji:"🦶",burnType:"isolation"},
+};
+
+/* ─────────────── recipe database ─────────────── */
+const RECIPE_DB: Record<string, Recipe> = {
+  "Vegetable poha":{time:"15 min",ingredients:["1½ cups thick poha","1 medium onion, sliced","½ cup mixed veggies (peas, carrot)","1 tsp mustard seeds","1 green chilli","½ tsp turmeric","Curry leaves, lemon juice, coriander","Salt to taste"],steps:["Rinse poha and drain. Let it soften for 5 min.","Heat oil; splutter mustard seeds, curry leaves, chilli.","Sauté onion until soft. Add veggies, turmeric, salt; cook 3 min.","Add poha and mix gently on low heat for 2 min.","Squeeze lemon, garnish with coriander and serve."],tip:"Rinse poha in a colander and shake off water — don't soak it or it turns mushy."},
+  "Besan chilla with mint chutney":{time:"20 min",ingredients:["1 cup besan","½ cup water","1 small onion, finely chopped","1 green chilli, chopped","½ tsp ajwain","Coriander, salt, red chilli powder"],steps:["Mix besan, water, onion, chilli, ajwain, salt into a pourable batter.","Heat a non-stick pan on medium; brush with ½ tsp oil.","Pour a ladle of batter and spread thin like a dosa.","Cook 2 min each side until golden.","Serve hot with mint chutney."],tip:"Add 1 tsp flaxseed powder to the batter for an omega-3 boost."},
+  "Moong dal cheela":{time:"20 min",ingredients:["½ cup moong dal (soaked 4 hrs or overnight)","1 tsp grated ginger","1 green chilli","Salt, cumin seeds","Coriander leaves"],steps:["Blend soaked moong dal with ginger, chilli, salt and a little water into a thick batter.","Heat a pan, grease lightly.","Pour batter and spread thin; cook on medium heat 2–3 min.","Flip and cook 1–2 min on the other side.","Serve with chutney or curd."],tip:"No soaking time? Use ½ cup moong dal flour instead."},
+  "Oats with milk, banana & seeds":{time:"5 min",ingredients:["½ cup rolled oats","200ml milk","1 ripe banana, sliced","1 tsp mixed seeds (flax, chia, pumpkin)","Pinch of cinnamon"],steps:["Heat milk in a saucepan; add oats.","Cook on medium heat 2–3 min, stirring, until creamy.","Pour into a bowl; top with banana and seeds.","Dust with cinnamon and serve."],tip:"Make overnight oats by soaking everything in cold milk in the fridge — ready in the morning with no cooking."},
+  "Oats with almond milk & fruit":{time:"5 min",ingredients:["½ cup rolled oats","200ml almond milk","½ cup mixed berries or chopped fruit","1 tsp honey (optional)","1 tbsp nuts"],steps:["Microwave oats and almond milk for 2 minutes (or stovetop 3 min).","Stir and add more milk if needed.","Top with fruit, nuts, and a drizzle of honey.","Serve immediately."],tip:"Use unsweetened almond milk to keep calories in check."},
+  "Vegetable upma":{time:"20 min",ingredients:["¾ cup semolina (suji)","1 cup water + 1 cup milk (or 2 cups water)","½ cup mixed veggies","1 tsp mustard seeds, curry leaves","1 small onion","Salt, green chilli"],steps:["Dry roast semolina on low heat until lightly fragrant (3 min). Set aside.","Heat oil; splutter mustard seeds, curry leaves. Add onion and chilli.","Add veggies and sauté 3 min.","Pour in water, bring to boil, add salt.","Add roasted semolina slowly, stirring continuously. Cook on low 2 min until thick."],tip:"Roasting the semolina beforehand prevents lumps and adds a nuttier flavour."},
+  "Idli (3) with coconut chutney":{time:"10 min",ingredients:["Store-bought idli batter","Coconut chutney (ready-made or fresh)"],steps:["Grease idli moulds; pour batter ¾ full.","Steam for 10–12 min on medium heat.","Test with a toothpick — it should come out clean.","Rest 2 min, then unmould with a wet spoon.","Serve with coconut chutney."],tip:"Use store-bought idli batter for a weekday-friendly 10-minute breakfast."},
+  "Idli (3) with sambar":{time:"10 min",ingredients:["Store-bought idli batter","Ready-made or homemade sambar"],steps:["Grease idli moulds; pour batter ¾ full.","Steam for 10–12 min.","Meanwhile, heat sambar; thin with water if needed.","Unmould idlis carefully.","Serve with hot sambar."],tip:"Frozen sambar from a previous batch works perfectly — just reheat and add water."},
+  "Masala dosa with chutney":{time:"30 min",ingredients:["Store-bought dosa batter","2 medium potatoes, boiled and mashed","1 onion, chopped","½ tsp mustard seeds, curry leaves, turmeric","Green chilli, salt, coriander"],steps:["Make aloo masala: splutter mustard seeds, sauté onion and chilli, add mashed potato with turmeric and salt.","Heat a flat tava on medium-high, grease lightly.","Pour a ladle of batter and spread in concentric circles.","Drizzle oil on edges; cook until crisp and golden.","Place filling on one half, fold and serve with chutney."],tip:"A very hot tava is the secret to crispy dosa — let it smoke slightly before adding batter."},
+  "Plain dosa with sambar":{time:"25 min",steps:["Heat a non-stick tava on high heat.","Pour a ladleful of batter and spread thin in circles.","Drizzle a few drops of oil around the edges.","Cook until edges lift and dosa is golden (2–3 min). Don't flip for plain dosa.","Fold and serve with hot sambar."],tip:"If batter sticks, wipe with a halved onion dipped in oil."},
+  "Pesarattu (moong dosa)":{time:"25 min",ingredients:["1 cup whole green moong (soaked overnight)","1 tsp grated ginger","1 green chilli","Salt","Cumin seeds"],steps:["Blend soaked moong with ginger, chilli, cumin and salt into a smooth, pourable batter.","Heat a tava on medium-high, grease lightly.","Pour batter and spread thin.","Cook 2–3 min, flip and cook 1 min on the other side.","Serve with ginger chutney."],tip:"This dosa needs no fermentation — you can make it same morning."},
+  "Ragi dosa":{time:"20 min",ingredients:["½ cup ragi flour","¼ cup rice flour or semolina","1 cup buttermilk","Grated coconut, green chilli, salt","Mustard seeds, curry leaves"],steps:["Mix ragi flour, rice flour, buttermilk, coconut, chilli, salt to a smooth batter.","Temper mustard seeds and curry leaves in oil; add to batter.","Rest 10 min; adjust consistency (should pour like cream).","Cook on a hot tava like a regular dosa.","Serve with coconut chutney."],tip:"Using buttermilk instead of water adds flavour and helps the dosa crisp up beautifully."},
+  "Aloo paratha with curd":{time:"25 min",ingredients:["2 cups whole wheat dough (made ahead)","2 medium potatoes, boiled and mashed","1 tsp ajwain, green chilli, ginger","Coriander, salt, red chilli powder","Curd for serving"],steps:["Mix mashed potato with ajwain, chilli, ginger, coriander, salt to make filling.","Roll a ball of dough flat, place filling in centre, seal and re-roll gently.","Cook on a hot tawa on both sides with a little ghee/butter until golden.","Press gently while cooking for even cooking.","Serve hot with cold curd."],tip:"Don't overfill — use just enough filling to spread a thin layer inside."},
+  "Paneer paratha with curd":{time:"25 min",ingredients:["2 cups whole wheat dough","150g paneer, grated","Green chilli, ginger, coriander","Jeera powder, salt"],steps:["Mix grated paneer with chilli, ginger, coriander, jeera, salt.","Make parathas — seal, re-roll, cook with ghee.","Cook until both sides are golden with brown spots.","Rest 1 min before serving.","Serve with curd and pickle."],tip:"Grate paneer finely so it spreads evenly — chunky paneer tends to burst through the dough."},
+  "Methi thepla with curd":{time:"20 min",ingredients:["1 cup whole wheat flour","1 cup fresh methi leaves, finely chopped","1 tsp sesame seeds, ajwain","½ tsp turmeric, chilli powder","Salt, 2 tsp oil"],steps:["Combine flour, methi, sesame, ajwain, turmeric, chilli, salt with a little curd and oil.","Knead into a soft dough, adding water sparingly.","Roll thin (thinner than paratha).","Cook on a hot tawa with minimal oil, 1–2 min each side.","Serve with curd or pickle."],tip:"Theplas stay soft and travel-friendly for 2–3 days — make a batch on Sunday."},
+  "Steamed dhokla":{time:"25 min",ingredients:["1 cup besan","½ cup curd","1 tsp ENO or baking soda","1 tbsp lemon juice","1 tsp ginger-chilli paste","Salt, turmeric","Mustard seeds, curry leaves for tempering"],steps:["Mix besan, curd, ginger-chilli paste, lemon, turmeric, salt into a smooth batter.","Add ENO just before steaming and mix gently.","Pour into a greased plate/tin and steam 12–15 min.","Check with a toothpick — it should come out clean.","Temper mustard seeds and curry leaves in oil; drizzle over dhokla. Cut and serve."],tip:"Add ENO at the very last moment before steaming — the reaction creates the spongy texture."},
+  "Vegetable daliya":{time:"20 min",ingredients:["½ cup broken wheat (daliya)","1 cup mixed veggies (carrot, peas, beans)","1 tsp cumin seeds","1 small onion, chopped","Salt, turmeric, garam masala"],steps:["Dry roast daliya 3 min until fragrant. Set aside.","Heat oil; add cumin, then onion. Sauté 2 min.","Add veggies, turmeric, salt; cook 3 min.","Add daliya and 1½ cups water. Mix and bring to a boil.","Cover and cook on low 10 min until soft. Fluff and serve."],tip:"Daliya cooks quicker in a pressure cooker — 1 whistle on high, then 2 on low."},
+  "Ragi porridge":{time:"10 min",ingredients:["3 tbsp ragi flour","250ml milk","1 tsp jaggery or honey","Pinch of cardamom","Pinch of salt"],steps:["Mix ragi flour with 2 tbsp cold milk to make a smooth slurry.","Heat remaining milk in a pan until simmering.","Add the slurry slowly, stirring continuously.","Cook on low heat 3–4 min, stirring, until thickened.","Add jaggery/honey and cardamom. Serve warm."],tip:"Mix flour with cold milk first to prevent lumps — this is the key step."},
+  "Sprout & veg salad bowl":{time:"5 min",ingredients:["1 cup mixed sprouts (moong, chana)","1 cup chopped veggies (cucumber, tomato, onion, carrot)","1 tbsp lemon juice","Salt, chaat masala, coriander"],steps:["Toss sprouts and veggies together in a bowl.","Season with lemon juice, salt and chaat masala.","Garnish with fresh coriander.","Serve immediately."],tip:"Sprouts can be prepared 2 days ahead — store in the fridge in a damp cloth."},
+  "Boiled eggs (2) with toast":{time:"10 min",steps:["Bring water to a boil; lower eggs in gently with a spoon.","Cook 8 min for fully set yolk (7 for slightly jammy).","Transfer to cold water for 1 min; peel.","Toast bread until golden.","Season eggs with salt and pepper. Serve."],tip:"Cold eggs + cold water start gives a more consistent result."},
+  "Egg bhurji with roti":{time:"15 min",ingredients:["2 eggs","1 small onion, finely chopped","1 tomato, chopped","1 green chilli","½ tsp cumin, turmeric, red chilli","Salt, coriander","2 rotis"],steps:["Heat oil; splutter cumin, add onion and chilli. Sauté 2 min.","Add tomato, turmeric, red chilli, salt; cook 2 min.","Crack eggs in and scramble on low-medium heat.","Keep stirring for soft, fluffy bhurji.","Garnish with coriander. Serve with hot rotis."],tip:"Low heat is the secret to soft bhurji — high heat makes it rubbery."},
+  "Bread omelette":{time:"10 min",steps:["Beat 2 eggs with onion, chilli, coriander, salt, pepper, turmeric.","Heat a pan on medium; add ½ tsp oil.","Pour egg mixture; place bread slices on the wet egg.","When egg is mostly set, flip the whole thing.","Cook 1 min on the bread side; serve fold-side up."],tip:"Press the bread gently onto the uncooked egg — it acts as a base and makes flipping easy."},
+  "Banana peanut-butter toast":{time:"3 min",ingredients:["2 slices whole wheat bread","2 tbsp natural peanut butter","1 ripe banana, sliced"],steps:["Toast bread until golden.","Spread peanut butter generously on each slice.","Layer banana slices on top.","Serve immediately."],tip:"Use natural (no added sugar) peanut butter for the healthiest option."},
+  "Cinnamon oats with flaxseed":{time:"7 min",steps:["Heat milk; add oats and ground flaxseed.","Cook 3–4 min, stirring, until creamy.","Stir in cinnamon and sweeten to taste.","Serve immediately."],tip:"Grind flaxseed fresh in a small blender — pre-ground flax loses its omega-3 content over time."},
+  "Seasonal fruit bowl":{time:"2 min",steps:["Chop a mix of whatever seasonal fruits are available.","Toss with a squeeze of lemon juice to prevent browning.","A sprinkle of chaat masala adds a lovely kick."],tip:"Eat within 30 minutes of cutting — fruits oxidise and lose vitamin C quickly once cut."},
+  "Buttermilk (chaas)":{time:"2 min",steps:["Blend 2 tbsp thick curd with 200ml cold water.","Add a pinch of salt, roasted cumin powder, and fresh mint.","Blend or whisk until frothy.","Serve chilled."],tip:"Homemade chaas is far lower in sodium than store-bought — make your own for a probiotic boost."},
+  "Roasted chana (handful)":{time:"1 min",steps:["Buy pre-roasted chana from any grocery store.","Measure out ¼ cup (about a handful — 40g).","Eat as is, or with a squeeze of lemon and pinch of chaat masala."],tip:"Roasted chana is one of the most protein-efficient snacks in Indian cuisine — 7g protein for just 120 kcal."},
+  "Moong sprouts cup":{time:"2 min",steps:["Take 1 cup ready sprouts.","Toss with salt, lemon juice, chaat masala and chopped tomato.","Optionally add cucumber and coriander.","Eat immediately."],tip:"Sprouting increases the bioavailability of protein by up to 30% compared to cooked dal."},
+  "Green tea with roasted makhana":{time:"5 min",steps:["Brew green tea for 2–3 min (don't over-steep or it turns bitter).","Lightly roast makhana in a dry pan with a pinch of salt and ghee for 2 min.","Sip tea alongside the crunchy makhana."],tip:"Makhana is a great low-calorie high-protein snack — don't add too much ghee or butter."},
+  "Roasted peanuts":{time:"1 min",steps:["Measure ¼ cup (40g) roasted peanuts.","Season with salt, lime juice and chilli if desired.","Eat mindfully — peanuts are calorie-dense, so portion control matters."],tip:"Peanuts in the shell force slower eating — you'll naturally consume less."},
+  "Chana sundal":{time:"10 min",ingredients:["1 cup boiled chickpeas (or canned, drained)","1 tsp mustard seeds","Curry leaves, dry red chilli","2 tbsp grated coconut","Salt, lemon juice"],steps:["Heat oil; splutter mustard seeds, curry leaves, red chilli.","Add boiled chickpeas, salt and toss for 2 min.","Remove from heat; add coconut and lemon juice.","Serve warm or at room temperature."],tip:"Use canned chickpeas on busy days — just drain, rinse and they're ready."},
+  "Pan-tossed paneer cubes":{time:"5 min",steps:["Cube 80g paneer.","Heat a pan on high; add ½ tsp oil.","Add paneer cubes and let them sear undisturbed for 1 min.","Toss with a pinch of chilli powder, salt and dried herbs.","Cook 1 more min and serve hot."],tip:"High heat and patience — don't move the paneer for the first minute so it develops a golden crust."},
+  "2 roti, dal tadka, bhindi & curd":{time:"30 min",ingredients:["2 whole wheat rotis","1 cup toor/moong dal","1 cup bhindi (okra), sliced","1 tsp mustard seeds, cumin","1 tomato, 1 onion","Turmeric, red chilli, coriander","½ cup curd"],steps:["Pressure cook dal with turmeric and salt (2 whistles).","For tadka: heat ghee, add cumin, then onion, tomato and spices. Add to cooked dal.","For bhindi: sauté in dry pan with mustard seeds, salt and a pinch of amchur until tender (8 min).","Make or heat rotis.","Serve dal, bhindi and cold curd together."],tip:"Cook bhindi in a dry pan without adding water — moisture makes it slimy."},
+  "2 roti, rajma & small rice":{time:"35 min",ingredients:["2 rotis","1 cup rajma (pre-soaked and pressure cooked)","½ cup cooked rice","Onion, tomato, ginger-garlic paste","Rajma masala, cumin, oil, coriander"],steps:["Sauté onion until golden. Add ginger-garlic paste, tomato, masala.","Add cooked rajma with ½ cup cooking liquid. Simmer 10 min.","Mash a few rajma with the back of a spoon for a thicker gravy.","Serve with hot rotis and rice."],tip:"Soaked and pressure-cooked rajma can be frozen in batches — a huge weeknight time saver."},
+  "2 roti, chole & salad":{time:"30 min",ingredients:["2 rotis","1 cup chickpeas (pre-soaked and cooked)","Onion, tomato, ginger, garlic","Chole masala, anardana powder","Cucumber and tomato salad"],steps:["Cook chole masala base: sauté onion until dark, add ginger-garlic, tomatoes.","Add chickpeas and masala; simmer 15 min until gravy thickens.","Finish with anardana powder for tanginess.","Serve with rotis and fresh salad."],tip:"A dark, caramelised onion base is the key to restaurant-style chole — don't rush this step."},
+  "Palak paneer with 2 roti":{time:"30 min",ingredients:["2 big bunches fresh palak (spinach)","100g paneer, cubed","1 onion, 2 tomatoes","Ginger-garlic paste","Cumin, garam masala"],steps:["Blanch spinach 2 min, blend to smooth purée.","Sauté onion until golden; add ginger-garlic and tomatoes. Cook until dry.","Add spices and spinach purée; cook 5 min.","Add paneer cubes; simmer 5 min.","Serve hot with rotis."],tip:"Blanch and blend the spinach fresh — it's brighter green and more nutritious than using frozen."},
+  "Dal makhani with jeera rice":{time:"45 min",ingredients:["½ cup whole black urad dal","2 tbsp rajma","1 tbsp butter + 1 tbsp oil","Onion, tomato, ginger-garlic","Cream, garam masala, red chilli powder"],steps:["Pressure cook urad dal and rajma together until very soft (8–10 whistles).","Make a rich onion-tomato masala; add to dal.","Simmer on very low heat 20 min, stirring often.","Add butter and a spoon of cream at the end.","Cook jeera rice separately. Serve together."],tip:"Dal makhani improves dramatically overnight — make it the day before for best flavour."},
+  "Mixed veg, dal & 2 roti":{time:"25 min",steps:["Pressure cook 1 cup moong dal (2 whistles).","Make a light tadka with cumin, onion, tomato.","Add 1½ cups mixed veggies and cook till tender (8 min). Mix with dal.","Make or heat 2 rotis.","Serve together."],tip:"Use whatever vegetables are in season — this is a flexible, nutritious base meal."},
+  "Rice, sambar, rasam, poriyal & curd":{time:"40 min",steps:["Cook rice. Make sambar with toor dal, vegetables and sambar powder.","Prepare rasam by boiling tamarind water with tomato, pepper, cumin.","Stir-fry chosen vegetable with mustard seeds, dried red chilli and coconut for poriyal.","Serve all together on a plate with curd on the side."],tip:"This is a complete South Indian meal — sambar (protein), poriyal (fibre) and curd (probiotic) is nutritionally ideal."},
+  "Curd rice with pickle":{time:"10 min",ingredients:["1½ cups cooked rice","½ cup thick curd","Mustard seeds, curry leaves, dry red chilli","Small piece of pickle"],steps:["Mix warm rice with curd until combined.","Temper mustard seeds, curry leaves, chilli in oil; pour over the curd rice.","Mix in cucumber or pomegranate for freshness.","Serve with a small piece of mango pickle."],tip:"Mash the curd rice slightly for a creamier texture — south Indian curd rice is smoother than just mixing."},
+  "Lemon rice with papad & salad":{time:"15 min",ingredients:["1½ cups cooked rice (leftover works best)","1 lemon (juice)","1 tsp mustard seeds, chana dal, urad dal","Turmeric, green chilli, curry leaves","2 tbsp roasted peanuts"],steps:["Heat oil; add mustard seeds, chana dal, urad dal — let them splutter and crisp.","Add green chilli, curry leaves, turmeric.","Add rice and toss well.","Add lemon juice and peanuts; toss and season.","Serve with roasted papad and fresh salad."],tip:"Leftover rice works best for lemon rice — freshly cooked rice tends to break up."},
+  "Moong dal khichdi with curd":{time:"20 min",ingredients:["½ cup rice","¼ cup moong dal (split yellow)","1 tsp cumin seeds","½ tsp turmeric","1 tsp ghee","Salt"],steps:["Wash rice and dal together.","Heat ghee in pressure cooker; add cumin.","Add rice, dal, turmeric, salt and 2 cups water.","Pressure cook 2 whistles; open after steam releases.","Serve soft khichdi with cold curd."],tip:"Moong dal khichdi is perfect sick-day or recovery food — light, easy to digest and complete nutrition."},
+  "Dal with 2 roti & salad":{time:"25 min",steps:["Pressure cook 1 cup masoor or toor dal (2 whistles).","Make a simple tadka with cumin, onion, tomato and spices.","Mix tadka into dal; simmer 5 min.","Make or heat 2 rotis.","Serve with a fresh salad."],tip:"A squeeze of lemon over the dal at the end brightens all the flavours."},
+  "Veg pulao with raita":{time:"25 min",ingredients:["1 cup basmati rice","1 cup mixed vegetables","1 tsp ghee","Whole spices (bay leaf, cardamom, cloves, cumin)"],steps:["Soak rice 20 min; drain.","Heat ghee; fry whole spices. Add onion; cook golden.","Add vegetables and rice; coat in ghee.","Add 1¾ cups water, salt; bring to boil. Cover and cook on lowest heat 15 min.","Fluff rice. Make raita. Serve together."],tip:"Never stir rice while it's cooking — lifting the lid and stirring breaks the grains and makes it sticky."},
+  "Grilled chicken with sautéed veg":{time:"20 min",ingredients:["150g chicken breast or thigh","1½ cups mixed vegetables (capsicum, zucchini, broccoli, onion)","Olive oil, garlic, herbs","Salt, pepper, lemon juice"],steps:["Marinate chicken with oil, garlic, herbs, salt and pepper for at least 15 min.","Heat a grill pan on high; cook chicken 4–5 min per side.","Rest 3 min before slicing.","In the same pan, sauté veggies with garlic, salt and pepper 5 min.","Serve chicken over veggies with a squeeze of lemon."],tip:"Resting the chicken 3 min after cooking keeps the juices in."},
+  "Grilled fish with salad":{time:"15 min",steps:["Pat fish dry; season with salt, pepper, garlic, lemon.","Heat a non-stick pan on high with ½ tsp oil.","Cook fish 3–4 min per side until it flakes easily.","Toss salad with lemon, olive oil, salt.","Serve fish immediately with salad."],tip:"Dry the fish completely before seasoning — moisture is the enemy of a good sear."},
+  "Paneer tikka with salad":{time:"20 min",ingredients:["100g paneer, cubed","½ cup thick curd","Tikka masala, red chilli, cumin, turmeric","Capsicum and onion to skewer"],steps:["Marinate paneer cubes in spiced curd for at least 15 min.","Thread onto skewers with capsicum and onion.","Grill on a high pan — 3–4 min per side.","Char edges for authentic flavour.","Serve with mint chutney and salad."],tip:"Don't skip the marinade resting time — the acid in the curd tenderises the paneer."},
+  "Tofu stir-fry with rice":{time:"20 min",ingredients:["120g firm tofu, drained and cubed","1 cup cooked rice","2 cups mixed vegetables","2 tbsp soy sauce","1 tsp sesame oil","Ginger, garlic, spring onion"],steps:["Press tofu dry with a cloth; cube it.","Heat oil on very high heat; fry tofu cubes until golden on all sides (5 min). Remove.","Stir-fry vegetables with ginger and garlic 2 min.","Return tofu; add soy sauce and sesame oil.","Serve over rice with spring onion garnish."],tip:"The secret to crispy tofu is a very hot pan and dry tofu — moisture creates steaming instead of searing."},
+  "Fish curry with rice":{time:"35 min",steps:["Marinate fish with turmeric and salt for 10 min.","Make a masala base: onion, ginger-garlic, tomato, spices.","Add coconut milk (or water); simmer 5 min.","Slide in fish; cook 8–10 min until fish flakes easily.","Serve over steamed rice."],tip:"Don't overcook fish — it's done when it flakes with a fork. Overcooked fish is dry and tough."},
+  "Egg curry with rice":{time:"25 min",steps:["Halve or score 2 hard boiled eggs; lightly fry in oil for 2 min.","Make a thick onion-tomato masala base.","Add eggs to masala with ¼ cup water; simmer 5 min.","Season and garnish with coriander.","Serve with rice."],tip:"Fry the boiled eggs briefly before adding to curry — this gives them a slightly chewy skin that holds the gravy."},
+  "Grilled paneer & quinoa bowl":{time:"20 min",steps:["Cook quinoa: 1 cup quinoa + 2 cups water; simmer 15 min covered.","Grill paneer cubes in a hot pan 2 min per side.","Roast or sauté veggies with oil and garlic.","Layer quinoa, veggies and paneer in a bowl.","Drizzle with lemon and olive oil dressing."],tip:"Rinse quinoa before cooking to remove saponins — the natural coating that makes it bitter."},
+  "Soya chunk curry with rice":{time:"30 min",steps:["Boil soya chunks 5 min; squeeze out water and set aside.","Make a thick onion-tomato masala base.","Add soya chunks, masala, ½ cup water; simmer 10 min.","Serve over cooked rice with fresh coriander."],tip:"Squeezing the water out after boiling removes the raw soya taste and helps chunks absorb curry flavour."},
+  "Vegetable soup with 2 multigrain toast":{time:"20 min",steps:["Sauté garlic and onion in olive oil.","Add all vegetables; cook 3 min.","Add water/stock; bring to boil and simmer 10 min.","Blend half the soup for a creamy texture, or leave chunky.","Season and serve with toasted multigrain bread."],tip:"A pressure cooker reduces cooking time to 5 minutes — same flavour, much faster."},
+  "Turmeric milk":{time:"5 min",ingredients:["250ml milk","½ tsp turmeric powder","A small pinch of black pepper","1 tsp honey or jaggery (optional)","Pinch of cardamom"],steps:["Heat milk in a small saucepan until it just starts to steam.","Whisk in turmeric, black pepper and cardamom.","Sweeten if desired.","Pour and drink warm — it's most effective taken warm, 30 min before bed."],tip:"The black pepper is essential — piperine increases curcumin absorption by up to 2000%."},
+  "Warm milk":{time:"3 min",steps:["Heat milk in a saucepan or microwave until warm (not boiling).","Pour into a mug.","Drink slowly, sitting quietly — this is a winding-down ritual."],tip:"The tryptophan in milk converts to serotonin and melatonin — drink it 30 min before your target sleep time."},
+  "Chamomile tea":{time:"3 min",steps:["Steep chamomile tea bag or dried flowers for 3–5 minutes.","Remove tea bag; optionally add a small drizzle of honey.","Drink warm, 30–60 min before bed."],tip:"Chamomile contains apigenin, a compound that binds to GABA receptors in the brain to promote sleepiness."},
+};
+
 /* ─────────────── workout engine ─────────────── */
 type ExDef = { n: string; note?: string; hold?: boolean };
 /* Exercise pools by environment, grouped by movement pattern. */
@@ -1099,6 +1202,7 @@ function Chip({label,val,accent}:{label:string;val:string;accent?:boolean}) {
 /* ─────────────── PlanWeek ─────────────── */
 function PlanWeek({plan}:{plan:Plan}) {
   const [sel,setSel]=useState(plan.days[0].day);
+  const [recipeFor,setRecipeFor]=useState<string|null>(null);
   const day=plan.days.find(d=>d.day===sel)!;
   const total=day.meals.reduce((a,b)=>a+b.cal,0);
   return (
@@ -1134,7 +1238,13 @@ function PlanWeek({plan}:{plan:Plan}) {
                   <span className="text-xs font-semibold uppercase tracking-wide" style={{color:ui.col}}>{m.time}</span>
                   <span className="text-xs font-semibold" style={{color:GREEN}}>{m.cal} kcal</span>
                 </div>
-                <p className="text-gray-800 font-semibold mt-0.5 leading-snug">{m.food}</p>
+                <div className="flex items-center justify-between gap-1 mt-0.5">
+                  <p className="text-gray-800 font-semibold leading-snug flex-1">{m.food}</p>
+                  {RECIPE_DB[m.food]&&(
+                    <button onClick={()=>setRecipeFor(m.food)} title="View recipe"
+                      className="text-gray-300 hover:text-green-600 transition shrink-0 ml-1"><ChefHat size={14}/></button>
+                  )}
+                </div>
                 <div className="flex items-center gap-1 mt-1">
                   <Scale size={11} className="text-gray-400 shrink-0"/>
                   <span className="text-xs text-gray-400">{m.qty}</span>
@@ -1144,6 +1254,7 @@ function PlanWeek({plan}:{plan:Plan}) {
           );
         })}
       </div>
+      {recipeFor&&<RecipeSheet name={recipeFor} onClose={()=>setRecipeFor(null)}/>}
     </Card>
   );
 }
@@ -2187,6 +2298,97 @@ function workoutStreak(workouts: Record<string,boolean>): number {
   }
   return streak;
 }
+const BURN_LABEL: Record<string,string> = {cardio:"Cardio",compound:"Compound",isolation:"Isolation",hold:"Isometric hold"};
+const BURN_COLOR: Record<string,string> = {cardio:"#EF4444",compound:"#7C3AED",isolation:"#2563EB",hold:"#059669"};
+
+function ExerciseGuideSheet({name,onClose}:{name:string;onClose:()=>void}) {
+  const g = EXERCISE_GUIDE[name];
+  if (!g) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col" style={{background:"rgba(0,0,0,0.55)"}}>
+      <div className="flex-1" onClick={onClose}/>
+      <div className="bg-white rounded-t-3xl max-h-[85vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100">
+          <div className="flex items-center gap-2.5">
+            <span className="text-3xl">{g.emoji}</span>
+            <div>
+              <h2 className="font-black text-gray-900 text-lg leading-tight">{name}</h2>
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full text-white" style={{background:BURN_COLOR[g.burnType]}}>{BURN_LABEL[g.burnType]}</span>
+            </div>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100"><X size={16}/></button>
+        </div>
+        <div className="px-5 pt-4 pb-8">
+          <div className="flex flex-wrap gap-1.5 mb-4">
+            {g.muscles.map(m=>(
+              <span key={m} className="text-xs px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 font-semibold">{m}</span>
+            ))}
+          </div>
+          <h3 className="font-black text-gray-800 mb-3 text-sm uppercase tracking-wide">How to do it</h3>
+          <ol className="space-y-2.5 mb-5">
+            {g.steps.map((s,i)=>(
+              <li key={i} className="flex gap-3 text-sm text-gray-700">
+                <span className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 font-black text-xs text-white" style={{background:"#7C3AED"}}>{i+1}</span>
+                <span className="pt-0.5">{s}</span>
+              </li>
+            ))}
+          </ol>
+          <div className="rounded-2xl p-4 flex gap-3" style={{background:"#F5F3FF"}}>
+            <Lightbulb size={16} className="text-purple-600 shrink-0 mt-0.5"/>
+            <p className="text-sm text-purple-900">{g.tip}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RecipeSheet({name,onClose}:{name:string;onClose:()=>void}) {
+  const r = RECIPE_DB[name];
+  if (!r) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col" style={{background:"rgba(0,0,0,0.55)"}}>
+      <div className="flex-1" onClick={onClose}/>
+      <div className="bg-white rounded-t-3xl max-h-[85vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100">
+          <div>
+            <h2 className="font-black text-gray-900 text-lg leading-tight">{name}</h2>
+            <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1"><Clock size={12}/> {r.time}</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100"><X size={16}/></button>
+        </div>
+        <div className="px-5 pt-4 pb-8">
+          {r.ingredients&&(
+            <>
+              <h3 className="font-black text-gray-800 mb-3 text-sm uppercase tracking-wide">Ingredients</h3>
+              <ul className="mb-5 space-y-1">
+                {r.ingredients.map((ing,i)=>(
+                  <li key={i} className="flex gap-2 text-sm text-gray-700"><span className="text-green-500 mt-0.5">•</span>{ing}</li>
+                ))}
+              </ul>
+            </>
+          )}
+          <h3 className="font-black text-gray-800 mb-3 text-sm uppercase tracking-wide">Steps</h3>
+          <ol className="space-y-2.5 mb-5">
+            {r.steps.map((s,i)=>(
+              <li key={i} className="flex gap-3 text-sm text-gray-700">
+                <span className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 font-black text-xs text-white" style={{background:"#1DAA61"}}>{i+1}</span>
+                <span className="pt-0.5">{s}</span>
+              </li>
+            ))}
+          </ol>
+          {r.tip&&(
+            <div className="rounded-2xl p-4 flex gap-3" style={{background:"#F0FDF4"}}>
+              <Lightbulb size={16} className="text-green-600 shrink-0 mt-0.5"/>
+              <p className="text-sm text-green-900">{r.tip}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function WorkoutTab({workout,tracking,onUpdate}:{
   workout:WorkoutPlan;tracking:Tracking;onUpdate:(t:Tracking)=>void;
 }) {
@@ -2201,6 +2403,8 @@ function WorkoutTab({workout,tracking,onUpdate}:{
   const completedToday=!!workouts[iso];
   const streak=workoutStreak(workouts);
   const weekDone=Array.from({length:7}).filter((_,i)=>workouts[isoShift(-i)]).length;
+
+  const [guideEx,setGuideEx]=useState<string|null>(null);
 
   const toggleEx=(i:number)=>{
     const cur=sets[iso]||[];
@@ -2264,22 +2468,33 @@ function WorkoutTab({workout,tracking,onUpdate}:{
           <div className="space-y-2">
             {session.items.map((it,i)=>{
               const on=doneIdx.includes(i);
+              const hasGuide=!!EXERCISE_GUIDE[it.name];
               return (
-                <button key={i} onClick={()=>toggleEx(i)}
-                  className="w-full flex items-center gap-3 p-3 rounded-2xl border-2 text-left transition"
-                  style={on?{background:"#F5F3FF",borderColor:"#C4B5FD"}:{borderColor:"#F3F4F6"}}>
-                  <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 border-2"
-                    style={on?{background:"#7C3AED",borderColor:"#7C3AED"}:{borderColor:"#D1D5DB"}}>
-                    {on&&<Check size={14} color="#fff" strokeWidth={3}/>}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className={`font-semibold text-sm ${on?"text-purple-900":"text-gray-800"}`}>{it.name}</div>
-                    {it.note&&<div className="text-[11px] text-gray-400">{it.note}</div>}
-                  </div>
-                  <div className="text-xs font-bold text-gray-500 shrink-0 text-right">
-                    {it.sets>1&&<span>{it.sets} × </span>}{it.reps}
-                  </div>
-                </button>
+                <div key={i} className="flex gap-2 items-stretch">
+                  <button onClick={()=>toggleEx(i)}
+                    className="flex-1 flex items-center gap-3 p-3 rounded-2xl border-2 text-left transition"
+                    style={on?{background:"#F5F3FF",borderColor:"#C4B5FD"}:{borderColor:"#F3F4F6"}}>
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 border-2"
+                      style={on?{background:"#7C3AED",borderColor:"#7C3AED"}:{borderColor:"#D1D5DB"}}>
+                      {on&&<Check size={14} color="#fff" strokeWidth={3}/>}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className={`font-semibold text-sm ${on?"text-purple-900":"text-gray-800"}`}>{it.name}</div>
+                      {it.note&&<div className="text-[11px] text-gray-400">{it.note}</div>}
+                    </div>
+                    <div className="text-xs font-bold text-gray-500 shrink-0 text-right">
+                      {it.sets>1&&<span>{it.sets} × </span>}{it.reps}
+                    </div>
+                  </button>
+                  {hasGuide&&(
+                    <button onClick={()=>setGuideEx(it.name)}
+                      className="w-10 rounded-2xl border-2 flex items-center justify-center transition hover:opacity-80"
+                      style={{borderColor:"#EDE9FE",background:"#F5F3FF"}}
+                      title="How to do this exercise">
+                      <BookOpen size={15} className="text-purple-500"/>
+                    </button>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -2303,8 +2518,12 @@ function WorkoutTab({workout,tracking,onUpdate}:{
               <div className="px-4 pb-3 space-y-1.5">
                 <p className="text-xs text-gray-400 mb-2">{d.focus}</p>
                 {d.items.map((it,j)=>(
-                  <div key={j} className="flex justify-between text-sm">
-                    <span className="text-gray-700">{it.name}{it.note?<span className="text-gray-400"> · {it.note}</span>:""}</span>
+                  <div key={j} className="flex justify-between items-center text-sm">
+                    <button onClick={()=>EXERCISE_GUIDE[it.name]&&setGuideEx(it.name)}
+                      className={`text-left flex items-center gap-1 ${EXERCISE_GUIDE[it.name]?"text-purple-700 font-semibold hover:underline":"text-gray-700"}`}>
+                      {it.name}{it.note?<span className="text-gray-400 font-normal"> · {it.note}</span>:""}
+                      {EXERCISE_GUIDE[it.name]&&<BookOpen size={12} className="text-purple-400 shrink-0"/>}
+                    </button>
                     <span className="text-gray-500 font-medium shrink-0 ml-2">{it.sets>1?`${it.sets} × `:""}{it.reps}</span>
                   </div>
                 ))}
@@ -2323,6 +2542,7 @@ function WorkoutTab({workout,tracking,onUpdate}:{
           ))}
         </ul>
       </div>
+      {guideEx&&<ExerciseGuideSheet name={guideEx} onClose={()=>setGuideEx(null)}/>}
     </>
   );
 }
@@ -2335,6 +2555,7 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout}:{
   const t=makeT(lang);
   const today=WEEK[(new Date().getDay()+6)%7];
   const [sel,setSel]=useState<DayName>(today);
+  const [recipeFor,setRecipeFor]=useState<string|null>(null);
   const dd=(tracking[sel] as DayTracking)||{meals:{},water:0};
   const dp=plan?.days?.find(d=>d.day===sel);
   const cal=plan?.dailyCalories||0;
@@ -2472,8 +2693,14 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout}:{
                           </button>
                           <div className="flex flex-col items-end gap-1 shrink-0">
                             <span className="text-xs font-semibold" style={{color:GREEN}}>{m.cal}</span>
-                            <button onClick={()=>onSwap(sel,i)} title={t("swap")}
-                              className="text-gray-300 hover:text-green-600 transition"><RefreshCw size={14}/></button>
+                            <div className="flex gap-1.5">
+                              {RECIPE_DB[m.food]&&(
+                                <button onClick={()=>setRecipeFor(m.food)} title="View recipe"
+                                  className="text-gray-300 hover:text-green-600 transition"><ChefHat size={14}/></button>
+                              )}
+                              <button onClick={()=>onSwap(sel,i)} title={t("swap")}
+                                className="text-gray-300 hover:text-green-600 transition"><RefreshCw size={14}/></button>
+                            </div>
                           </div>
                         </div>
                       );
@@ -2527,6 +2754,7 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout}:{
           </>
         )}
       </div>
+      {recipeFor&&<RecipeSheet name={recipeFor} onClose={()=>setRecipeFor(null)}/>}
     </Shell>
   );
 }
