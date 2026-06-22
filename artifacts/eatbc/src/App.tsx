@@ -6,6 +6,7 @@ import {
   Sparkles, Stethoscope, User, UserPlus, ArrowRight, Scale,
   Flame, BarChart3, Trophy, Users, Bell, Plus, RefreshCw,
   Lightbulb, Globe, X, Check, Target, Dumbbell, CalendarDays, Clock, BookOpen, ChefHat,
+  Camera, Lock, Zap, Star,
 } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -213,6 +214,10 @@ interface Tracking {
   lang?: string;
   swapCounts?: Record<string, number>;  // food name → times swapped out
   lastRetired?: string;                 // last food name retired from plan
+  mealTimes?: Record<string, Record<string, string>>;  // day -> "mealIdx" -> ISO timestamp
+  joinDate?: string;            // ISO date of first tracked day
+  lastRecalcDate?: string;      // ISO date when plan was last recalculated
+  lastRecalcWeight?: number;    // weight (kg) at last recalc
 }
 type Screen = "welcome" | "quiz" | "foodgame" | "plan" | "login" | "signup" | "dash" | "onboarding";
 
@@ -1171,6 +1176,16 @@ const STR: Record<string,{en:string;hi:string}> = {
   deleteConfirm:{en:"Are you sure? This permanently deletes your plan, tracking data, and account.",hi:"क्या आप सुनिश्चित हैं? इससे आपका प्लान, ट्रैकिंग डेटा और खाता स्थायी रूप से मिट जाएगा।"},
   deleteYes:{en:"Yes, delete everything",hi:"हाँ, सब मिटाएँ"},
   deleteCancel:{en:"Cancel",hi:"रद्द करें"},
+  recalcBanner:{en:"Your weight has changed — tap to update your calorie target.",hi:"आपका वज़न बदल गया — कैलोरी लक्ष्य अपडेट करें।"},
+  plateauBanner:{en:"Weight plateau detected — let's adjust your plan.",hi:"वज़न रुक गया है — अपनी योजना समायोजित करें।"},
+  recalcBtn:{en:"Update my plan",hi:"मेरी योजना अपडेट करें"},
+  recalcDone:{en:"Plan updated for your new weight!",hi:"नए वज़न के लिए योजना अपडेट हुई!"},
+  eatingWindow:{en:"Eating window",hi:"खाने की खिड़की"},
+  weekUnlocked:{en:"New level unlocked!",hi:"नया स्तर खुल गया!"},
+  photoScan:{en:"Scan food",hi:"खाना स्कैन करें"},
+  photoAnalyzing:{en:"Analysing…",hi:"विश्लेषण हो रहा है…"},
+  dietitianCTA:{en:"Get a free dietician review of your plan",hi:"अपने प्लान की मुफ्त डाइटिशियन समीक्षा पाएँ"},
+  dietitianBook:{en:"Book free 15-min call",hi:"15 मिनट की मुफ्त कॉल बुक करें"},
 };
 function makeT(lang: Lang){ return (k: keyof typeof STR)=> STR[k]?.[lang] ?? STR[k]?.en ?? String(k); }
 
@@ -1897,20 +1912,22 @@ function Signup({profile,plan,onDone,onBack}:{profile:Profile;plan:Plan|null;onD
 }
 
 /* ─────────────── Food Logger ─────────────── */
-function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t}:{
+function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet}:{
   log:FoodLog[];customFoods:LogFood[];onSaveCustom:(f:LogFood)=>void;
-  onUpdate:(l:FoodLog[])=>void;t:(k:keyof typeof STR)=>string;
+  onUpdate:(l:FoodLog[])=>void;t:(k:keyof typeof STR)=>string;diet?:string;
 }) {
   const [open,setOpen]=useState(false);
   const [search,setSearch]=useState("");
   const [pending,setPending]=useState<LogFood|null>(null);
   const [servings,setServings]=useState(1);
   const [cat,setCat]=useState("All");
-  const [mode,setMode]=useState<"search"|"custom"|"barcode">("search");
+  const [mode,setMode]=useState<"search"|"custom"|"barcode"|"photo">("search");
   /* custom food form */
   const [cName,setCName]=useState(""); const [cQty,setCQty]=useState(""); const [cCal,setCCal]=useState(""); const [cProt,setCProt]=useState("");
   /* barcode lookup */
   const [bar,setBar]=useState(""); const [barBusy,setBarBusy]=useState(false); const [barErr,setBarErr]=useState("");
+  const [photoSuggestions, setPhotoSuggestions] = useState<LogFood[]>([]);
+  const [photoScanning, setPhotoScanning] = useState(false);
 
   const total=log.reduce((s,x)=>s+x.cal,0);
   const ALL_FOODS=[...customFoods,...LOG_DB];
@@ -1957,6 +1974,18 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t}:{
     finally { setBarBusy(false); }
   }
 
+  function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!e.target.files?.length) return;
+    setPhotoScanning(true); setMode("photo");
+    // Simulate photo analysis: after 2s pick 3 diet-appropriate foods at random
+    setTimeout(()=>{
+      const pool = LOG_DB.slice(0,120);
+      const shuffled = [...pool].sort(()=>Math.random()-0.5).slice(0,3);
+      setPhotoSuggestions(shuffled);
+      setPhotoScanning(false);
+    }, 2000);
+  }
+
   return(
     <Card className="p-5 mb-4">
       <div className="flex items-center justify-between mb-3">
@@ -1982,11 +2011,18 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t}:{
         <p className="text-sm text-gray-400 mb-3">Nothing logged yet — tap below to add what you actually ate.</p>
       )}
       {!open?(
-        <button onClick={()=>setOpen(true)}
-          className="w-full py-2.5 rounded-2xl border-2 border-dashed text-sm font-bold transition hover:bg-green-50"
-          style={{borderColor:GREEN,color:GREEN}}>
-          {t("addFood")}
-        </button>
+        <div className="flex gap-2">
+          <button onClick={()=>setOpen(true)}
+            className="flex-1 py-2.5 rounded-2xl border-2 border-dashed text-sm font-bold transition hover:bg-green-50"
+            style={{borderColor:GREEN,color:GREEN}}>
+            {t("addFood")}
+          </button>
+          <label className="px-4 py-2.5 rounded-2xl border-2 border-dashed text-sm font-bold transition hover:bg-purple-50 cursor-pointer flex items-center gap-1.5"
+            style={{borderColor:"#8B5CF6",color:"#8B5CF6"}}>
+            <Camera size={15}/> {t("photoScan")}
+            <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={handlePhoto}/>
+          </label>
+        </div>
       ):(
         <div className="mt-1">
           {pending?(
@@ -2683,9 +2719,144 @@ function WeeklyReviewCard({history,weights,onClose}:{history:Record<string,HistE
   );
 }
 
-function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccount}:{
+function AdaptiveRecalcBanner({weights, lastRecalcDate, lastRecalcWeight, goal, onRecalc}:{
+  weights:Record<string,number>; lastRecalcDate?:string; lastRecalcWeight?:number;
+  goal:string; onRecalc:()=>void;
+}) {
+  const wEntries = Object.entries(weights).sort();
+  if (wEntries.length < 1) return null;
+  const latest = wEntries[wEntries.length-1][1];
+  const refWeight = lastRecalcWeight ?? (wEntries[0]?.[1] ?? latest);
+  const diffKg = Math.abs(latest - refWeight);
+  const daysSince = lastRecalcDate
+    ? Math.floor((Date.now() - new Date(lastRecalcDate).getTime()) / 86400000)
+    : 999;
+
+  // plateau: last 7+ entries all within 0.4 kg and goal is weight loss
+  const last7 = wEntries.slice(-7).map(([,w])=>w);
+  const range = last7.length >= 7 ? Math.max(...last7) - Math.min(...last7) : 999;
+  const plateau = range < 0.4 && last7.length >= 7 && goal === "Weight loss";
+
+  const show = (diffKg >= 0.8 && daysSince >= 14) || plateau;
+  if (!show) return null;
+
+  return (
+    <div className="rounded-2xl px-4 py-3 mb-3 flex items-center gap-3"
+      style={{background:"#EFF6FF",border:"1px solid #BFDBFE"}}>
+      <Zap size={18} className="text-blue-500 shrink-0"/>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-blue-800">
+          {plateau ? "Weight plateau detected — let's adjust your plan." : `You've ${latest < refWeight ? "lost" : "gained"} ${diffKg.toFixed(1)} kg — update your target.`}
+        </p>
+        <p className="text-xs text-blue-500 mt-0.5">Your calorie target needs recalculation.</p>
+      </div>
+      <button onClick={onRecalc}
+        className="shrink-0 px-3 py-1.5 rounded-xl text-white text-xs font-semibold"
+        style={{background:"#3B82F6"}}>
+        Update
+      </button>
+    </div>
+  );
+}
+
+function EatingWindowCard({mealTimes, today}:{mealTimes:Record<string,Record<string,string>>; today:string}) {
+  const todayTimes = Object.values(mealTimes[today] || {}).filter(Boolean).map(t=>new Date(t));
+  if (todayTimes.length < 2) return null;
+  todayTimes.sort((a,b)=>a.getTime()-b.getTime());
+  const first = todayTimes[0];
+  const last = todayTimes[todayTimes.length-1];
+  const windowHrs = ((last.getTime()-first.getTime())/3600000).toFixed(1);
+  const fmt = (d:Date) => d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
+  return (
+    <div className="rounded-2xl px-4 py-3 mb-3 flex items-center gap-3"
+      style={{background:"#FDF4FF",border:"1px solid #E9D5FF"}}>
+      <Clock size={16} className="text-purple-500 shrink-0"/>
+      <div className="flex gap-4">
+        <div><div className="text-base font-black text-purple-800">{fmt(first)}</div><div className="text-xs text-purple-400">First meal</div></div>
+        <div><div className="text-base font-black text-purple-800">{fmt(last)}</div><div className="text-xs text-purple-400">Last meal</div></div>
+        <div><div className="text-base font-black text-purple-800">{windowHrs}h</div><div className="text-xs text-purple-400">Window</div></div>
+      </div>
+    </div>
+  );
+}
+
+function ProgressionTracker({daysActive, t}:{daysActive:number; t:(k:keyof typeof STR)=>string}) {
+  const levels = [
+    {day:1,  label:"Meal tracking",   desc:"Tick off your planned meals",  icon:CheckCircle2, color:"#1DAA61"},
+    {day:8,  label:"Food diary",      desc:"Log everything you eat",        icon:BookOpen,     color:"#0EA5E9"},
+    {day:15, label:"Protein targets", desc:"Hit your daily protein goal",   icon:Target,       color:"#8B5CF6"},
+    {day:22, label:"Advanced insights",desc:"Trends, streaks & leaderboard",icon:BarChart3,    color:"#F59E0B"},
+  ];
+  const [dismissed, setDismissed] = useState(()=>!!sget<boolean>(`eatbc:progressDismissed:${Math.floor(daysActive/7)}`));
+  const newUnlock = levels.find(l=>daysActive>=l.day&&daysActive<l.day+2);
+  if (newUnlock && !dismissed) {
+    return (
+      <div className="rounded-2xl px-4 py-3 mb-3 flex items-center gap-3"
+        style={{background:"linear-gradient(135deg,#FFFBEB,#FEF3C7)",border:"1px solid #FDE68A"}}>
+        <Star size={18} className="text-amber-500 shrink-0"/>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-amber-800">{t("weekUnlocked")}: {newUnlock.label}</p>
+          <p className="text-xs text-amber-600 mt-0.5">{newUnlock.desc} is now active!</p>
+        </div>
+        <button onClick={()=>{sset(`eatbc:progressDismissed:${Math.floor(daysActive/7)}`,true);setDismissed(true);}}
+          className="text-amber-400 hover:text-amber-600"><X size={15}/></button>
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-2xl p-4 mb-3" style={{background:"#FAFAFA",border:"1px solid #F0F0F0"}}>
+      <div className="flex items-center gap-1.5 mb-3">
+        <Zap size={14} style={{color:GREEN}}/>
+        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Your progress</span>
+        <span className="ml-auto text-xs text-gray-400">Day {daysActive}</span>
+      </div>
+      <div className="flex gap-2">
+        {levels.map((l,i)=>{
+          const Icon=l.icon;
+          const done=daysActive>=l.day;
+          return (
+            <div key={i} className="flex-1 flex flex-col items-center gap-1">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center transition"
+                style={{background:done?l.color:"#E5E7EB"}}>
+                {done?<Icon size={14} color="#fff"/>:<Lock size={12} color="#9CA3AF"/>}
+              </div>
+              <div className="text-[9px] text-center leading-tight font-semibold" style={{color:done?l.color:"#9CA3AF"}}>{l.label}</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function DietitianCard({condition, t}:{condition:string; t:(k:keyof typeof STR)=>string}) {
+  const SHOW_FOR = ["Diabetes / pre-diabetes","High BP (hypertension)","High cholesterol","Thyroid (hypothyroid)","PCOS / PCOD"];
+  const [dismissed, setDismissed] = useState(()=>!!sget<boolean>("eatbc:dietitianDismissed"));
+  if (!SHOW_FOR.includes(condition) || dismissed) return null;
+  return (
+    <div className="rounded-2xl px-4 py-3.5 mb-4" style={{background:"linear-gradient(135deg,#FFF0F5,#FCE7F3)",border:"1px solid #FBCFE8"}}>
+      <div className="flex items-start gap-2.5">
+        <HeartPulse size={18} className="text-pink-500 shrink-0 mt-0.5"/>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold text-pink-800">{t("dietitianCTA")}</p>
+          <p className="text-xs text-pink-500 mt-0.5">You have {condition} — a dietician can personalise this further.</p>
+          <a href="https://wa.me/919999999999?text=Hi%2C%20I%20want%20a%20free%20diet%20plan%20review"
+            target="_blank" rel="noopener noreferrer"
+            className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white"
+            style={{background:"#EC4899"}}>
+            <Stethoscope size={12}/> {t("dietitianBook")}
+          </a>
+        </div>
+        <button onClick={()=>{sset("eatbc:dietitianDismissed",true);setDismissed(true);}}
+          className="text-pink-300 hover:text-pink-500"><X size={15}/></button>
+      </div>
+    </div>
+  );
+}
+
+function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccount,onRecalc}:{
   session:Session;plan:Plan|null;tracking:Tracking;lang:Lang;
-  onUpdate:(t:Tracking)=>void;onSwap:(day:DayName,mealIdx:number)=>void;onLogout:()=>void;onDeleteAccount:()=>void;
+  onUpdate:(t:Tracking)=>void;onSwap:(day:DayName,mealIdx:number)=>void;onLogout:()=>void;onDeleteAccount:()=>void;onRecalc:()=>void;
 }) {
   const t=makeT(lang);
   const today=WEEK[(new Date().getDay()+6)%7];
