@@ -6,6 +6,7 @@ import {
   Sparkles, Stethoscope, User, UserPlus, ArrowRight, Scale,
   Flame, BarChart3, Trophy, Users, Bell, Plus, RefreshCw,
   Lightbulb, Globe, X, Check, Target, Dumbbell, CalendarDays, Clock, BookOpen, ChefHat,
+  Mic, MicOff, Volume2, Camera, Lock, Zap, Star,
   Camera, Lock, Zap, Star,
 } from "lucide-react";
 import {
@@ -2876,6 +2877,265 @@ function DietitianCard({condition, t}:{condition:string; t:(k:keyof typeof STR)=
   );
 }
 
+/* ─────────────── Veer — lifestyle coach AI bot ─────────────── */
+function VeerIcon({size=40}:{size?:number}) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
+      {/* Head */}
+      <ellipse cx="24" cy="27" rx="15" ry="17" fill="#F5CBA7"/>
+      {/* Hair */}
+      <path d="M11 25 C10 13 16 7 24 7 C32 7 38 13 37 25 C34 14 14 14 11 25Z" fill="#1C0F08"/>
+      {/* Side burns */}
+      <path d="M11 26 C11 29 12 32 13 33" stroke="#1C0F08" strokeWidth="2.2" strokeLinecap="round"/>
+      <path d="M37 26 C37 29 36 32 35 33" stroke="#1C0F08" strokeWidth="2.2" strokeLinecap="round"/>
+      {/* Eyes */}
+      <ellipse cx="19" cy="25" rx="2.5" ry="3" fill="#1a1a1a"/>
+      <ellipse cx="29" cy="25" rx="2.5" ry="3" fill="#1a1a1a"/>
+      <circle cx="20" cy="24" r="0.9" fill="white"/>
+      <circle cx="30" cy="24" r="0.9" fill="white"/>
+      {/* Eyebrows */}
+      <path d="M16 21 Q19 19.5 21.5 21" stroke="#1C0F08" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+      <path d="M26.5 21 Q29 19.5 32 21" stroke="#1C0F08" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+      {/* Nose */}
+      <path d="M23 28 L22 31.5 Q24 33 26 31.5 L25 28" stroke="#C0825A" strokeWidth="1.2" fill="none" strokeLinecap="round"/>
+      {/* Smile */}
+      <path d="M18.5 36 Q24 40.5 29.5 36" stroke="#1a1a1a" strokeWidth="2" strokeLinecap="round" fill="none"/>
+      {/* Blush */}
+      <ellipse cx="14.5" cy="33" rx="3.5" ry="2.5" fill="#FFB3BA" opacity="0.45"/>
+      <ellipse cx="33.5" cy="33" rx="3.5" ry="2.5" fill="#FFB3BA" opacity="0.45"/>
+      {/* V badge — brand mark */}
+      <circle cx="39" cy="9" r="6.5" fill="#1DAA61"/>
+      <path d="M35.5 6 L39 11.5 L42.5 6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+    </svg>
+  );
+}
+
+function VeerBot({session,planCondition}:{session:Session|null;planCondition:string}) {
+  const [open,setOpen]=useState(false);
+  const [phase,setPhase]=useState<"idle"|"listening"|"thinking"|"speaking">("idle");
+  const [messages,setMessages]=useState<{role:"user"|"assistant";content:string}[]>([]);
+  const [transcript,setTranscript]=useState("");
+  const [promptsLeft,setPromptsLeft]=useState<number>(()=>10-Math.min(10,sget<number>("eatbc:veerUsed")||0));
+  const [error,setError]=useState("");
+  const hasIntroduced=useRef(false);
+  const recogRef=useRef<any>(null);
+  const audioRef=useRef<HTMLAudioElement|null>(null);
+  const phaseRef=useRef(phase);
+  phaseRef.current=phase;
+
+  /* Auto-introduce on first open */
+  useEffect(()=>{
+    if(open&&!hasIntroduced.current){
+      hasIntroduced.current=true;
+      handleVeer(null,true);
+    }
+    /* eslint-disable-next-line */
+  },[open]);
+
+  async function playTTS(text:string):Promise<void> {
+    try {
+      const r=await fetch("/api/veer-tts",{
+        method:"POST",
+        headers:{"Content-Type":"application/json",...(session?.token?{Authorization:`Bearer ${session.token}`}:{})},
+        body:JSON.stringify({text}),
+      });
+      if(r.ok){
+        const blob=await r.blob();
+        const url=URL.createObjectURL(blob);
+        await new Promise<void>(resolve=>{
+          const audio=new Audio(url);
+          audioRef.current=audio;
+          audio.onended=()=>{URL.revokeObjectURL(url);resolve();};
+          audio.onerror=()=>resolve();
+          audio.play().catch(resolve);
+        });
+        return;
+      }
+    } catch {}
+    /* Fallback: browser TTS */
+    await new Promise<void>(resolve=>{
+      const utt=new SpeechSynthesisUtterance(text);
+      utt.lang="en-IN"; utt.rate=0.92;
+      utt.onend=resolve; utt.onerror=resolve;
+      window.speechSynthesis.speak(utt);
+    });
+  }
+
+  async function handleVeer(userText:string|null,first=false) {
+    setError("");
+    setPhase("thinking");
+    const newMessages=userText
+      ?[...messages,{role:"user" as const,content:userText}]
+      :messages;
+    try {
+      const body=first?{messages:[],isFirst:true}:{messages:newMessages};
+      const r=await fetch("/api/veer",{
+        method:"POST",
+        headers:{"Content-Type":"application/json",...(session?.token?{Authorization:`Bearer ${session.token}`}:{})},
+        body:JSON.stringify(body),
+      });
+      const data=await r.json() as {reply?:string;error?:string;promptsLeft?:number};
+      if(!r.ok){
+        setError(data.error||"Something went wrong.");
+        setPhase("idle"); return;
+      }
+      const reply=data.reply||"";
+      const left=data.promptsLeft??0;
+      setPromptsLeft(left);
+      sset("eatbc:veerUsed",10-left);
+      const updated=[...newMessages,{role:"assistant" as const,content:reply}];
+      setMessages(updated);
+      setPhase("speaking");
+      await playTTS(reply);
+    } catch(e:any){
+      setError("Couldn't reach Veer — check your connection.");
+    } finally {
+      setPhase("idle");
+    }
+  }
+
+  function startListening() {
+    if(promptsLeft<=0){setError("All 10 questions used! Sign up for unlimited access.");return;}
+    const SR=(window as any).SpeechRecognition||(window as any).webkitSpeechRecognition;
+    if(!SR){setError("Voice not supported — try Chrome or Safari.");return;}
+    audioRef.current?.pause();
+    window.speechSynthesis.cancel();
+    setTranscript(""); setError("");
+    const recog=new SR();
+    recog.lang="en-IN"; recog.interimResults=false; recog.maxAlternatives=1;
+    recog.onresult=(e:any)=>{
+      const text=e.results[0][0].transcript;
+      setTranscript(text);
+      handleVeer(text);
+    };
+    recog.onerror=()=>setPhase("idle");
+    recog.onend=()=>{if(phaseRef.current==="listening")setPhase("idle");};
+    recog.start();
+    recogRef.current=recog;
+    setPhase("listening");
+  }
+
+  function stopListening(){recogRef.current?.stop();setPhase("idle");}
+
+  const lastReply=messages.findLast?.(m=>m.role==="assistant")?.content
+    ??messages.filter(m=>m.role==="assistant").at(-1)?.content;
+
+  return (
+    <>
+      <style>{`
+        @keyframes veerSlide{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}
+        @keyframes veerRing{0%{transform:scale(1);opacity:.6}100%{transform:scale(2.2);opacity:0}}
+        @keyframes veerGlow{0%,100%{box-shadow:0 8px 32px rgba(29,170,97,.5)}50%{box-shadow:0 8px 48px rgba(29,170,97,.9)}}
+        .veer-ring{animation:veerRing 1.4s ease-out infinite}
+        .veer-glow{animation:veerGlow 2s ease-in-out infinite}
+      `}</style>
+
+      {/* Floating trigger */}
+      <button onClick={()=>setOpen(true)} aria-label="Ask Veer"
+        className="fixed z-40 flex items-center justify-center veer-glow active:scale-95 transition-transform"
+        style={{bottom:24,right:20,width:64,height:64,borderRadius:"50%",
+          background:"linear-gradient(135deg,#1DAA61,#0B6E40)",
+          border:"3px solid rgba(255,255,255,0.35)"}}>
+        <VeerIcon size={40}/>
+      </button>
+
+      {/* Full panel */}
+      {open&&(
+        <div className="fixed inset-0 z-50 flex items-end justify-center"
+          style={{background:"rgba(0,0,0,0.55)",backdropFilter:"blur(6px)"}}>
+          <div className="w-full max-w-sm rounded-t-3xl px-6 pt-6 pb-10"
+            style={{background:"linear-gradient(175deg,#052e1b 0%,#0a5e34 55%,#0d7a45 100%)",
+              animation:"veerSlide .35s cubic-bezier(.22,1,.36,1) both"}}>
+
+            {/* Header */}
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
+                  style={{background:"rgba(255,255,255,0.12)",border:"2px solid rgba(255,255,255,0.2)"}}>
+                  <VeerIcon size={34}/>
+                </div>
+                <div>
+                  <div className="text-white font-black text-lg leading-tight">Veer</div>
+                  <div className="text-green-300 text-xs">Lifestyle Coach · {promptsLeft}/10 left</div>
+                </div>
+              </div>
+              <button onClick={()=>{setOpen(false);window.speechSynthesis.cancel();audioRef.current?.pause();}}
+                className="text-white/50 hover:text-white transition"><X size={22}/></button>
+            </div>
+
+            {/* Orb + phase indicator */}
+            <div className="flex justify-center mb-5">
+              <div className="relative flex items-center justify-center" style={{width:96,height:96}}>
+                {phase!=="idle"&&[0,1,2].map(i=>(
+                  <div key={i} className="absolute rounded-full veer-ring"
+                    style={{width:96+i*32,height:96+i*32,
+                      border:`1.5px solid rgba(29,170,97,${0.45-i*0.12})`,
+                      animationDelay:`${i*0.35}s`,top:-(i*16),left:-(i*16)}}/>
+                ))}
+                <div className="w-24 h-24 rounded-full flex items-center justify-center transition-all duration-300"
+                  style={{
+                    background:phase==="listening"?"rgba(59,130,246,0.25)":
+                      phase==="speaking"?"rgba(29,170,97,0.25)":"rgba(255,255,255,0.08)",
+                    border:"2px solid rgba(255,255,255,0.18)",
+                  }}>
+                  {phase==="listening"&&<Mic size={32} className="text-blue-300"/>}
+                  {phase==="thinking"&&<Loader2 size={32} className="animate-spin text-green-300"/>}
+                  {phase==="speaking"&&<Volume2 size={32} className="text-green-300"/>}
+                  {phase==="idle"&&<VeerIcon size={52}/>}
+                </div>
+              </div>
+            </div>
+
+            {/* Text display */}
+            <div className="min-h-[72px] text-center mb-5 px-2">
+              {transcript&&<p className="text-white/50 text-sm mb-1.5">"{transcript}"</p>}
+              {lastReply&&phase!=="thinking"&&(
+                <p className="text-white font-medium text-[0.95rem] leading-relaxed">{lastReply}</p>
+              )}
+              {phase==="thinking"&&<p className="text-green-300/70 text-sm">Thinking…</p>}
+              {error&&<p className="text-red-400 text-sm">{error}</p>}
+              {!lastReply&&!error&&phase==="idle"&&!transcript&&(
+                <p className="text-green-300/60 text-sm">Tap the mic and ask me anything about diet or exercise!</p>
+              )}
+            </div>
+
+            {/* Mic / Stop button */}
+            <div className="flex justify-center mb-3">
+              {phase==="listening"?(
+                <button onClick={stopListening}
+                  className="w-18 h-18 rounded-full flex items-center justify-center active:scale-95 transition-transform"
+                  style={{width:72,height:72,background:"linear-gradient(135deg,#EF4444,#DC2626)",
+                    boxShadow:"0 6px 24px rgba(239,68,68,0.55)"}}>
+                  <MicOff size={28} className="text-white"/>
+                </button>
+              ):(
+                <button
+                  disabled={phase==="thinking"||phase==="speaking"||promptsLeft<=0}
+                  onClick={startListening}
+                  className="rounded-full flex items-center justify-center active:scale-95 transition-all disabled:opacity-40"
+                  style={{width:72,height:72,
+                    background:promptsLeft<=0?"#374151":"linear-gradient(135deg,#2563EB,#1D4ED8)",
+                    boxShadow:"0 6px 24px rgba(37,99,235,0.5)"}}>
+                  <Mic size={28} className="text-white"/>
+                </button>
+              )}
+            </div>
+
+            {promptsLeft<=0&&(
+              <p className="text-center text-white/40 text-xs">
+                10/10 questions used. <span className="text-green-300 underline cursor-pointer">Sign up</span> for unlimited Veer access.
+              </p>
+            )}
+            <p className="text-center text-white/25 text-[10px] mt-3">
+              Only answers diet & exercise questions. Max 10 free questions.
+            </p>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccount,onRecalc}:{
   session:Session;plan:Plan|null;tracking:Tracking;lang:Lang;
   onUpdate:(t:Tracking)=>void;onSwap:(day:DayName,mealIdx:number)=>void;onLogout:()=>void;onDeleteAccount:()=>void;onRecalc:()=>void;
@@ -3202,6 +3462,7 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccou
         </div>
       )}
     </Shell>
+    <VeerBot session={session} planCondition={plan?.condition||""}/>
   );
 }
 
