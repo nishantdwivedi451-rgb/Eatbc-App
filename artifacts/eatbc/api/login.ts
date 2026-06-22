@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
-import { sql, ensureDb } from "./_lib/db";
-import { decrypt } from "./_lib/crypto";
+import { sql, ensureDb } from "./_lib/db.js";
+import { decrypt } from "./_lib/crypto.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
