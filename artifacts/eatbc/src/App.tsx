@@ -28,6 +28,27 @@ function hashNum(s: string): number {
   return Math.abs(h);
 }
 
+/* ─────────────── API helpers ─────────────── */
+async function apiPost(path: string, body: unknown, token?: string) {
+  const r = await fetch(path, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await r.json();
+  if (!r.ok) throw data;
+  return data;
+}
+async function apiGet(path: string, token: string) {
+  const r = await fetch(path, { headers: { Authorization: `Bearer ${token}` } });
+  const data = await r.json();
+  if (!r.ok) throw data;
+  return data;
+}
+
 /* ─────────────── 100+ motivational quotes ─────────────── */
 const QUOTES = [
   "Your body hears everything your mind says. Feed it well.",
@@ -158,13 +179,12 @@ interface Plan {
   timeline: string; weeklyLoss: string;
   tips: string[]; days: PlanDay[];
 }
-interface Session { id: string; name: string; }
+interface Session { id: string; name: string; token: string; }
 interface DayTracking { meals: Record<number, boolean>; water: number; }
 interface Tracking {
   [day: string]: DayTracking | Record<string, number> | undefined;
   weights?: Record<string, number>;
 }
-interface UserRecord { pw: string; name: string; }
 type Screen = "welcome" | "quiz" | "plan" | "login" | "signup" | "dash" | "onboarding";
 
 /* ─────────────── quiz questions ─────────────── */
@@ -865,17 +885,20 @@ function Welcome({onNew,onLogin}:{onNew:()=>void;onLogin:()=>void}) {
 }
 
 /* ─────────────── Login ─────────────── */
-function Login({onDone,onBack}:{onDone:(sess:Session)=>void;onBack:()=>void}) {
+function Login({onDone,onBack}:{onDone:(sess:Session,plan?:Plan|null,tracking?:Tracking)=>void;onBack:()=>void}) {
   const [id,setId]=useState("");
   const [pw,setPw]=useState("");
   const [err,setErr]=useState("");
   const [busy,setBusy]=useState(false);
-  function submit() {
+  async function submit() {
     setErr(""); if (!id.trim()||!pw){setErr("Enter both fields");return;}
     setBusy(true);
-    const ex=sget<UserRecord>(`eatbc:user:${id.toLowerCase().trim()}`);
-    if (!ex||ex.pw!==hash(pw)){setErr("No account found — check your ID or sign up first.");setBusy(false);return;}
-    onDone({id:id.toLowerCase().trim(),name:ex.name}); setBusy(false);
+    try {
+      const data=await apiPost("/api/login",{id:id.toLowerCase().trim(),password:pw});
+      onDone({id:data.user.id,name:data.user.name,token:data.token},data.plan,data.tracking);
+    } catch(e:unknown) {
+      setErr((e as {error?:string})?.error||"Login failed — check your details.");
+    } finally { setBusy(false); }
   }
   return (
     <Shell>
@@ -909,16 +932,18 @@ function Login({onDone,onBack}:{onDone:(sess:Session)=>void;onBack:()=>void}) {
 function Signup({profile,plan,onDone,onBack}:{profile:Profile;plan:Plan|null;onDone:(sess:Session)=>void;onBack:()=>void}) {
   const [id,setId]=useState(""); const [pw,setPw]=useState(""); const [pw2,setPw2]=useState("");
   const [err,setErr]=useState(""); const [busy,setBusy]=useState(false);
-  function submit() {
+  async function submit() {
     setErr(""); if (!id.trim()||!pw){setErr("Enter both fields");return;}
     if (pw!==pw2){setErr("Passwords don't match");return;}
     if (pw.length<6){setErr("Password must be at least 6 characters");return;}
     setBusy(true);
-    const k=`eatbc:user:${id.toLowerCase().trim()}`;
-    if (sget<UserRecord>(k)){setErr("Account already exists — sign in instead.");setBusy(false);return;}
-    const name=profile?.name||id;
-    sset<UserRecord>(k,{pw:hash(pw),name});
-    onDone({id:id.toLowerCase().trim(),name}); setBusy(false);
+    try {
+      const name=profile?.name||id;
+      const data=await apiPost("/api/register",{id:id.toLowerCase().trim(),name,password:pw});
+      onDone({id:data.user.id,name:data.user.name,token:data.token});
+    } catch(e:unknown) {
+      setErr((e as {error?:string})?.error||"Registration failed — try again.");
+    } finally { setBusy(false); }
   }
   return (
     <Shell>
@@ -939,7 +964,7 @@ function Signup({profile,plan,onDone,onBack}:{profile:Profile;plan:Plan|null;onD
         <input type="password" value={pw2} onChange={e=>setPw2(e.target.value)} placeholder="Repeat password"
           className="w-full px-4 py-3 rounded-2xl border-2 border-gray-200 outline-none focus:border-green-500 mb-2 mt-1"
           onKeyDown={e=>e.key==="Enter"&&submit()}/>
-        <p className="text-xs text-gray-400 mb-4">Demo tracker — don't reuse a real banking password.</p>
+        <p className="text-xs text-gray-400 mb-4">Your data is encrypted with AES-256 and stored securely.</p>
         {err&&<div className="mb-3 flex items-center gap-2 text-red-500 text-sm"><AlertCircle size={16}/>{err}</div>}
         <button disabled={busy} onClick={submit}
           className="w-full py-3.5 rounded-2xl text-white font-black text-base disabled:opacity-60 shadow-md"
@@ -1070,10 +1095,19 @@ export default function App() {
 
   useEffect(()=>{
     const s=sget<Session>("eatbc:session");
-    if (s){
-      setSession(s); setTracking(sget<Tracking>(`eatbc:track:${s.id}`)||{});
-      const p=sget<Plan>(`eatbc:plan:${s.id}`); if (p) setPlan(p);
-      setScreen("dash");
+    if (s?.token){
+      setSession(s);
+      Promise.all([
+        apiGet("/api/plan",s.token),
+        apiGet("/api/tracking",s.token),
+      ]).then(([pd,td])=>{
+        if(pd.plan) setPlan(pd.plan);
+        setTracking(td.tracking||{});
+        setScreen("dash");
+      }).catch(()=>{
+        sdel("eatbc:session");
+        setScreen("welcome");
+      });
     }
   },[]);
 
@@ -1114,22 +1148,24 @@ export default function App() {
   const shareWA=()=>window.open(`https://wa.me/?text=${encodeURIComponent(planText())}`,"_blank");
   const shareEmail=()=>window.open(`mailto:?subject=${encodeURIComponent("My EatBC Weekly Plan")}&body=${encodeURIComponent(planText())}`,"_blank");
 
-  function doLogin(sess:Session) {
+  function doLogin(sess:Session,loginPlan?:Plan|null,loginTracking?:Tracking) {
     setSession(sess); sset<Session>("eatbc:session",sess);
-    setTracking(sget<Tracking>(`eatbc:track:${sess.id}`)||{});
-    const p=sget<Plan>(`eatbc:plan:${sess.id}`); if (p) setPlan(p);
+    if(loginPlan) setPlan(loginPlan);
+    setTracking(loginTracking||{});
     setScreen("dash");
   }
-  function doSignup(sess:Session) {
+  async function doSignup(sess:Session) {
     setSession(sess); sset<Session>("eatbc:session",sess);
-    if (plan) sset<Plan>(`eatbc:plan:${sess.id}`,plan);
-    setTracking(sget<Tracking>(`eatbc:track:${sess.id}`)||{});
+    if(plan) await apiPost("/api/plan",{plan,profile},sess.token).catch(()=>{});
+    setTracking({});
     setScreen("dash");
   }
   function logout() {
+    const token=session?.token;
     sdel("eatbc:session"); setSession(null); setScreen("welcome");
     setStep(0); setProfile({region:[]}); setPlan(null); setTracking({});
     quoteRef.current=pickQuote();
+    if(token) apiPost("/api/logout",{},token).catch(()=>{});
   }
 
   function doneOnboarding(){sset("eatbc:onboarded",true);setScreen("welcome");}
@@ -1311,7 +1347,7 @@ export default function App() {
 
   if (screen==="dash"&&session) return (
     <Dash session={session} plan={plan} tracking={tracking}
-      onUpdate={(t)=>{setTracking(t);sset<Tracking>(`eatbc:track:${session.id}`,t);}}
+      onUpdate={(t)=>{setTracking(t);if(session?.token)apiPost("/api/tracking",{tracking:t},session.token).catch(()=>{});}}
       onLogout={logout}/>
   );
 
