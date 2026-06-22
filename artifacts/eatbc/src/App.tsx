@@ -556,58 +556,107 @@ function mapRegions(arr: string[]): string[] {
 }
 
 function calcStats(d: Profile) {
-  const cm=((+(d.heightFt||0))*12+(+(d.heightIn||0)))*2.54;
-  const w=+(d.weight||70), age=+(d.age||30);
-  const isFemale=d.sex==="Female";
+  const cm = ((+(d.heightFt || 5)) * 12 + (+(d.heightIn || 5))) * 2.54;
+  const w = Math.max(30, +(d.weight || 70));
+  const target = Math.max(30, +(d.target || w));
+  const age = Math.max(15, Math.min(80, +(d.age || 25)));
+  const isFemale = d.sex === "Female" || d.sex === "Other";
 
-  /* Mifflin-St Jeor BMR — most validated equation for Indian adults */
-  const bmr=isFemale?(10*w+6.25*cm-5*age-161):(10*w+6.25*cm-5*age+5);
+  /* Mifflin-St Jeor BMR — most validated for Indian adults */
+  const bmr = isFemale
+    ? 10 * w + 6.25 * cm - 5 * age - 161
+    : 10 * w + 6.25 * cm - 5 * age + 5;
 
-  /* Activity × Exercise combined PAL matrix (based on WHO/FAO 2001 recommendations) */
-  const PAL: Record<string,Record<string,number>>={
-    "Mostly desk job":    {"None":1.2,"Walks / light":1.375,"Gym 3x week":1.55,"Gym 5x+ / sports":1.65},
-    "On feet / moderate": {"None":1.375,"Walks / light":1.475,"Gym 3x week":1.6,"Gym 5x+ / sports":1.75},
-    "Physically active":  {"None":1.55,"Walks / light":1.65,"Gym 3x week":1.75,"Gym 5x+ / sports":1.9},
+  /* Activity × Exercise PAL matrix (WHO/FAO 2001) */
+  const PAL: Record<string, Record<string, number>> = {
+    "Mostly desk job":    { "None": 1.2, "Walks / light": 1.375, "Gym 3x week": 1.55, "Gym 5x+ / sports": 1.65 },
+    "On feet / moderate": { "None": 1.375, "Walks / light": 1.475, "Gym 3x week": 1.60, "Gym 5x+ / sports": 1.75 },
+    "Physically active":  { "None": 1.55, "Walks / light": 1.65, "Gym 3x week": 1.75, "Gym 5x+ / sports": 1.90 },
   };
-  const pal=PAL[d.activity||"Mostly desk job"]?.[d.exercise||"None"]??1.4;
-  let tdee=bmr*pal;
-  const baseTdee=tdee;
+  const pal = PAL[d.activity || "Mostly desk job"]?.[d.exercise || "None"] ?? 1.4;
+  const baseTdee = Math.round(bmr * pal);
 
-  const cond=d.condition||"None";
-  /* Condition adjustments backed by clinical guidelines */
-  if (cond==="Thyroid (hypothyroid)") tdee*=0.9;        // 10% reduced resting metabolism
-  if (cond==="Pregnant")              tdee+=340;          // ACOG: +340 kcal in 2nd trimester
-  else if (cond==="Breastfeeding")    tdee+=500;          // +500 kcal for full milk production
+  const cond = d.condition || "None";
 
-  const timeline=d.timeline||"6 months (recommended)";
-  /* Safe deficit/surplus: 0.5–1 kg/week fat loss, 0.25 kg/week muscle gain */
-  const deficitMap: Record<string,number>={
-    "1 month (aggressive)":750,"3 months":500,
-    "6 months (recommended)":350,"1 year":200,"No fixed timeline":150,
-  };
-  const surplusMap: Record<string,number>={
-    "1 month (aggressive)":500,"3 months":350,
-    "6 months (recommended)":250,"1 year":150,"No fixed timeline":100,
-  };
-  if (!["Pregnant","Breastfeeding"].includes(cond)) {
-    if (d.goal==="Weight loss")  tdee-=deficitMap[timeline]??350;
-    else if (d.goal==="Muscle gain") tdee+=surplusMap[timeline]??250;
+  /* Condition adjustments before goal — these are maintenance-level needs */
+  let maintenanceTdee = baseTdee;
+  if (cond === "Thyroid (hypothyroid)") maintenanceTdee = Math.round(maintenanceTdee * 0.9);
+  if (cond === "Pregnant")              maintenanceTdee += 350;  // ACOG 2nd/3rd trimester avg
+  else if (cond === "Breastfeeding")    maintenanceTdee += 500;  // WHO full lactation
+
+  let tdee = maintenanceTdee;
+
+  /* ── SMART GOAL INFERENCE from actual weight vs target ──
+     If the user's target contradicts their stated goal, honour the
+     weight target. "I want to reach 65 kg from 80 kg" means weight
+     loss, regardless of which button they tapped.                  */
+  const wtDiff = target - w;   // negative = wants to lose, positive = wants to gain
+  let effectiveGoal = d.goal || "General fitness";
+  if (Math.abs(wtDiff) < 0.5) {
+    effectiveGoal = "Maintain weight";
+  } else if (wtDiff < 0 && effectiveGoal !== "Weight loss") {
+    effectiveGoal = "Weight loss";
+  } else if (wtDiff > 0 && effectiveGoal === "Weight loss") {
+    effectiveGoal = "Muscle gain";  // target is higher — user wants to gain
   }
 
-  /* Floor: never drop below BMR (starvation risk) or absolute minimum */
-  const absMin=["Pregnant","Breastfeeding"].includes(cond)?1800:isFemale?1200:1500;
-  tdee=Math.max(Math.max(bmr,absMin),tdee);
+  const bmi = w && cm ? w / ((cm / 100) ** 2) : 0;
+  /* Asian BMI cutoffs (WHO Asia-Pacific 2004) */
+  const bmiCat = bmi < 18.5 ? "Underweight" : bmi < 23 ? "Normal" : bmi < 27.5 ? "Overweight" : "Obese";
 
-  /* Weekly estimate based on caloric differential */
-  const weeklyKcal=(tdee-baseTdee)*7;                   // negative=deficit, positive=surplus
-  const weeklyKg=(Math.abs(weeklyKcal)/7700).toFixed(2);// 1 kg fat ≈ 7700 kcal
-  const direction=weeklyKcal<-50?"loss":weeklyKcal>50?"gain":"";
+  /* If already dangerously underweight, override to maintenance regardless of goal */
+  if (bmi > 0 && bmi < 17 && effectiveGoal === "Weight loss") {
+    effectiveGoal = "Maintain weight";
+  }
 
-  const bmi=w&&cm?w/((cm/100)**2):0;
-  /* Asian BMI cutoffs (WHO Asia-Pacific, 2004) — standard Western cutoffs underestimate risk for Indians */
-  const bmiCat=bmi<18.5?"Underweight":bmi<23?"Normal":bmi<27.5?"Overweight":"Obese";
+  const timeline = d.timeline || "6 months (recommended)";
+  const deficitMap: Record<string, number> = {
+    "1 month (aggressive)": 750, "3 months": 600,
+    "6 months (recommended)": 500, "1 year": 350, "No fixed timeline": 250,
+  };
+  const surplusMap: Record<string, number> = {
+    "1 month (aggressive)": 500, "3 months": 350,
+    "6 months (recommended)": 250, "1 year": 150, "No fixed timeline": 100,
+  };
 
-  return {cm,bmi:bmi.toFixed(1),bmiCat,tdee:Math.round(tdee/10)*10,weeklyKg,direction};
+  /* ── Absolute calorie floors by safety category ── */
+  const absFloor = ["Pregnant", "Breastfeeding"].includes(cond) ? 1800
+    : isFemale ? 1200 : 1500;
+
+  /* ── Apply goal delta with condition-aware caps ── */
+  if (effectiveGoal === "Weight loss") {
+    /* Pregnant: no deficit at all (foetal growth requires maintenance+) */
+    if (cond === "Pregnant") {
+      tdee = maintenanceTdee;           // no deficit during pregnancy
+    } else {
+      const desiredDeficit = deficitMap[timeline] ?? 500;
+      /* Breastfeeding: max 500 kcal/day deficit to protect milk supply (AAP/ACOG) */
+      /* PCOS: max 400 kcal deficit to avoid hormonal disruption */
+      const condCap = cond === "Breastfeeding" ? 500
+        : cond === "PCOS / PCOD" ? 400 : 1000;
+      /* Don't deficit below the floor */
+      const roomToDeficit = Math.max(0, maintenanceTdee - absFloor);
+      const appliedDeficit = Math.min(desiredDeficit, condCap, roomToDeficit);
+      tdee = maintenanceTdee - appliedDeficit;
+    }
+  } else if (effectiveGoal === "Muscle gain") {
+    /* Underweight: add more to get them to healthy range faster */
+    const bmiCheck = w && cm ? w / ((cm / 100) ** 2) : 22;
+    const surplusBoost = bmiCheck < 18.5 ? 100 : 0;
+    tdee = maintenanceTdee + (surplusMap[timeline] ?? 250) + surplusBoost;
+  }
+  /* Maintain / General fitness: tdee stays at maintenanceTdee */
+
+  /* Final safety floor */
+  tdee = Math.max(absFloor, tdee);
+
+  /* ── Weekly rate: based on actual delta from true maintenance ── */
+  const actualDelta = tdee - maintenanceTdee;     // negative=deficit, positive=surplus
+  const weeklyKcal = actualDelta * 7;             // total kcal delta per week
+  const weeklyKg = (Math.abs(weeklyKcal) / 7700).toFixed(2);
+  const direction = weeklyKcal < -50 ? "loss" : weeklyKcal > 50 ? "gain" : "";
+
+  return { cm, bmi: bmi.toFixed(1), bmiCat, tdee: Math.round(tdee / 10) * 10, weeklyKg, direction, effectiveGoal };
 }
 
 function dietOK(f: FoodItem, diet: string) {
@@ -823,9 +872,10 @@ function buildWorkout(p: Profile): WorkoutPlan | null {
 function buildPlan(profile: Profile): Plan {
   const st=calcStats(profile);
   const cal=st.tdee;
+  const cond=profile.condition||"None";
   const ctx: MealCtx={
-    goal:profile.goal||"General fitness",
-    cond:profile.condition||"None",
+    goal:st.effectiveGoal,  // use effective goal so meal scoring aligns with actual target
+    cond,
     diet:profile.diet||"Pure veg",
     regions:mapRegions(profile.region),
     simplePref:["Minimal cooking (10-15 min)","I order online mostly"].includes(profile.cooktime||""),
@@ -846,11 +896,6 @@ function buildPlan(profile: Profile): Plan {
     return {day:dn as DayName,meals:raw};
   });
 
-  const cond=profile.condition||"None";
-  const condClause=cond!=="None"&&cond!=="Other"
-    ?` It's tuned to support your ${COND_SHORT[cond]||cond} — still, please review it with your doctor.`
-    :cond==="Other"?" Since you flagged a condition, please clear this plan with your doctor first.":"";
-
   const regionArr=profile.region||[];
   const _regMapped=new Set((regionArr as string[]).map((x:string)=>RMAP[x]).filter(Boolean));
   const _allCovered=["n","s","e","w"].every(r=>_regMapped.has(r)||_regMapped.has("all"));
@@ -863,13 +908,33 @@ function buildPlan(profile: Profile): Plan {
   const w=+(profile.weight||70);
   const proteinMultiplier: Record<string,number>={
     "Weight loss":1.8,"Muscle gain":2.2,"Maintain weight":1.4,"General fitness":1.4,
+    "Breastfeeding":1.4,"Pregnant":1.4,
   };
-  const proteinTarget=Math.round((proteinMultiplier[profile.goal||"General fitness"]??1.4)*w/5)*5;
+  // Add extra 25g for breastfeeding/pregnancy as per ICMR guidelines
+  const proteinExtra=["Breastfeeding","Pregnant"].includes(cond)?25:0;
+  const proteinBase=(proteinMultiplier[st.effectiveGoal]??1.4)*w;
+  const proteinTarget=Math.round((proteinBase+proteinExtra)/5)*5;
+
+  /* ── Summary string construction ── */
+  const goalLabel = st.effectiveGoal !== profile.goal && profile.goal
+    ? `${st.effectiveGoal.toLowerCase()} (adjusted from your ${(profile.goal||"").toLowerCase()} goal based on your weight targets)`
+    : (st.effectiveGoal || "fitness").toLowerCase();
+
+  const condNote = cond !== "None" && cond !== "Other"
+    ? ` It's tuned to support your ${COND_SHORT[cond]||cond} — still, please review it with your doctor.`
+    : cond === "Other" ? " Since you flagged a condition, please clear this plan with your doctor first." : "";
+
+  const bfNote = cond === "Breastfeeding" && st.effectiveGoal === "Weight loss"
+    ? " Calorie target includes a safe breastfeeding deficit — milk supply is protected."
+    : "";
+  const pregnantNote = cond === "Pregnant" && profile.goal === "Weight loss"
+    ? " Weight loss during pregnancy isn't recommended — this is a healthy maintenance plan instead."
+    : "";
 
   return {
-    summary:`Here's a ${(profile.goal||"fitness").toLowerCase()} plan at about ${cal} kcal a day, built around ${regLabel} food you actually like.${condClause}`,
+    summary:`Here's a ${goalLabel} plan at about ${cal} kcal a day, built around ${regLabel} food you actually like.${condNote}${bfNote}${pregnantNote}`,
     dailyCalories:cal,proteinTarget,bmi:st.bmi,bmiCat:st.bmiCat,
-    goal:profile.goal||"General fitness",diet:profile.diet||"Pure veg",
+    goal:st.effectiveGoal,diet:profile.diet||"Pure veg",
     condition:cond,regLabel,timeline,weeklyLoss,
     tips:makeTips(profile,cal),days,workout:buildWorkout(profile),
   };
@@ -2676,9 +2741,12 @@ export default function App() {
               <h2 className="text-3xl font-bold truncate">{profile.name||"you"}</h2>
               <p className="text-white/85 text-sm mt-2 max-w-md">{plan.summary}</p>
               {plan.weeklyLoss&&(
-                <div className="mt-2 inline-flex items-center gap-1.5 bg-white/15 rounded-full px-3 py-1">
+                <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold"
+                  style={plan.weeklyLoss.includes("gain") && plan.goal === "Weight loss"
+                    ? {background:"#FFF7ED", color:"#C2410C"}
+                    : {background:"rgba(255,255,255,0.15)", color:"rgba(255,255,255,0.85)"}}>
                   <TrendingDown size={13}/>
-                  <span className="text-xs font-semibold">Expected: {plan.weeklyLoss}</span>
+                  <span>Expected: {plan.weeklyLoss}</span>
                 </div>
               )}
             </div>
