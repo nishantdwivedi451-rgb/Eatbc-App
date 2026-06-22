@@ -48,5 +48,13 @@ export async function ensureDb() {
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
+  /* Brute-force / abuse throttle for auth endpoints. Keyed by IP+action. */
+  await sql`
+    CREATE TABLE IF NOT EXISTS rate_limits (
+      bucket TEXT PRIMARY KEY,
+      count INTEGER NOT NULL DEFAULT 0,
+      window_start TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
   ready = true;
 }
