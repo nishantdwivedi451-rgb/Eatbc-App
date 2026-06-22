@@ -224,39 +224,28 @@ const Q: Question[] = [
   { k:"name",      label:"What should we call you?",                    type:"text",   ph:"e.g. Nishant" },
   { k:"age",       label:"Your age",                                    type:"number", ph:"e.g. 32" },
   { k:"sex",       label:"Sex",                                         type:"pick",   opts:["Male","Female","Other"] },
-  { k:"heightFt", label:"Your height", type:"height" },
+  { k:"heightFt",  label:"Your height",                                 type:"height" },
   { k:"weight",    label:"Current weight (kg)",                         type:"number", ph:"e.g. 78" },
   { k:"target",    label:"Target weight (kg)",                          type:"number", ph:"e.g. 72",
-    sub:"Enter the same number as your current weight if you want to maintain." },
-  { k:"timeline",  label:"When do you want to reach your target?",      type:"pick",
-    sub:"We'll calibrate your daily calories to match your pace.",
-    opts:["1 month (aggressive)","3 months","6 months (recommended)","1 year","No fixed timeline"] },
+    sub:"Same number as current weight = maintain." },
   { k:"goal",      label:"Your primary goal",                           type:"pick",   opts:["Weight loss","Muscle gain","Maintain weight","General fitness"] },
-  { k:"condition", label:"Any medical condition we should plan around?", type:"pick",
+  { k:"condition", label:"Any health condition we should know about?",  type:"pick",
     opts:["None","Diabetes / pre-diabetes","High BP (hypertension)","High cholesterol","Thyroid (hypothyroid)","PCOS / PCOD","Pregnant","Breastfeeding","Other"] },
   { k:"diet",      label:"Your food preference",                        type:"pick",   opts:["Pure veg","Egg + veg","Non-veg","Vegan","Jain"] },
-  { k:"region",    label:"Which cuisines do you enjoy?",                type:"multi",  sub:"Pick one or more — your plan mixes from these.", opts:["North Indian","South Indian","East Indian","West Indian","Punjabi","Gujarati","Rajasthani","Bengali","Goan","Coastal","Continental","East Asian"] },
-  { k:"activity",  label:"Your daily activity level",                   type:"pick",   opts:["Mostly desk job","On feet / moderate","Physically active"] },
-  { k:"exercise",  label:"Exercise routine",                            type:"pick",   opts:["None","Walks / light","Gym 3x week","Gym 5x+ / sports"] },
-  { k:"wantWorkout", label:"Want a workout plan too?",                   type:"pick",
-    sub:"We'll build a weekly training plan with a tracker, right alongside your diet.",
-    opts:["Yes, build my workout 💪","No, just the diet"],
-    showIf:(p)=>!!p.exercise&&p.exercise!=="None" },
-  { k:"workoutPlace", label:"Where will you train?",                     type:"pick",
-    opts:["Home — no equipment","Home — dumbbells / bands","Full gym","Outdoor / cardio"],
-    showIf:(p)=>p.wantWorkout==="Yes, build my workout 💪" },
-  { k:"workoutFocus", label:"What's your training focus?",               type:"pick",
-    opts:["Build muscle","Get stronger","Burn fat","Stay fit & mobile"],
-    showIf:(p)=>p.wantWorkout==="Yes, build my workout 💪" },
-  { k:"workoutDays", label:"How many days a week can you train?",        type:"pick",
+  { k:"activity",  label:"How active is your daily life?",              type:"pick",
+    sub:"Think work, commute and chores — not gym or sport.",
+    opts:["Mostly desk job","On feet / moderate","Physically active"] },
+  { k:"wantWorkout", label:"Want a workout plan with your diet?",        type:"pick",
+    sub:"We'll build a weekly training schedule with a tracker.",
+    opts:["Yes, build my workout plan 💪","No thanks, just the diet"] },
+  { k:"exercise",  label:"How do you like to exercise?",                type:"pick",
+    sub:"Pick whatever fits your lifestyle — we'll build around it.",
+    opts:["Running / jogging","Cycling","Swimming","Yoga / Pilates","Home workouts","Gym (weights)","Sports / games","HIIT / CrossFit"],
+    showIf:(p)=>!!p.wantWorkout && p.wantWorkout.startsWith("Yes") },
+  { k:"workoutDays", label:"How many days a week can you train?",       type:"pick",
     opts:["2 days","3 days","4 days","5 days","6 days"],
-    showIf:(p)=>p.wantWorkout==="Yes, build my workout 💪" },
-  { k:"meals",     label:"Meals per day you prefer",                    type:"pick",   opts:["3 meals","3 meals + 2 snacks","5-6 small meals"] },
-  { k:"cooktime",  label:"How do meals usually happen?",                type:"pick",   opts:["Minimal cooking (10-15 min)","Moderate (30 min)","I enjoy cooking","I get cooking help","I order online mostly"] },
-  { k:"weekend",   label:"What are weekends like for food?",            type:"pick",
-    sub:"Weekends often break routines — your plan adapts to your real life.",
-    opts:["Same as weekdays","Usually order in / eat out","Big family meals or parties","Gym + meal prep mode"] },
-  { k:"avoid",     label:"Allergies / foods to avoid",                  type:"text",   sub:"Optional — skip if none.", ph:"e.g. lactose, peanuts" },
+    showIf:(p)=>!!p.wantWorkout && p.wantWorkout.startsWith("Yes") },
+  { k:"avoid",     label:"Any allergies or foods to skip?",             type:"text",   sub:"Optional — skip if none.", ph:"e.g. lactose, peanuts" },
 ];
 
 /* ─────────────── food database (with quantities) ─────────────── */
@@ -563,6 +552,21 @@ function mapRegions(arr: string[]): string[] {
   return [...mapped,"all"];
 }
 
+/* Map new lifestyle exercise options to WHO/FAO PAL tier keys */
+function normExercise(ex: string | undefined): string {
+  const m: Record<string,string> = {
+    "Running / jogging":         "Gym 3x week",
+    "Cycling":                   "Gym 3x week",
+    "Swimming":                  "Gym 3x week",
+    "Yoga / Pilates":            "Walks / light",
+    "Home workouts":             "Gym 3x week",
+    "Gym (weights)":             "Gym 3x week",
+    "Sports / games":            "Gym 5x+ / sports",
+    "HIIT / CrossFit":           "Gym 5x+ / sports",
+  };
+  return m[ex || ""] || ex || "None";
+}
+
 function calcStats(d: Profile) {
   const cm = ((+(d.heightFt || 5)) * 12 + (+(d.heightIn || 5))) * 2.54;
   const w = Math.max(30, +(d.weight || 70));
@@ -581,7 +585,7 @@ function calcStats(d: Profile) {
     "On feet / moderate": { "None": 1.375, "Walks / light": 1.475, "Gym 3x week": 1.60, "Gym 5x+ / sports": 1.75 },
     "Physically active":  { "None": 1.55, "Walks / light": 1.65, "Gym 3x week": 1.75, "Gym 5x+ / sports": 1.90 },
   };
-  const pal = PAL[d.activity || "Mostly desk job"]?.[d.exercise || "None"] ?? 1.4;
+  const pal = PAL[d.activity || "Mostly desk job"]?.[normExercise(d.exercise)] ?? 1.4;
   const baseTdee = Math.round(bmr * pal);
 
   const cond = d.condition || "None";
@@ -751,9 +755,7 @@ function makeTips(p: Profile, _cal: number): string[] {
   };
   const g=goalTips[p.goal||""]||[];
   const c=condTips[p.condition||""]||[];
-  const extra=p.cooktime==="I order online mostly"
-    ?["When ordering, pick grilled, dal, roti, curd and salad over fried/creamy dishes."]
-    :["Drink 2.5–3L water daily and aim for 7+ hours of sleep."];
+  const extra=["Drink 2.5–3L water daily and aim for 7+ hours of sleep."];
   return [...g,...c,...extra].slice(0,5);
 }
 
@@ -895,6 +897,24 @@ const PLACE_KEY: Record<string,string> = {
   "Home — no equipment":"home","Home — dumbbells / bands":"dumbbell",
   "Full gym":"gym","Outdoor / cardio":"outdoor",
 };
+/* Infer workout location from exercise type when workoutPlace not asked */
+const EXERCISE_TO_PLACE: Record<string,string> = {
+  "Running / jogging":  "Outdoor / cardio",
+  "Cycling":            "Outdoor / cardio",
+  "Swimming":           "Outdoor / cardio",
+  "Yoga / Pilates":     "Home — no equipment",
+  "Home workouts":      "Home — no equipment",
+  "Gym (weights)":      "Full gym",
+  "Sports / games":     "Outdoor / cardio",
+  "HIIT / CrossFit":    "Home — dumbbells / bands",
+};
+/* Infer training focus from diet goal when workoutFocus not asked */
+const GOAL_TO_FOCUS: Record<string,string> = {
+  "Weight loss":    "Burn fat",
+  "Muscle gain":    "Build muscle",
+  "Maintain weight":"Stay fit & mobile",
+  "General fitness":"Stay fit & mobile",
+};
 const REP: Record<string,{sets:number;reps:string}> = {
   "Build muscle":{sets:4,reps:"8–12"},
   "Get stronger":{sets:5,reps:"4–6"},
@@ -908,9 +928,10 @@ const WSCHED: Record<number,number[]> = {
 
 function buildWorkout(p: Profile): WorkoutPlan | null {
   if (!p.wantWorkout || !p.wantWorkout.startsWith("Yes")) return null;
-  const placeKey = PLACE_KEY[p.workoutPlace||""] || "home";
+  const inferredPlace = EXERCISE_TO_PLACE[p.exercise||""] || "Home — no equipment";
+  const placeKey = PLACE_KEY[p.workoutPlace || inferredPlace] || "home";
   const pool = EX[placeKey];
-  const focus = p.workoutFocus || "Stay fit & mobile";
+  const focus = p.workoutFocus || GOAL_TO_FOCUS[p.goal||""] || "Stay fit & mobile";
   const rep = REP[focus] || REP["Stay fit & mobile"];
   const days = parseInt(p.workoutDays||"3") || 3;
   const muscle = focus==="Build muscle" || focus==="Get stronger";
@@ -978,7 +999,8 @@ function buildWorkout(p: Profile): WorkoutPlan | null {
     "Form first, ego last. Stop if you feel sharp pain.",
   ];
 
-  return {place:p.workoutPlace||"Home",focus,daysPerWeek:days,schedule,days:dayObjs,notes};
+  const placeLabel = p.workoutPlace || inferredPlace;
+  return {place:placeLabel,focus,daysPerWeek:days,schedule,days:dayObjs,notes};
 }
 
 function buildPlan(profile: Profile): Plan {
@@ -990,7 +1012,7 @@ function buildPlan(profile: Profile): Plan {
     cond,
     diet:profile.diet||"Pure veg",
     regions:mapRegions(profile.region),
-    simplePref:["Minimal cooking (10-15 min)","I order online mostly"].includes(profile.cooktime||""),
+    simplePref:false,
     picks:profile.foodPicks||[],
   };
   /* Auto-select meal pattern: more frequent meals for higher-calorie needs
@@ -3047,7 +3069,7 @@ export default function App() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-5">
           <Chip label="BMI" val={`${plan.bmi} · ${plan.bmiCat}`}/>
           <Chip label="Goal" val={plan.goal}/>
-          <Chip label="Timeline" val={plan.timeline} accent/>
+          <Chip label="Daily kcal" val={`${plan.dailyCalories} kcal`} accent/>
           <Chip label="Diet" val={plan.diet}/>
         </div>
 
