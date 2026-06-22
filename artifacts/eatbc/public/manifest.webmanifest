@@ -1,0 +1,26 @@
+{
+  "name": "EatBC — Eat Better. Change.",
+  "short_name": "EatBC",
+  "description": "A community app helping Indians eat healthier — personalised diet plans, food diary, streaks and challenges.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#064E30",
+  "theme_color": "#1DAA61",
+  "orientation": "portrait",
+  "categories": ["health", "fitness", "lifestyle", "food"],
+  "lang": "en-IN",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
