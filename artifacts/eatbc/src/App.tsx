@@ -1139,11 +1139,6 @@ function Onboarding({onDone}:{onDone:()=>void}) {
           </div>
         ))}
       </div>
-      {/* Brand */}
-      <div className="absolute left-4 z-20 flex items-center gap-2" style={{top:42}}>
-        <Logo size={28}/>
-        <span className="font-black text-white text-base tracking-tight">EatBC</span>
-      </div>
       {/* Skip */}
       <button onClick={e=>{e.stopPropagation();onDone();}}
         className="absolute right-4 z-20 font-bold text-sm px-4 py-1.5 rounded-full"
