@@ -2388,13 +2388,6 @@ function Onboarding({onDone}:{onDone:()=>void}) {
           </div>
         ))}
       </div>
-      {/* Skip */}
-      <button onClick={e=>{e.stopPropagation();onDone();}}
-        className="absolute right-4 z-20 font-bold text-sm px-4 py-1.5 rounded-full"
-        style={{top:40,background:"rgba(255,255,255,0.10)",border:"1px solid rgba(255,255,255,0.18)",backdropFilter:"blur(8px)",color:"rgba(255,255,255,0.82)"}}>
-        Skip
-      </button>
-
       {/* ── Depth layer 3: foreground glass card with the slide content ── */}
       <div className="flex-1 flex items-center justify-center px-6 pt-24 pb-6 relative z-10" style={{transformStyle:"preserve-3d"}}>
         <div key={slide} style={{
@@ -2629,12 +2622,6 @@ function LoginIntro({onDone}:{onDone:()=>void;diet?:string}) {
         WebkitMaskImage:"radial-gradient(circle at 50% 40%,black,transparent 75%)",
         ...layer(20),
       }}/>
-      {/* Skip */}
-      <button onClick={e=>{e.stopPropagation();onDone();}}
-        className="absolute right-4 z-20 font-bold text-sm px-4 py-1.5 rounded-full"
-        style={{top:40,background:"rgba(255,255,255,0.10)",border:"1px solid rgba(255,255,255,0.18)",backdropFilter:"blur(8px)",color:"rgba(255,255,255,0.82)"}}>
-        Skip
-      </button>
       {/* Card */}
       <div className="flex-1 flex items-center justify-center px-6 pt-16 pb-10 relative z-10">
         <div style={{...layer(-26),animation:"onbCard 0.6s cubic-bezier(0.22,1,0.36,1) both"}}>
@@ -2733,7 +2720,7 @@ function FloatingFoods() {
   }))).current;
   return(
     <>
-    <div className="absolute inset-0 overflow-hidden" style={{zIndex:1,pointerEvents:"none"}}>
+    <div className="absolute inset-0 overflow-hidden" style={{zIndex:15,pointerEvents:"none"}}>
       {items.map((f,i)=>(
         <button key={i} className="absolute select-none cursor-pointer"
           style={{left:f.left,bottom:"-10%",fontSize:f.size,pointerEvents:"auto",background:"none",border:"none",padding:0,
@@ -3146,11 +3133,13 @@ function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;on
       <div className={`relative z-10 w-full max-w-sm transition-all duration-700 ${visible?"opacity-100 translate-y-0":"opacity-0 translate-y-8"}`}>
         {/* Hero */}
         <div className="flex flex-col items-center mb-6">
-          <div style={{filter:`drop-shadow(0 0 22px rgba(255,250,102,0.50))`,animation:"bobFloat 3.5s ease-in-out infinite"}}>
-            <Logo size={72}/>
+          <div className="flex items-center gap-3" style={{animation:"bobFloat 3.5s ease-in-out infinite"}}>
+            <div style={{filter:`drop-shadow(0 0 18px rgba(255,250,102,0.55))`}}>
+              <Logo size={46}/>
+            </div>
+            <h1 className="font-black text-white leading-none" style={{fontSize:62,letterSpacing:"-3px"}}>EatBC</h1>
           </div>
-          <h1 className="font-black text-white leading-none mt-4" style={{fontSize:78,letterSpacing:"-4px"}}>EatBC</h1>
-          <p className="mt-2 text-center font-bold" style={{color:"rgba(255,255,255,0.55)",fontSize:15,letterSpacing:"-0.2px"}}>
+          <p className="mt-3 text-center font-bold" style={{color:"rgba(255,255,255,0.50)",fontSize:14.5,letterSpacing:"-0.2px"}}>
             Eat Better &amp; Count
           </p>
         </div>
