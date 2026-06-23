@@ -1955,7 +1955,7 @@ function Login({onDone,onBack}:{onDone:(sess:Session,plan?:Plan|null,tracking?:T
       <Card className="p-6 md:p-8">
         <div className="flex items-center gap-2 mb-2"><Logo size={28}/><span className="font-bold text-gray-700">EatBC</span></div>
         <h2 className="text-2xl font-black text-gray-800 mt-4">Welcome back,<br/><span style={{color:GREEN}}>warrior!</span></h2>
-        <p className="text-gray-400 text-sm mt-1 mb-6">Sign in to track your progress 🏆</p>
+        <p className="text-gray-400 text-sm mt-1 mb-6">Sign in to track your progress</p>
         <label className="text-sm font-semibold text-gray-600">Phone, Email or Username</label>
         <input value={id} onChange={e=>setId(e.target.value)} placeholder="9876543210 or you@email.com"
           className="w-full px-4 py-3 rounded-2xl border-2 border-gray-200 outline-none focus:border-green-500 mb-4 mt-1"/>
@@ -1967,7 +1967,7 @@ function Login({onDone,onBack}:{onDone:(sess:Session,plan?:Plan|null,tracking?:T
         <button disabled={busy} onClick={submit}
           className="w-full py-3.5 rounded-2xl text-white font-black text-base disabled:opacity-60 shadow-md mt-2"
           style={{background:GREEN}}>
-          {busy?<span className="flex items-center justify-center gap-2"><Loader2 className="animate-spin" size={18}/>Signing in…</span>:"Let's Go! 🚀"}
+          {busy?<span className="flex items-center justify-center gap-2"><Loader2 className="animate-spin" size={18}/>Signing in…</span>:"Let's Go"}
         </button>
         <p className="text-center text-xs text-gray-400 mt-4">
           No account yet?{" "}
@@ -2003,7 +2003,7 @@ function Signup({profile,plan,onDone,onBack}:{profile:Profile;plan:Plan|null;onD
       <Card className="p-6 md:p-8">
         <div className="flex items-center gap-2 mb-2"><Logo size={28}/><span className="font-bold text-gray-700">EatBC</span></div>
         <div className="rounded-2xl px-4 py-3 mb-5 mt-4" style={{background:"#EAF7F0"}}>
-          <p className="text-sm font-bold" style={{color:GREEN}}>🎉 Challenge accepted, {profile?.name||"champ"}!</p>
+          <p className="text-sm font-bold" style={{color:GREEN}}>Challenge accepted, {profile?.name||"champ"}!</p>
           <p className="text-xs text-gray-500 mt-0.5">Create your account to unlock your personal tracker.</p>
         </div>
         <h2 className="text-2xl font-black text-gray-800 mb-5">Lock in your <span style={{color:GREEN}}>account</span> 🔐</h2>
@@ -2031,7 +2031,7 @@ function Signup({profile,plan,onDone,onBack}:{profile:Profile;plan:Plan|null;onD
         <button disabled={busy} onClick={submit}
           className="w-full py-3.5 rounded-2xl text-white font-black text-base disabled:opacity-60 shadow-md"
           style={{background:GREEN}}>
-          {busy?<span className="flex items-center justify-center gap-2"><Loader2 className="animate-spin" size={18}/>Creating…</span>:"Activate My Tracker 🏆"}
+          {busy?<span className="flex items-center justify-center gap-2"><Loader2 className="animate-spin" size={18}/>Creating…</span>:"Activate My Tracker"}
         </button>
         <button onClick={onBack} className="w-full text-center text-gray-400 text-sm mt-4">← Back to plan</button>
       </Card>
@@ -2378,13 +2378,13 @@ function InsightsCard({history,proteinTarget,t}:{
   const proteinHitRate=proteinTarget>0?Math.round((entries.filter(e=>e.protein>=proteinTarget*0.9).length/tracked)*100):0;
   const best=bestStreak(history);
   const stats=[
-    {label:"On-track rate",val:`${rate}%`,emoji:"🎯"},
-    {label:"Best streak",val:`${best} days`,emoji:"🔥"},
-    {label:"Avg protein",val:`${avgProtein}g`,emoji:"💪"},
+    {label:"On-track rate",val:`${rate}%`,emoji:""},
+    {label:"Best streak",val:`${best} days`,emoji:""},
+    {label:"Avg protein",val:`${avgProtein}g`,emoji:""},
     {label:"Days tracked",val:`${tracked}`,emoji:"📅"},
   ];
   let nudge="You're building a real habit — keep showing up.";
-  if (rate>=80) nudge="Outstanding consistency! You're in the top tier of EatBC warriors. 🏆";
+  if (rate>=80) nudge="Outstanding consistency! You're in the top tier of EatBC warriors.";
   else if (proteinTarget>0&&proteinHitRate<50) nudge="You're often short on protein — add dal, curd, eggs or paneer to a meal.";
   else if (rate<40) nudge="Small steps win. Try ticking just your breakfast every day this week.";
   return (
@@ -2435,7 +2435,7 @@ function ChallengesCard({history,joined,onToggle,t}:{
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-gray-800 text-sm">{c.title}</span>
-                    {complete&&<span className="text-xs font-bold px-2 py-0.5 rounded-full text-white" style={{background:GREEN}}>Done 🎉</span>}
+                    {complete&&<span className="text-xs font-bold px-2 py-0.5 rounded-full text-white" style={{background:GREEN}}>Done</span>}
                   </div>
                   <p className="text-xs text-gray-500 mt-0.5">{c.desc}</p>
                   {on&&(
@@ -2495,7 +2495,7 @@ function Leaderboard({session,points,streak,t}:{
         <button disabled={busy} onClick={share}
           className="w-full mb-3 py-2.5 rounded-2xl text-white font-bold text-sm disabled:opacity-60"
           style={{background:GREEN}}>
-          {busy?"Joining…":"Join the board with my streak 🔥"}
+          {busy?"Joining…":"Join the leaderboard"}
         </button>
       )}
       {rows===null?(
@@ -2506,7 +2506,7 @@ function Leaderboard({session,points,streak,t}:{
         <div className="space-y-1.5">
           {rows.map((r,i)=>{
             const me=r.name===session.name;
-            const medal=i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}`;
+            const medal=`${i+1}`;
             return (
               <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-xl" style={{background:me?"#EAF7F0":"#fff"}}>
                 <span className="w-6 text-center font-bold text-gray-500 text-sm">{medal}</span>
@@ -2531,7 +2531,7 @@ function ReminderToggle({t}:{t:(k:keyof typeof STR)=>string}) {
     const perm=await Notification.requestPermission();
     if (perm==="granted"){
       sset("eatbc:reminders",true); setOn(true);
-      new Notification("EatBC reminders on 🔔",{body:"We'll gently nudge you to log your meals.",icon:"/icon.svg"});
+      new Notification("EatBC reminders on",{body:"We'll gently nudge you to log your meals.",icon:"/icon.svg"});
     }
   }
   function disable(){ sset("eatbc:reminders",false); setOn(false); }
@@ -2770,7 +2770,7 @@ function WorkoutTab({workout,tracking,onUpdate}:{
           <button onClick={markDone}
             className="w-full mt-4 py-3 rounded-2xl font-black text-white transition active:scale-[0.98]"
             style={{background:completedToday?"#9CA3AF":"#7C3AED"}}>
-            {completedToday?"Mark as not done":"Complete workout 💪"}
+            {completedToday?"Mark as not done":"Complete workout"}
           </button>
         </div>
       )}
@@ -3398,7 +3398,7 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccou
           <div className="flex justify-between items-start">
             <div>
               <div className="flex items-center gap-2 mb-3"><Logo size={26}/><span className="font-bold text-sm">EatBC</span></div>
-              <h2 className="text-2xl font-black">Hi {session.name} 👋</h2>
+              <h2 className="text-2xl font-black">Hi {session.name}</h2>
               <p className="text-white/70 text-sm">{session.id}</p>
               <div className="flex gap-4 mt-4">
                 <div><div className="text-2xl font-bold flex items-center gap-1"><Flame size={20}/>{streak}</div><div className="text-white/70 text-xs">{t("perfectDays")}</div></div>
@@ -4008,7 +4008,7 @@ export default function App() {
           <button onClick={()=>setScreen("signup")}
             className="px-8 py-3.5 rounded-2xl text-white font-black text-lg inline-flex items-center gap-2 shadow-md hover:opacity-90 transition"
             style={{background:GREEN}}>
-            Accept the Challenge 💪 <ChevronRight size={20}/>
+            Accept the Challenge <ChevronRight size={20}/>
           </button>
           <p className="text-xs text-gray-400 mt-3">Account creation happens next — just one last step!</p>
         </Card>
