@@ -3149,13 +3149,9 @@ function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;on
           <div style={{filter:`drop-shadow(0 0 22px rgba(255,250,102,0.50))`,animation:"bobFloat 3.5s ease-in-out infinite"}}>
             <Logo size={72}/>
           </div>
-          <div className="flex items-center gap-1.5 mt-4 mb-3 px-4 py-1.5 rounded-full text-xs font-black tracking-widest"
-            style={{background:"rgba(255,250,102,0.10)",border:"1px solid rgba(255,250,102,0.25)",color:Y,letterSpacing:"0.08em"}}>
-            ⚡ AI POWERED · SCIENTIFIC · FREE FOREVER
-          </div>
-          <h1 className="font-black text-white leading-none" style={{fontSize:78,letterSpacing:"-4px"}}>EatBC</h1>
-          <p className="mt-2 text-center" style={{color:"rgba(255,255,255,0.50)",fontSize:14.5,maxWidth:230,lineHeight:1.55}}>
-            {t("tagline")}
+          <h1 className="font-black text-white leading-none mt-4" style={{fontSize:78,letterSpacing:"-4px"}}>EatBC</h1>
+          <p className="mt-2 text-center font-bold" style={{color:"rgba(255,255,255,0.55)",fontSize:15,letterSpacing:"-0.2px"}}>
+            Eat Better &amp; Count
           </p>
         </div>
 
@@ -3164,18 +3160,9 @@ function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;on
           const wq=MOTIVATION_QUOTES[Math.floor(Math.random()*MOTIVATION_QUOTES.length)];
           const wa=THEME_ACCENT[wq.theme]||"#FFFA66";
           return(
-            <div className="flex flex-col gap-2 mb-5">
-              <div className="flex items-center gap-3 px-4 py-3 rounded-2xl" style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)"}}>
-                <span style={{fontSize:22}}>🏋️</span>
-                <div>
-                  <span className="font-black text-sm" style={{color:Y}}>10x trained</span>
-                  <span className="text-xs ml-1.5" style={{color:"rgba(255,255,255,0.38)"}}>in nutrition &amp; dietetics</span>
-                </div>
-              </div>
-              <div className="px-4 py-3.5 rounded-2xl" style={{background:"rgba(255,255,255,0.04)",border:`1px solid ${ha(wa,0.22)}`}}>
-                <p className="font-bold text-sm leading-snug" style={{color:"rgba(255,255,255,0.88)"}}>"{wq.text}"</p>
-                {wq.author&&<p className="text-xs mt-1.5 font-semibold" style={{color:ha(wa,0.65)}}>— {wq.author}</p>}
-              </div>
+            <div className="px-4 py-3.5 rounded-2xl mb-5" style={{background:"rgba(255,255,255,0.04)",border:`1px solid ${ha(wa,0.22)}`}}>
+              <p className="font-bold text-sm leading-snug" style={{color:"rgba(255,255,255,0.88)"}}>"{wq.text}"</p>
+              {wq.author&&<p className="text-xs mt-1.5 font-semibold" style={{color:ha(wa,0.65)}}>— {wq.author}</p>}
             </div>
           );
         })()}
