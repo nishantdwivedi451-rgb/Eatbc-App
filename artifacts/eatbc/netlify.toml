@@ -1,0 +1,68 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+
+# API route rewrites → Netlify Functions
+[[redirects]]
+  from = "/api/login"
+  to   = "/.netlify/functions/api-login"
+  status = 200
+  force  = true
+
+[[redirects]]
+  from = "/api/register"
+  to   = "/.netlify/functions/api-register"
+  status = 200
+  force  = true
+
+[[redirects]]
+  from = "/api/logout"
+  to   = "/.netlify/functions/api-logout"
+  status = 200
+  force  = true
+
+[[redirects]]
+  from = "/api/plan"
+  to   = "/.netlify/functions/api-plan"
+  status = 200
+  force  = true
+
+[[redirects]]
+  from = "/api/tracking"
+  to   = "/.netlify/functions/api-tracking"
+  status = 200
+  force  = true
+
+[[redirects]]
+  from = "/api/leaderboard"
+  to   = "/.netlify/functions/api-leaderboard"
+  status = 200
+  force  = true
+
+[[redirects]]
+  from = "/api/delete"
+  to   = "/.netlify/functions/api-delete"
+  status = 200
+  force  = true
+
+[[redirects]]
+  from = "/api/veer"
+  to   = "/.netlify/functions/api-veer"
+  status = 200
+  force  = true
+
+[[redirects]]
+  from = "/api/veer-tts"
+  to   = "/.netlify/functions/api-veer-tts"
+  status = 200
+  force  = true
+
+# SPA fallback — must be last
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200

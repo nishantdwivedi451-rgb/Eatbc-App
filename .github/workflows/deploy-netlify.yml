@@ -23,10 +23,12 @@ jobs:
         working-directory: artifacts/eatbc
         run: npm run build
 
+      - name: Install Netlify CLI
+        run: npm install -g netlify-cli
+
       - name: Deploy to Netlify
-        uses: netlify/actions/cli@master
-        with:
-          args: deploy --dir=artifacts/eatbc/dist --functions=artifacts/eatbc/netlify/functions --prod --message "Deploy from GitHub Actions"
+        working-directory: artifacts/eatbc
+        run: netlify deploy --dir dist --functions netlify/functions --prod --message "Deploy from GitHub Actions"
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: 363d788a-a215-4c4a-bcf0-1a2cf669d31a
