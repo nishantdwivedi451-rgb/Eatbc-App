@@ -56,5 +56,47 @@ export async function ensureDb() {
       window_start TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+  /* Veer AI coach usage counter (per user / per guest IP). */
+  await sql`
+    CREATE TABLE IF NOT EXISTS veer_usage (
+      user_id TEXT PRIMARY KEY,
+      count INTEGER NOT NULL DEFAULT 0,
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
   ready = true;
+}
+
+/* Wearable tables are provisioned lazily — only when a user actually
+   connects a device — so cold starts of the core app stay lean. */
+let wearableReady = false;
+
+export async function ensureWearableDb() {
+  if (wearableReady) return;
+  await sql`
+    CREATE TABLE IF NOT EXISTS wearable_connections (
+      user_id   TEXT    NOT NULL,
+      provider  TEXT    NOT NULL,
+      access_token_enc  TEXT NOT NULL,
+      refresh_token_enc TEXT,
+      expires_at        TIMESTAMPTZ,
+      scopes            TEXT,
+      created_at        TIMESTAMPTZ DEFAULT NOW(),
+      updated_at        TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (user_id, provider)
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS wearable_sync (
+      user_id         TEXT    NOT NULL,
+      date            TEXT    NOT NULL,
+      provider        TEXT    NOT NULL,
+      steps           INTEGER DEFAULT 0,
+      active_calories INTEGER DEFAULT 0,
+      sleep_minutes   INTEGER DEFAULT 0,
+      synced_at       TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (user_id, date, provider)
+    )
+  `;
+  wearableReady = true;
 }
