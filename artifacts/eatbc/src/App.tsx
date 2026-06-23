@@ -233,6 +233,7 @@ const Q: Question[] = [
   { k:"age",       label:"Your age",                                    type:"number", ph:"e.g. 32" },
   { k:"sex",       label:"Sex",                                         type:"pick",   opts:["Male","Female","Other"] },
   { k:"heightFt",  label:"Your height",                                 type:"height" },
+  { k:"goal",      label:"Your primary goal",                           type:"pick",   opts:["Weight loss","Muscle gain","Maintain weight","General fitness"] },
   { k:"weight",    label:"Current weight (kg)",                         type:"number", ph:"e.g. 78" },
   { k:"target",    label:"Target weight (kg)",                          type:"number", ph:"e.g. 72",
     sub:"Same number as current weight = maintain." },
@@ -244,7 +245,6 @@ const Q: Question[] = [
       return `You want to change ~${delta.toFixed(0)} kg. Our recommendation: ${rec}.`;
     },
     opts:["1 month (aggressive)","3 months","6 months","1 year","No fixed timeline"] },
-  { k:"goal",      label:"Your primary goal",                           type:"pick",   opts:["Weight loss","Muscle gain","Maintain weight","General fitness"] },
   { k:"condition", label:"Any health condition we should know about?",  type:"pick",
     opts:["None","Diabetes / pre-diabetes","High BP (hypertension)","High cholesterol","Thyroid (hypothyroid)","PCOS / PCOD","Pregnant","Breastfeeding","Other"] },
   { k:"diet",      label:"Your food preference",                        type:"pick",   opts:["Pure veg","Egg + veg","Non-veg","Vegan","Jain"] },
@@ -253,7 +253,7 @@ const Q: Question[] = [
     opts:["Mostly desk job","On feet / moderate","Physically active"] },
   { k:"weekend",   label:"What's your typical weekend like?",           type:"multi",
     sub:"Pick all that apply — we'll adjust your weekend calorie targets to match.",
-    opts:["Rest & recovery","Run club / group fitness","Coffee rave / morning run","Hiking / outdoor sports","Social eating out","Travel / exploring","Home cooking & meal prep"] },
+    opts:["Rest & recovery","Run club / group fitness","Coffee rave / morning run","Hiking / outdoor sports","Social eating out","Travel / exploring","Home cooking & meal prep","Houseparty / clubbing / drinking"] },
   { k:"region",    label:"Which cuisines do you enjoy?",                type:"multi",
     sub:"Pick all that apply — we'll mix these into your meal plan.",
     opts:["North Indian","South Indian","Continental","Mediterranean","East Asian","Middle Eastern","Mexican","Keto","High-Protein","Plant-Based","Intermittent Fasting"] },
@@ -590,6 +590,124 @@ const LOG_DB: LogFood[] = [
   {n:"Champagne / prosecco",p:0, c:90,q:"1 flute (125ml)",cat:"Alcohol"},
   {n:"Old Monk (peg, 30ml)",p:0, c:65,q:"1 peg (30ml)",cat:"Alcohol"},
   {n:"Cocktail (standard)",p:0, c:200,q:"1 cocktail (200ml)",cat:"Alcohol"},
+  /* Western Staples */
+  {n:"Pasta (cooked)",p:7, c:220,q:"1 cup (140g)",cat:"Western Staples"},
+  {n:"Spaghetti bolognese",p:20,c:420,q:"1 plate (300g)",cat:"Western Staples"},
+  {n:"Mac and cheese",p:14,c:480,q:"1 cup (250g)",cat:"Western Staples"},
+  {n:"Quinoa (cooked)",p:8, c:222,q:"1 cup (185g)",cat:"Western Staples"},
+  {n:"White bread (2 slices)",p:4, c:140,q:"2 slices (60g)",cat:"Western Staples"},
+  {n:"Sourdough bread (1 slice)",p:4, c:100,q:"1 slice (50g)",cat:"Western Staples"},
+  {n:"Bagel (plain)",p:10,c:270,q:"1 medium (105g)",cat:"Western Staples"},
+  {n:"Granola (dry)",p:5, c:230,q:"½ cup (60g)",cat:"Western Staples"},
+  {n:"Corn flakes",p:3, c:150,q:"1 cup (30g)",cat:"Western Staples"},
+  {n:"Muesli",p:6, c:200,q:"½ cup (60g)",cat:"Western Staples"},
+  {n:"Pancakes (plain, 2)",p:7, c:320,q:"2 medium pancakes (100g)",cat:"Western Staples"},
+  {n:"Waffles (2)",p:7, c:310,q:"2 waffles (130g)",cat:"Western Staples"},
+  {n:"Croissant",p:6, c:270,q:"1 medium (60g)",cat:"Western Staples"},
+  /* International Proteins */
+  {n:"Salmon — baked/grilled",p:25,c:208,q:"100g",cat:"International Proteins"},
+  {n:"Tuna — canned in water",p:25,c:116,q:"100g",cat:"International Proteins"},
+  {n:"Beef steak (grilled)",p:26,c:250,q:"100g lean",cat:"International Proteins"},
+  {n:"Ground beef (cooked)",p:26,c:218,q:"100g",cat:"International Proteins"},
+  {n:"Turkey breast (grilled)",p:29,c:135,q:"100g",cat:"International Proteins"},
+  {n:"Pork tenderloin",p:26,c:143,q:"100g",cat:"International Proteins"},
+  {n:"Lamb chop",p:25,c:294,q:"100g",cat:"International Proteins"},
+  {n:"Shrimp / prawns (boiled)",p:24,c:99,q:"100g",cat:"International Proteins"},
+  {n:"Crab meat",p:19,c:97,q:"100g",cat:"International Proteins"},
+  {n:"Tempeh",p:19,c:193,q:"100g",cat:"International Proteins"},
+  {n:"Edamame",p:12,c:122,q:"½ cup (75g)",cat:"International Proteins"},
+  {n:"Black beans (cooked)",p:15,c:227,q:"1 cup (172g)",cat:"International Proteins"},
+  {n:"Lentils (cooked)",p:18,c:230,q:"1 cup (198g)",cat:"International Proteins"},
+  /* Global Fruits */
+  {n:"Strawberries",p:1, c:50,q:"1 cup (150g)",cat:"Global Fruits"},
+  {n:"Blueberries",p:1, c:85,q:"1 cup (148g)",cat:"Global Fruits"},
+  {n:"Mango (international variety)",p:1, c:100,q:"1 cup chunks (165g)",cat:"Global Fruits"},
+  {n:"Avocado (half)",p:2, c:160,q:"½ medium avocado (100g)",cat:"Global Fruits"},
+  {n:"Kiwi",p:1, c:61,q:"2 medium kiwis (150g)",cat:"Global Fruits"},
+  {n:"Peach",p:1, c:59,q:"1 medium (150g)",cat:"Global Fruits"},
+  {n:"Pear",p:0, c:101,q:"1 medium (178g)",cat:"Global Fruits"},
+  {n:"Cherries",p:1, c:90,q:"1 cup (155g)",cat:"Global Fruits"},
+  {n:"Raspberries",p:1, c:65,q:"1 cup (123g)",cat:"Global Fruits"},
+  {n:"Mango (dried)",p:1, c:170,q:"¼ cup (40g)",cat:"Global Fruits"},
+  {n:"Coconut flesh (fresh)",p:2, c:185,q:"½ cup (40g)",cat:"Global Fruits"},
+  /* Beverages — Global */
+  {n:"Espresso",p:0, c:5,q:"1 shot (30ml)",cat:"Beverages"},
+  {n:"Cappuccino (whole milk)",p:5, c:120,q:"1 cup (240ml)",cat:"Beverages"},
+  {n:"Latte (whole milk)",p:8, c:190,q:"1 cup (355ml)",cat:"Beverages"},
+  {n:"Matcha latte (oat milk)",p:3, c:130,q:"1 cup (240ml)",cat:"Beverages"},
+  {n:"Kombucha",p:0, c:60,q:"1 bottle (350ml)",cat:"Beverages"},
+  {n:"Oat milk",p:3, c:120,q:"1 cup (240ml)",cat:"Beverages"},
+  {n:"Almond milk (unsweetened)",p:1, c:30,q:"1 cup (240ml)",cat:"Beverages"},
+  {n:"Energy drink (Red Bull can)",p:0, c:110,q:"250ml can",cat:"Beverages"},
+  {n:"Energy drink (Monster 500ml)",p:1, c:225,q:"500ml can",cat:"Beverages"},
+  {n:"Orange juice (fresh)",p:2, c:112,q:"1 cup (240ml)",cat:"Beverages"},
+  {n:"Sports drink (Gatorade)",p:0, c:140,q:"1 bottle (500ml)",cat:"Beverages"},
+  {n:"Cold brew coffee (black)",p:1, c:5,q:"1 cup (240ml)",cat:"Beverages"},
+  {n:"Sparkling water",p:0, c:0,q:"1 bottle (500ml)",cat:"Beverages"},
+  {n:"Iced tea (sweetened)",p:0, c:120,q:"1 cup (240ml)",cat:"Beverages"},
+  /* World Cuisines */
+  {n:"Sushi (salmon nigiri, 2 pcs)",p:12,c:130,q:"2 pieces (80g)",cat:"World Cuisines"},
+  {n:"California roll (6 pcs)",p:9, c:255,q:"6 pieces (150g)",cat:"World Cuisines"},
+  {n:"Ramen (chicken, bowl)",p:22,c:490,q:"1 bowl (450g)",cat:"World Cuisines"},
+  {n:"Pho (beef, bowl)",p:25,c:350,q:"1 bowl (450ml)",cat:"World Cuisines"},
+  {n:"Pad Thai (chicken)",p:20,c:400,q:"1 plate (300g)",cat:"World Cuisines"},
+  {n:"Fried rice (Chinese, chicken)",p:18,c:380,q:"1 cup (200g)",cat:"World Cuisines"},
+  {n:"Dim sum (har gau, 3 pcs)",p:9, c:120,q:"3 dumplings (90g)",cat:"World Cuisines"},
+  {n:"Taco (beef, corn tortilla)",p:14,c:210,q:"1 taco (120g)",cat:"World Cuisines"},
+  {n:"Burrito (chicken, full)",p:30,c:490,q:"1 burrito (350g)",cat:"World Cuisines"},
+  {n:"Shawarma (chicken, wrap)",p:28,c:420,q:"1 wrap (280g)",cat:"World Cuisines"},
+  {n:"Falafel (3 pcs)",p:8, c:190,q:"3 pieces (90g)",cat:"World Cuisines"},
+  {n:"Hummus",p:5, c:110,q:"¼ cup (60g)",cat:"World Cuisines"},
+  {n:"Greek salad",p:4, c:180,q:"1 bowl (200g)",cat:"World Cuisines"},
+  {n:"Moussaka (1 serving)",p:18,c:430,q:"1 serving (300g)",cat:"World Cuisines"},
+  {n:"Paella (seafood, 1 serving)",p:22,c:380,q:"1 serving (250g)",cat:"World Cuisines"},
+  {n:"Tom yum soup",p:10,c:150,q:"1 bowl (300ml)",cat:"World Cuisines"},
+  {n:"Bibimbap (Korean rice bowl)",p:20,c:430,q:"1 bowl (400g)",cat:"World Cuisines"},
+  {n:"Kimchi",p:2, c:23,q:"½ cup (75g)",cat:"World Cuisines"},
+  /* Fast Food */
+  {n:"Big Mac",p:25,c:550,q:"1 burger",cat:"Fast Food"},
+  {n:"McChicken",p:20,c:400,q:"1 burger",cat:"Fast Food"},
+  {n:"Quarter Pounder with cheese",p:30,c:520,q:"1 burger",cat:"Fast Food"},
+  {n:"KFC Original (1 pc)",p:22,c:290,q:"1 drumstick+thigh",cat:"Fast Food"},
+  {n:"KFC Zinger Burger",p:26,c:450,q:"1 burger",cat:"Fast Food"},
+  {n:"Subway 6\" Chicken (wheat)",p:23,c:310,q:"6-inch sub",cat:"Fast Food"},
+  {n:"Subway 6\" Veggie Delite",p:9, c:230,q:"6-inch sub",cat:"Fast Food"},
+  {n:"Domino's Pizza (2 slices, veg)",p:14,c:400,q:"2 medium slices",cat:"Fast Food"},
+  {n:"Domino's Pizza (2 slices, chicken)",p:22,c:460,q:"2 medium slices",cat:"Fast Food"},
+  {n:"Burger King Whopper",p:28,c:650,q:"1 burger",cat:"Fast Food"},
+  {n:"Hot dog (bun + frank)",p:12,c:290,q:"1 standard hot dog",cat:"Fast Food"},
+  {n:"Nachos with cheese",p:8, c:380,q:"1 serving (120g)",cat:"Fast Food"},
+  /* Condiments & Sauces */
+  {n:"Tomato ketchup",p:0, c:20,q:"1 tbsp (17g)",cat:"Condiments"},
+  {n:"Mayonnaise",p:0, c:90,q:"1 tbsp (14g)",cat:"Condiments"},
+  {n:"Mustard",p:0, c:9,q:"1 tsp (5g)",cat:"Condiments"},
+  {n:"Hot sauce (Tabasco)",p:0, c:1,q:"1 tsp (5ml)",cat:"Condiments"},
+  {n:"Soy sauce",p:1, c:10,q:"1 tbsp (16ml)",cat:"Condiments"},
+  {n:"Olive oil",p:0, c:119,q:"1 tbsp (14ml)",cat:"Condiments"},
+  {n:"Butter (salted)",p:0, c:102,q:"1 tbsp (14g)",cat:"Condiments"},
+  {n:"Cream cheese",p:2, c:100,q:"2 tbsp (30g)",cat:"Condiments"},
+  {n:"Hummus (dip)",p:2, c:50,q:"2 tbsp (30g)",cat:"Condiments"},
+  {n:"Ranch dressing",p:1, c:130,q:"2 tbsp (30ml)",cat:"Condiments"},
+  {n:"Balsamic vinegar",p:0, c:14,q:"1 tbsp (15ml)",cat:"Condiments"},
+  {n:"Tahini",p:3, c:89,q:"1 tbsp (15g)",cat:"Condiments"},
+  /* International Dairy & Cheese */
+  {n:"Cheddar cheese",p:7, c:113,q:"1 slice (30g)",cat:"International Dairy"},
+  {n:"Mozzarella",p:7, c:85,q:"1 slice (30g)",cat:"International Dairy"},
+  {n:"Feta cheese",p:4, c:75,q:"30g",cat:"International Dairy"},
+  {n:"Cottage cheese (low-fat)",p:14,c:100,q:"½ cup (113g)",cat:"International Dairy"},
+  {n:"Parmesan (grated)",p:4, c:80,q:"2 tbsp (10g)",cat:"International Dairy"},
+  {n:"Whipping cream",p:0, c:88,q:"2 tbsp (30ml)",cat:"International Dairy"},
+  {n:"Sour cream",p:1, c:60,q:"2 tbsp (30g)",cat:"International Dairy"},
+  /* International Desserts */
+  {n:"Cheesecake (1 slice)",p:6, c:400,q:"1 slice (120g)",cat:"International Desserts"},
+  {n:"Brownie",p:3, c:240,q:"1 medium piece (60g)",cat:"International Desserts"},
+  {n:"Tiramisu",p:5, c:310,q:"1 serving (100g)",cat:"International Desserts"},
+  {n:"Mochi ice cream (1 pc)",p:2, c:100,q:"1 piece (44g)",cat:"International Desserts"},
+  {n:"Croissant (pain au chocolat)",p:6, c:310,q:"1 piece (65g)",cat:"International Desserts"},
+  {n:"Doughnut (glazed)",p:3, c:250,q:"1 doughnut (55g)",cat:"International Desserts"},
+  {n:"Waffle cone ice cream",p:4, c:290,q:"1 medium cone",cat:"International Desserts"},
+  {n:"Oreo cookies (3)",p:2, c:160,q:"3 cookies (34g)",cat:"International Desserts"},
+  {n:"Protein bar (Quest / similar)",p:21,c:200,q:"1 bar (60g)",cat:"International Desserts"},
 ];
 
 /* ─────────────── calorie calculation ─────────────── */
@@ -1542,6 +1660,10 @@ function ha(hex:string,a:number){
   const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
   return `rgba(${r},${g},${b},${a})`;
 }
+function waterTarget(weight?:string|number,age?:string|number):number {
+  const w=+(weight||70),a=+(age||30);
+  return Math.max(6,Math.min(14,Math.round((w*33+(a<25?200:a>60?300:0))/250)));
+}
 function OnbSlide1({accent}:{accent:string}) {
   const [ct,setCt]=useState(0);
   useEffect(()=>{
@@ -1577,7 +1699,24 @@ function OnbSlide2({accent}:{accent:string}) {
 }
 function OnbSlide3({accent}:{accent:string}) {
   const [showChat,setShowChat]=useState(false);
+  const [playing,setPlaying]=useState(false);
+  const [audioErr,setAudioErr]=useState(false);
   useEffect(()=>{const t=setTimeout(()=>setShowChat(true),1350);return()=>clearTimeout(t);},[]);
+  async function playVeer(e:React.MouseEvent){
+    e.stopPropagation();
+    if(playing)return;
+    setPlaying(true);setAudioErr(false);
+    try{
+      const res=await fetch("/api/veer-tts",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:"Namaste! Main hoon Veer — aapka AI health coach. Aaj ka din achha guzaaro aur apna plan follow karo. You've got this!"})});
+      if(!res.ok)throw new Error();
+      const blob=await res.blob();
+      const url=URL.createObjectURL(blob);
+      const audio=new Audio(url);
+      audio.onended=()=>{setPlaying(false);URL.revokeObjectURL(url);};
+      audio.onerror=()=>{setPlaying(false);setAudioErr(true);URL.revokeObjectURL(url);};
+      audio.play();
+    }catch{setPlaying(false);setAudioErr(true);}
+  }
   return(
     <div className="flex flex-col items-center text-center">
       <div className="relative flex items-center justify-center mb-4" style={{width:114,height:114}}>
@@ -1603,6 +1742,12 @@ function OnbSlide3({accent}:{accent:string}) {
       <p style={{color:"rgba(255,255,255,0.42)",fontSize:13,maxWidth:250,lineHeight:1.75}}>
         Diet, workouts &amp; motivation in Hindi &amp; English. 24/7, always free.
       </p>
+      <button onClick={playVeer} disabled={playing}
+        className="mt-4 flex items-center gap-2 px-5 py-2.5 rounded-full font-bold text-sm transition-all active:scale-95"
+        style={{background:ha(accent,0.18),border:`1px solid ${ha(accent,0.40)}`,color:accent,opacity:playing?0.7:1}}>
+        {playing?<><span style={{animation:"onbPulse 1s ease-in-out infinite",display:"inline-block"}}>🔊</span> Playing…</>:<>▶ Hear Veer</>}
+      </button>
+      {audioErr&&<p style={{color:"rgba(255,100,100,0.7)",fontSize:11,marginTop:6}}>TTS unavailable — check API key</p>}
     </div>
   );
 }
@@ -1940,91 +2085,41 @@ function LIFinal({anim,accent}:{anim:number;accent:string}) {
     </div>
   );
 }
-function LoginIntro({onDone,diet}:{onDone:()=>void;diet?:string}) {
-  const isNonVeg=diet==="Non-veg";
-  const [slide,setSlide]=useState(0);
-  const [prog,setProg]=useState(0);
+function LoginIntro({onDone}:{onDone:()=>void;diet?:string}) {
+  const ACCENT="#FFFA66";
   const [anim,setAnim]=useState(0);
-  const ivRef=useRef<ReturnType<typeof setInterval>|null>(null);
-  const STEP=100/(5000/100);
-  const N=4;
-
-  useEffect(()=>{
-    setProg(0);
-    if(ivRef.current) clearInterval(ivRef.current);
-    ivRef.current=setInterval(()=>{
-      setProg(p=>{
-        const next=p+STEP;
-        if(next>=100){
-          clearInterval(ivRef.current!);
-          setTimeout(()=>{if(slide<N-1)setSlide(s=>s+1);else onDone();},0);
-          return 100;
-        }
-        return next;
-      });
-    },100);
-    return()=>{if(ivRef.current)clearInterval(ivRef.current);};
-  },[slide]);
-
-  useEffect(()=>{
-    setAnim(0);
-    if(slide!==N-1)return;
-    const t1=setTimeout(()=>setAnim(1),600);
-    const t2=setTimeout(()=>setAnim(2),1700);
-    const t3=setTimeout(()=>setAnim(3),2650);
-    const t4=setTimeout(()=>setAnim(4),3450);
-    return()=>{clearTimeout(t1);clearTimeout(t2);clearTimeout(t3);clearTimeout(t4);};
-  },[slide]);
-
-  function goNext(){
-    if(ivRef.current) clearInterval(ivRef.current);
-    if(slide<N-1) setSlide(slide+1); else onDone();
-  }
-
-  const BKGS=isNonVeg?[
-    "linear-gradient(155deg,#1e0000 0%,#320000 45%,#460000 100%)",
-    "linear-gradient(155deg,#180000 0%,#280000 45%,#3a0000 100%)",
-    "linear-gradient(155deg,#1c0000 0%,#2e0000 45%,#420000 100%)",
-    "linear-gradient(155deg,#150000 0%,#240000 45%,#360000 100%)",
-  ]:[
-    "linear-gradient(155deg,#180826 0%,#250c3b 45%,#370854 100%)",
-    "linear-gradient(155deg,#1a0929 0%,#270d40 45%,#380a57 100%)",
-    "linear-gradient(155deg,#150625 0%,#1f0934 45%,#2d0c48 100%)",
-    "linear-gradient(155deg,#12041e 0%,#1f0730 45%,#320a4a 100%)",
-  ];
-  const ACCENT=isNonVeg?["#FF4444","#FF4444","#FF4444","#FF4444"]:["#FFFA66","#FFFA66","#FFFA66","#FFFA66"];
   const tilt=use3DParallax();
   const layer=(depth:number)=>({
     transform:`translate3d(${tilt.y*depth}px,${tilt.x*depth}px,0)`,
     transition:"transform 0.18s ease-out",
   });
+  useEffect(()=>{
+    const t1=setTimeout(()=>setAnim(1),600);
+    const t2=setTimeout(()=>setAnim(2),1700);
+    const t3=setTimeout(()=>setAnim(3),2650);
+    const t4=setTimeout(()=>setAnim(4),3450);
+    const t5=setTimeout(()=>onDone(),4800);
+    return()=>{clearTimeout(t1);clearTimeout(t2);clearTimeout(t3);clearTimeout(t4);clearTimeout(t5);};
+  },[]);
 
   return(
     <div className="min-h-screen flex flex-col relative overflow-hidden"
-      style={{background:BKGS[slide],transition:"background 0.7s ease",perspective:"1100px"}}
-      onClick={goNext}>
+      style={{background:"linear-gradient(155deg,#180826 0%,#250c3b 45%,#370854 100%)",perspective:"1100px"}}
+      onClick={onDone}>
       {/* Orbs */}
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute rounded-full" style={{width:360,height:360,top:"6%",left:"-18%",background:`radial-gradient(circle,${ACCENT[slide]}50,transparent 70%)`,filter:"blur(46px)",...layer(46)}}/>
-        <div className="absolute rounded-full" style={{width:280,height:280,bottom:"10%",right:"-14%",background:`radial-gradient(circle,${ACCENT[slide]}38,transparent 70%)`,filter:"blur(40px)",...layer(62)}}/>
-        <div className="absolute rounded-full" style={{width:160,height:160,top:"44%",right:"18%",background:`radial-gradient(circle,${ACCENT[slide]}28,transparent 70%)`,filter:"blur(26px)",...layer(80)}}/>
+        <div className="absolute rounded-full" style={{width:360,height:360,top:"6%",left:"-18%",background:`radial-gradient(circle,${ACCENT}50,transparent 70%)`,filter:"blur(46px)",...layer(46)}}/>
+        <div className="absolute rounded-full" style={{width:280,height:280,bottom:"10%",right:"-14%",background:`radial-gradient(circle,${ACCENT}38,transparent 70%)`,filter:"blur(40px)",...layer(62)}}/>
+        <div className="absolute rounded-full" style={{width:160,height:160,top:"44%",right:"18%",background:`radial-gradient(circle,${ACCENT}28,transparent 70%)`,filter:"blur(26px)",...layer(80)}}/>
       </div>
       {/* Grid */}
       <div className="absolute inset-0 pointer-events-none" style={{
-        backgroundImage:`linear-gradient(${ACCENT[slide]}12 1px,transparent 1px),linear-gradient(90deg,${ACCENT[slide]}12 1px,transparent 1px)`,
+        backgroundImage:`linear-gradient(${ACCENT}12 1px,transparent 1px),linear-gradient(90deg,${ACCENT}12 1px,transparent 1px)`,
         backgroundSize:"44px 44px",
         maskImage:"radial-gradient(circle at 50% 40%,black,transparent 75%)",
         WebkitMaskImage:"radial-gradient(circle at 50% 40%,black,transparent 75%)",
         ...layer(20),
       }}/>
-      {/* Story progress bars */}
-      <div className="absolute left-0 right-0 flex gap-1.5 px-4 z-20" style={{top:52}}>
-        {[0,1,2,3].map(i=>(
-          <div key={i} className="flex-1 rounded-full overflow-hidden" style={{height:3,background:"rgba(255,255,255,0.18)"}}>
-            <div className="h-full rounded-full" style={{width:i<slide?"100%":i===slide?`${prog}%`:"0%",background:ACCENT[slide],boxShadow:`0 0 8px ${ACCENT[slide]}`,transition:"width 0.1s linear"}}/>
-          </div>
-        ))}
-      </div>
       {/* Skip */}
       <button onClick={e=>{e.stopPropagation();onDone();}}
         className="absolute right-4 z-20 font-bold text-sm px-4 py-1.5 rounded-full"
@@ -2032,42 +2127,47 @@ function LoginIntro({onDone,diet}:{onDone:()=>void;diet?:string}) {
         Skip
       </button>
       {/* Card */}
-      <div className="flex-1 flex items-center justify-center px-6 pt-24 pb-6 relative z-10">
-        <div key={slide} style={{...layer(-26),animation:"onbCard 0.6s cubic-bezier(0.22,1,0.36,1) both"}}>
+      <div className="flex-1 flex items-center justify-center px-6 pt-16 pb-10 relative z-10">
+        <div style={{...layer(-26),animation:"onbCard 0.6s cubic-bezier(0.22,1,0.36,1) both"}}>
           <div className="relative rounded-[34px] px-8 py-10 flex items-center justify-center" style={{
             minWidth:300,minHeight:400,
             background:"linear-gradient(160deg,rgba(255,255,255,0.10),rgba(255,255,255,0.02))",
             border:"1px solid rgba(255,255,255,0.16)",
-            boxShadow:`0 30px 80px -20px ${ACCENT[slide]}42, inset 0 1px 0 rgba(255,255,255,0.18)`,
+            boxShadow:`0 30px 80px -20px ${ACCENT}42, inset 0 1px 0 rgba(255,255,255,0.18)`,
             backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)",
             transform:`rotateX(${tilt.x*-5}deg) rotateY(${tilt.y*5}deg)`,
             transition:"transform 0.18s ease-out,box-shadow 0.6s ease",
           }}>
-            {slide===0&&<LISlide0 accent={ACCENT[slide]}/>}
-            {slide===1&&<LISlide1 accent={ACCENT[slide]}/>}
-            {slide===2&&<LISlide2 accent={ACCENT[slide]}/>}
-            {slide===3&&<LIFinal anim={anim} accent={ACCENT[slide]}/>}
+            <LIFinal anim={anim} accent={ACCENT}/>
           </div>
         </div>
       </div>
-      {/* Dots */}
-      <div className="pb-9 flex flex-col items-center gap-3 relative z-10">
-        {slide<3&&<span className="text-[11px] tracking-widest uppercase font-semibold" style={{color:"rgba(255,255,255,0.38)"}}>Tap to continue</span>}
-        <div className="flex justify-center gap-2">
-          {[0,1,2,3].map(i=>(
-            <div key={i} className="rounded-full transition-all duration-300" style={{
-              width:i===slide?24:7,height:7,
-              background:i===slide?ACCENT[slide]:"rgba(255,255,255,0.24)",
-              boxShadow:i===slide?`0 0 10px ${ACCENT[slide]}`:"none",
-            }}/>
-          ))}
-        </div>
+      <div className="pb-9 flex justify-center relative z-10">
+        <span className="text-[11px] tracking-widest uppercase font-semibold" style={{color:"rgba(255,255,255,0.28)"}}>tap to continue</span>
       </div>
     </div>
   );
 }
 
 /* ─────────────── Welcome ─────────────── */
+interface FoodPopup { name:string; cal:string; benefit:string; tip:string; }
+const FOOD_POPUP_INFO: Record<string,FoodPopup> = {
+  "🥗":{name:"Green Salad",   cal:"~50 kcal / cup", benefit:"High fibre, antioxidants, keeps you full.",      tip:"Add olive oil + lemon for better iron absorption."},
+  "🫓":{name:"Whole Grain Bread",cal:"~130 kcal / 2 slices",benefit:"Complex carbs for sustained energy.",     tip:"Pair with peanut butter for a protein boost."},
+  "🥑":{name:"Avocado",        cal:"~160 kcal / half",benefit:"Heart-healthy fats & potassium.",               tip:"Great with eggs — healthy fat helps absorb vitamins."},
+  "🍎":{name:"Apple",          cal:"~80 kcal / medium",benefit:"Rich in quercetin, fibre & vitamin C.",        tip:"Eat the skin — most nutrients live there."},
+  "🥦":{name:"Broccoli",       cal:"~55 kcal / cup",benefit:"Cancer-fighting sulforaphane + vitamin K.",       tip:"Light steaming preserves 90 % of its nutrients."},
+  "🍚":{name:"Brown Rice",     cal:"~215 kcal / cup",benefit:"Whole grain, lower GI than white rice.",         tip:"Cook with less water for a firmer, lower-GI result."},
+  "🥛":{name:"Milk",           cal:"~120 kcal / glass",benefit:"Calcium + vitamin D for strong bones.",        tip:"Warm milk before bed boosts sleep via tryptophan."},
+  "🫐":{name:"Blueberries",    cal:"~85 kcal / cup",benefit:"Highest antioxidant load of any fruit.",          tip:"Frozen blueberries retain all the antioxidants."},
+  "🍊":{name:"Orange",         cal:"~62 kcal / medium",benefit:"Vitamin C triples iron absorption from food.", tip:"Eat whole fruit — juicing removes most of the fibre."},
+  "🥚":{name:"Egg",            cal:"~78 kcal / large",benefit:"Complete protein with all 9 essential amino acids.",tip:"Boiled > fried — saves ~90 kcal per egg."},
+  "🌾":{name:"Oats",           cal:"~150 kcal / cup cooked",benefit:"Beta-glucan fibre lowers LDL cholesterol.",tip:"Overnight oats are just as nutritious as cooked."},
+  "🥜":{name:"Peanuts",        cal:"~160 kcal / ¼ cup",benefit:"Plant protein + niacin + resveratrol.",        tip:"Unsalted roasted peanuts are the healthiest form."},
+  "🍋":{name:"Lemon",          cal:"~17 kcal / medium",benefit:"Vitamin C + citric acid aids digestion.",      tip:"Squeeze on veggies to enhance non-heme iron uptake."},
+  "🥕":{name:"Carrot",         cal:"~52 kcal / medium",benefit:"Beta-carotene converts to vitamin A for vision.",tip:"Cooked carrots release 40 % more beta-carotene."},
+  "🫑":{name:"Bell Pepper",    cal:"~31 kcal / medium",benefit:"3× more vitamin C than an orange.",            tip:"Red peppers are ripest and most nutrient-dense."},
+};
 const FLOAT_FOODS = ["🥗","🫓","🥑","🍎","🥦","🍚","🥛","🫐","🍊","🥚","🌾","🥜","🍋","🥕","🫑"];
 /* ─────────────── Quiz teaser (mid-quiz TDEE/BMI sneak peek) ─────────────── */
 function QuizTeaser({profile}:{profile:Profile}) {
@@ -2118,20 +2218,44 @@ function QuizTeaser({profile}:{profile:Profile}) {
 }
 
 function FloatingFoods() {
+  const [popup,setPopup]=useState<FoodPopup|null>(null);
   const items = useRef(FLOAT_FOODS.map((emoji,i)=>({
-    emoji, left:`${6+i*6.2}%`, delay:`${i*0.7}s`, duration:`${8+i%4*1.5}s`, size: 20+i%3*4,
+    emoji, left:`${6+i*6.2}%`, delay:`${i*0.7}s`, duration:`${8+i%4*1.5}s`, size: 22+i%3*4,
   }))).current;
   return(
-    <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{zIndex:1}}>
+    <>
+    <div className="absolute inset-0 overflow-hidden" style={{zIndex:1,pointerEvents:"none"}}>
       {items.map((f,i)=>(
-        <span key={i} className="absolute select-none"
-          style={{left:f.left,bottom:"-10%",fontSize:f.size,
+        <button key={i} className="absolute select-none cursor-pointer"
+          style={{left:f.left,bottom:"-10%",fontSize:f.size,pointerEvents:"auto",background:"none",border:"none",padding:0,
             animation:`floatFood ${f.duration} ${f.delay} ease-in infinite`,
-            opacity:0.55,filter:"drop-shadow(0 2px 6px rgba(0,0,0,0.15))"}}>
+            opacity:0.65,filter:"drop-shadow(0 2px 6px rgba(0,0,0,0.18))"}}
+          onClick={e=>{e.stopPropagation();setPopup(FOOD_POPUP_INFO[f.emoji]||null);}}>
           {f.emoji}
-        </span>
+        </button>
       ))}
     </div>
+    {popup&&(
+      <div className="fixed inset-0 flex items-center justify-center" style={{zIndex:50,background:"rgba(0,0,0,0.55)",backdropFilter:"blur(4px)"}}
+        onClick={()=>setPopup(null)}>
+        <div className="rounded-3xl px-6 py-7 max-w-xs w-full mx-4 relative" style={{background:"#111",border:"1px solid rgba(255,255,255,0.14)",boxShadow:"0 24px 64px rgba(0,0,0,0.6)",animation:"popIn 0.35s cubic-bezier(0.34,1.56,0.64,1) both"}}
+          onClick={e=>e.stopPropagation()}>
+          <button onClick={()=>setPopup(null)} className="absolute top-4 right-4 rounded-full w-7 h-7 flex items-center justify-center" style={{background:"rgba(255,255,255,0.08)",color:"rgba(255,255,255,0.5)"}}>×</button>
+          <div className="text-5xl mb-3 text-center">{Object.entries(FOOD_POPUP_INFO).find(([,v])=>v===popup)?.[0]}</div>
+          <h3 className="font-black text-white text-xl mb-1 text-center">{popup.name}</h3>
+          <p className="text-center text-xs font-bold mb-4" style={{color:"#FFFA66"}}>{popup.cal}</p>
+          <div className="rounded-2xl px-4 py-3 mb-3" style={{background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.08)"}}>
+            <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{color:"rgba(255,255,255,0.35)"}}>Benefits</p>
+            <p className="text-sm text-white/80">{popup.benefit}</p>
+          </div>
+          <div className="rounded-2xl px-4 py-3" style={{background:"rgba(255,250,102,0.08)",border:"1px solid rgba(255,250,102,0.18)"}}>
+            <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{color:"rgba(255,250,102,0.5)"}}>Pro tip</p>
+            <p className="text-sm" style={{color:"rgba(255,250,102,0.85)"}}>{popup.tip}</p>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
 /* Mask a reviewer's name for on-screen privacy: keep the first letter and
@@ -2424,12 +2548,7 @@ function DailyQuote({onDone}:{onDone:()=>void}) {
 function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;onNew:()=>void;onLogin:()=>void}) {
   const t=makeT(lang);
   const [visible,setVisible]=useState(false);
-  const [slide,setSlide]=useState(0);
   useEffect(()=>{const tm=setTimeout(()=>setVisible(true),80);return()=>clearTimeout(tm);},[]);
-  useEffect(()=>{
-    const iv=setInterval(()=>setSlide(s=>(s+1)%TESTIMONIALS.length),4000);
-    return()=>clearInterval(iv);
-  },[]);
   const Y="#FFFA66";
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-5 py-10 relative overflow-hidden"
@@ -2440,6 +2559,7 @@ function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;on
         <div className="absolute rounded-full" style={{width:420,height:420,background:"radial-gradient(circle,rgba(55,8,84,0.60) 0%,transparent 68%)",bottom:-120,right:-120}}/>
         <div className="absolute inset-0" style={{backgroundImage:"radial-gradient(rgba(255,255,255,0.05) 1px,transparent 1px)",backgroundSize:"28px 28px"}}/>
       </div>
+      <FloatingFoods/>
       {/* Language toggle */}
       <div className="absolute z-20 flex items-center gap-1 rounded-full p-1" style={{top:20,right:20,background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.11)",backdropFilter:"blur(8px)"}}>
         <Globe size={13} style={{color:"rgba(255,255,255,0.45)",marginLeft:6}}/>
@@ -2469,41 +2589,13 @@ function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;on
 
         {/* Stats row */}
         <div className="grid grid-cols-3 gap-2 mb-5">
-          {[{icon:"🏋️",stat:"10x",label:"Nutritionist & dietician trained"},{icon:"🔒",stat:"✓",label:"Safe data · no spam, ever"},{icon:"♾️",stat:"∞",label:"Free forever"}].map((s,i)=>(
+          {[{icon:"🏋️",stat:"10x",label:"Nutritionist & dietician trained"},{icon:"🔒",stat:"",label:"Safe data · no spam, ever"},{icon:"♾️",stat:"∞",label:"Free forever"}].map((s,i)=>(
             <div key={i} className="flex flex-col items-center py-3 px-1.5 rounded-2xl" style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)"}}>
               <span style={{fontSize:20,lineHeight:1}}>{s.icon}</span>
               <span className="font-black text-base mt-1 leading-none" style={{color:Y}}>{s.stat}</span>
               <span className="text-center mt-1" style={{fontSize:11,color:"rgba(255,255,255,0.40)",lineHeight:1.3}}>{s.label}</span>
             </div>
           ))}
-        </div>
-
-        {/* Testimonial carousel */}
-        <div className="mb-5">
-          <div className="relative overflow-hidden rounded-2xl" style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)"}}>
-            <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-2xl" style={{background:Y}}/>
-            <div className="absolute top-1 right-3 font-black pointer-events-none select-none" style={{fontSize:68,lineHeight:1,color:"rgba(255,250,102,0.06)"}}>&#8220;</div>
-            <div className="overflow-hidden">
-              <div className="flex transition-transform duration-500 ease-out" style={{transform:`translateX(-${slide*100}%)`}}>
-                {TESTIMONIALS.map((r,i)=>(
-                  <div key={i} className="w-full shrink-0 pl-5 pr-4 py-4">
-                    <p className="text-sm leading-relaxed" style={{color:"rgba(255,255,255,0.82)"}}>{r.text}</p>
-                    <div className="flex items-center justify-between mt-2.5">
-                      <span className="text-xs font-semibold" style={{color:"rgba(255,255,255,0.40)"}}>{maskName(r.name)}</span>
-                      <span className="text-xs px-2.5 py-0.5 rounded-full font-bold" style={{background:"rgba(255,250,102,0.14)",color:Y}}>{r.tag}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center justify-center gap-1.5 mt-2">
-            {TESTIMONIALS.map((_,i)=>(
-              <button key={i} onClick={()=>setSlide(i)} aria-label={`Testimonial ${i+1}`}
-                className="rounded-full transition-all duration-300"
-                style={{width:slide===i?16:5,height:5,background:slide===i?Y:"rgba(255,255,255,0.2)"}}/>
-            ))}
-          </div>
         </div>
 
         {/* CTAs */}
@@ -4070,7 +4162,7 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccou
   const TABS:[typeof tab,string,React.ElementType][]=[
     ["today","Today",Utensils],
     ...(hasWorkout?[["train","Train",Dumbbell] as [typeof tab,string,React.ElementType]]:[]),
-    ["progress","Progress",BarChart3],["community",t("community"),Users],
+    ["progress","Stats",BarChart3],["community","Squad",Users],
   ];
 
   return (
@@ -4225,16 +4317,18 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccou
                   diet={plan?.diet}
                 />
                 <Card className="p-5 mb-4">
+                  {(()=>{const wt=waterTarget(tracking.lastRecalcWeight);return(<>
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="font-bold text-gray-800 flex items-center gap-2"><Droplet size={18} style={{color:GREEN}}/> {t("water")}</h3>
-                    <span className="text-sm text-gray-400">{dd.water}/8 glasses</span>
+                    <span className="text-sm text-gray-400">{dd.water}/{wt} glasses</span>
                   </div>
                   <div className="flex gap-1.5">
-                    {[...Array(8)].map((_,i)=>(
+                    {[...Array(wt)].map((_,i)=>(
                       <button key={i} onClick={()=>setWater(i+1===dd.water?i:i+1)}
                         className="flex-1 h-9 rounded-lg transition" style={{background:i<dd.water?GREEN:"#E5E7EB"}}/>
                     ))}
                   </div>
+                  </>);})()}
                 </Card>
               </>
             ):(

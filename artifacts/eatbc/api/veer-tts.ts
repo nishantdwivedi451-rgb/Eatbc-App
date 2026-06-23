@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 // Default to "Adam" — a warm, clear male voice.
 // Override by setting ELEVENLABS_VOICE_ID in Vercel env vars.
-const DEFAULT_VOICE_ID = "pNInz6obpgDQGcFmaJgB";
+const DEFAULT_VOICE_ID = "N2al4jd45e882svx17SU";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
