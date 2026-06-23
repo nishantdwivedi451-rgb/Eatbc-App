@@ -1523,7 +1523,11 @@ function use3DParallax() {
 }
 
 /* ─────────────── Onboarding stories ─────────────── */
-function OnbSlide1() {
+function ha(hex:string,a:number){
+  const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+function OnbSlide1({accent}:{accent:string}) {
   const [ct,setCt]=useState(0);
   useEffect(()=>{
     const iv=setInterval(()=>setCt(c=>c>=2000?2000:c+50),22);
@@ -1531,9 +1535,9 @@ function OnbSlide1() {
   },[]);
   return(
     <div className="flex flex-col items-center text-center">
-      <div className="mb-4" style={{fontSize:72,animation:"onbPulse 2.5s ease-in-out infinite",filter:"drop-shadow(0 0 28px rgba(0,255,157,0.45))"}}>🧬</div>
+      <div className="mb-4" style={{fontSize:72,animation:"onbPulse 2.5s ease-in-out infinite",filter:`drop-shadow(0 0 28px ${ha(accent,0.45)})`}}>🧬</div>
       <div className="font-black leading-none mb-1 tabular-nums"
-        style={{fontSize:86,color:"#00FF9D",textShadow:"0 0 48px rgba(0,255,157,0.4)",letterSpacing:"-3px"}}>{ct.toLocaleString()}+</div>
+        style={{fontSize:86,color:accent,textShadow:`0 0 48px ${ha(accent,0.4)}`,letterSpacing:"-3px"}}>{ct.toLocaleString()}+</div>
       <p className="font-black mb-4" style={{fontSize:20,color:"rgba(255,255,255,0.9)",letterSpacing:"-0.3px"}}>Nutrition Studies</p>
       <p style={{color:"rgba(255,255,255,0.48)",fontSize:14,maxWidth:250,lineHeight:1.7}}>
         Real science behind every meal. Peer-reviewed nutrition research — not influencer guesswork.
@@ -1541,13 +1545,13 @@ function OnbSlide1() {
     </div>
   );
 }
-function OnbSlide2() {
+function OnbSlide2({accent}:{accent:string}) {
   return(
     <div className="flex flex-col items-center text-center">
-      <div className="mb-5" style={{fontSize:72,animation:"onbPulse 2.5s ease-in-out infinite",filter:"drop-shadow(0 0 28px rgba(96,165,250,0.5))"}}>🔐</div>
+      <div className="mb-5" style={{fontSize:72,animation:"onbPulse 2.5s ease-in-out infinite",filter:`drop-shadow(0 0 28px ${ha(accent,0.5)})`}}>🔐</div>
       <div className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 mb-5"
-        style={{background:"rgba(96,165,250,0.14)",border:"1px solid rgba(96,165,250,0.28)"}}>
-        <span style={{color:"#60A5FA",fontSize:11,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase"}}>Military-Grade Security</span>
+        style={{background:ha(accent,0.14),border:`1px solid ${ha(accent,0.28)}`}}>
+        <span style={{color:accent,fontSize:11,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase"}}>Military-Grade Security</span>
       </div>
       <h2 className="font-black text-white mb-4" style={{fontSize:62,lineHeight:0.92,letterSpacing:"-2.5px"}}>AES‑256<br/>Encrypted</h2>
       <p style={{color:"rgba(255,255,255,0.48)",fontSize:14,maxWidth:250,lineHeight:1.7}}>
@@ -1556,22 +1560,38 @@ function OnbSlide2() {
     </div>
   );
 }
-function OnbSlide3() {
+function OnbSlide3({accent}:{accent:string}) {
+  const [showChat,setShowChat]=useState(false);
+  useEffect(()=>{const t=setTimeout(()=>setShowChat(true),1350);return()=>clearTimeout(t);},[]);
   return(
     <div className="flex flex-col items-center text-center">
-      <div className="mb-5" style={{fontSize:72,animation:"onbPulse 2.5s ease-in-out infinite",filter:"drop-shadow(0 0 28px rgba(192,132,252,0.5))"}}>✊</div>
-      <div className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 mb-5"
-        style={{background:"rgba(192,132,252,0.14)",border:"1px solid rgba(192,132,252,0.28)"}}>
-        <span style={{color:"#C084FC",fontSize:11,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase"}}>Community First</span>
+      <div className="relative flex items-center justify-center mb-4" style={{width:114,height:114}}>
+        {[0,1,2].map(i=>(
+          <div key={i} className="absolute inset-0 rounded-full" style={{
+            border:`1.5px solid ${ha(accent,0.45)}`,
+            animation:`liVeerRing 2.2s ease-out ${i*0.65}s infinite`,
+          }}/>
+        ))}
+        <div className="relative z-10"><VeerIcon size={88}/></div>
       </div>
-      <h2 className="font-black text-white mb-4" style={{fontSize:72,lineHeight:0.92,letterSpacing:"-2.5px"}}>Free.<br/>Always.</h2>
-      <p style={{color:"rgba(255,255,255,0.48)",fontSize:14,maxWidth:250,lineHeight:1.7}}>
-        No paywalls. No premium tiers. No bullsh*t. Built for the community.
+      {showChat&&(
+        <div className="rounded-[20px] px-5 py-3 mb-3" style={{
+          maxWidth:224,background:ha(accent,0.12),border:`1px solid ${ha(accent,0.30)}`,
+          borderBottomLeftRadius:4,animation:"liChatIn 0.5s cubic-bezier(0.22,1,0.36,1) both",
+        }}>
+          <p style={{color:"rgba(255,255,255,0.92)",fontSize:13,lineHeight:1.55}}>
+            "Namaste! Main hoon Veer — aapka AI health coach. 🙏"
+          </p>
+        </div>
+      )}
+      <h2 className="font-black mb-2" style={{fontSize:26,letterSpacing:"-0.5px",color:accent}}>Meet Veer AI</h2>
+      <p style={{color:"rgba(255,255,255,0.42)",fontSize:13,maxWidth:250,lineHeight:1.75}}>
+        Diet, workouts &amp; motivation in Hindi &amp; English. 24/7, always free.
       </p>
     </div>
   );
 }
-function OnbSlide4({anim}:{anim:number}) {
+function OnbSlide4({anim,accent}:{anim:number;accent:string}) {
   return(
     <div className="relative flex flex-col items-center justify-center" style={{height:320}}>
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-1"
@@ -1583,10 +1603,11 @@ function OnbSlide4({anim}:{anim:number}) {
           transition:"opacity 0.5s ease,transform 0.65s ease",
         }}>Eat Better</div>
         <div style={{
-          fontSize:44,fontWeight:900,color:"#6ee7a0",lineHeight:1.15,
+          fontSize:44,fontWeight:900,color:accent,lineHeight:1.15,
           opacity:anim>=1?1:0,
           transform:anim>=1?"scale(1) translateY(0)":"scale(0.8) translateY(16px)",
           transition:"opacity 0.5s ease 0.15s,transform 0.6s ease 0.15s",
+          textShadow:`0 0 28px ${ha(accent,0.6)}`,
         }}>&amp; Count</div>
       </div>
       <div className="flex flex-col items-center"
@@ -1598,10 +1619,10 @@ function OnbSlide4({anim}:{anim:number}) {
         <Logo size={88}/>
         <h1 className="text-white font-black leading-none mt-3"
           style={{fontSize:76,letterSpacing:"-3px",
-            textShadow:anim>=3?"0 0 40px rgba(46,206,120,0.6),0 0 80px rgba(46,206,120,0.3)":"none",
+            textShadow:anim>=3?`0 0 40px ${ha(accent,0.6)},0 0 80px ${ha(accent,0.3)}`:"none",
             transition:"text-shadow 0.8s ease",
           }}>EatBC</h1>
-        <p className="font-bold text-lg mt-2" style={{color:"#86efac"}}>Eat Better. Count.</p>
+        <p className="font-bold text-lg mt-2" style={{color:accent}}>Eat Better. Count.</p>
       </div>
     </div>
   );
@@ -1645,13 +1666,13 @@ function Onboarding({onDone}:{onDone:()=>void}) {
   }
 
   const BKGS=[
-    "linear-gradient(155deg,#050f08 0%,#071a0e 45%,#0a2415 100%)",
-    "linear-gradient(155deg,#050810 0%,#080f28 45%,#0c1840 100%)",
-    "linear-gradient(155deg,#0a0514 0%,#160a2e 45%,#23104a 100%)",
-    "linear-gradient(155deg,#030a05 0%,#050f08 45%,#071408 100%)",
+    "linear-gradient(155deg,#180826 0%,#250c3b 45%,#370854 100%)",
+    "linear-gradient(155deg,#1a0929 0%,#270d40 45%,#370854 100%)",
+    "linear-gradient(155deg,#150625 0%,#1f0934 45%,#2d0c48 100%)",
+    "linear-gradient(155deg,#12041e 0%,#1f0730 45%,#32094a 100%)",
   ];
 
-  const ACCENT=["#00FF9D","#60A5FA","#C084FC","#34D399"];
+  const ACCENT=["#FFFA66","#FFFA66","#FFFA66","#FFFA66"];
   const tilt=use3DParallax();
   /* depth: how far a layer reacts to tilt (px of translate) */
   const layer=(depth:number)=>({
@@ -1721,10 +1742,10 @@ function Onboarding({onDone}:{onDone:()=>void}) {
             transform:`rotateX(${tilt.x*-5}deg) rotateY(${tilt.y*5}deg)`,
             transition:"transform 0.18s ease-out, box-shadow 0.6s ease",
           }}>
-            {slide===0&&<OnbSlide1/>}
-            {slide===1&&<OnbSlide2/>}
-            {slide===2&&<OnbSlide3/>}
-            {slide===3&&<OnbSlide4 anim={anim}/>}
+            {slide===0&&<OnbSlide1 accent={ACCENT[slide]}/>}
+            {slide===1&&<OnbSlide2 accent={ACCENT[slide]}/>}
+            {slide===2&&<OnbSlide3 accent={ACCENT[slide]}/>}
+            {slide===3&&<OnbSlide4 anim={anim} accent={ACCENT[slide]}/>}
           </div>
         </div>
       </div>
@@ -1746,7 +1767,7 @@ function Onboarding({onDone}:{onDone:()=>void}) {
 }
 
 /* ─────────────── Login Intro (shown on every explicit login / signup) ─────────────── */
-function LISlide0() {
+function LISlide0({accent}:{accent:string}) {
   const [phase,setPhase]=useState(0);
   const [ct,setCt]=useState(0);
   useEffect(()=>{
@@ -1761,7 +1782,7 @@ function LISlide0() {
   },[phase]);
   return(
     <div className="flex flex-col items-center text-center">
-      <div className="mb-4" style={{fontSize:62,animation:"onbPulse 2.5s ease-in-out infinite",filter:"drop-shadow(0 0 28px rgba(252,211,77,0.55))"}}>📚</div>
+      <div className="mb-4" style={{fontSize:62,animation:"onbPulse 2.5s ease-in-out infinite",filter:`drop-shadow(0 0 28px ${ha(accent,0.55)})`}}>📚</div>
       <div className="flex flex-col items-center gap-3 mb-5">
         <div className="flex items-center gap-2">
           <div className="relative inline-block">
@@ -1772,7 +1793,7 @@ function LISlide0() {
         </div>
         {phase>=2&&(
           <div className="flex flex-col items-center" style={{animation:"liCounter 0.58s cubic-bezier(0.22,1,0.36,1) both"}}>
-            <span className="font-black tabular-nums leading-none" style={{fontSize:90,color:"#FCD34D",letterSpacing:"-4px",textShadow:"0 0 50px rgba(252,211,77,0.6)"}}>
+            <span className="font-black tabular-nums leading-none" style={{fontSize:90,color:accent,letterSpacing:"-4px",textShadow:`0 0 50px ${ha(accent,0.6)}`}}>
               {ct.toLocaleString()}+
             </span>
             <span className="font-bold mt-1" style={{fontSize:15,color:"rgba(255,255,255,0.88)"}}>ebooks globally sourced</span>
@@ -1785,7 +1806,7 @@ function LISlide0() {
     </div>
   );
 }
-function LISlide1() {
+function LISlide1({accent}:{accent:string}) {
   const [rows,setRows]=useState(0);
   useEffect(()=>{
     const t1=setTimeout(()=>setRows(1),650);
@@ -1794,11 +1815,11 @@ function LISlide1() {
   },[]);
   return(
     <div className="flex flex-col items-center text-center">
-      <div className="mb-3" style={{fontSize:58,animation:"onbPulse 2.5s ease-in-out infinite",filter:"drop-shadow(0 0 28px rgba(16,185,129,0.55))"}}>🔒</div>
+      <div className="mb-3" style={{fontSize:58,animation:"onbPulse 2.5s ease-in-out infinite",filter:`drop-shadow(0 0 28px ${ha(accent,0.55)})`}}>🔒</div>
       <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 mb-5"
-        style={{background:"rgba(16,185,129,0.14)",border:"1px solid rgba(16,185,129,0.30)"}}>
-        <Lock size={11} color="#10B981"/>
-        <span style={{color:"#10B981",fontSize:11,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase"}}>AES-256 Military Grade</span>
+        style={{background:ha(accent,0.14),border:`1px solid ${ha(accent,0.30)}`}}>
+        <Lock size={11} color={accent}/>
+        <span style={{color:accent,fontSize:11,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase"}}>AES-256 Military Grade</span>
       </div>
       <div className="w-full flex flex-col gap-2.5 mb-5">
         {rows>=1&&(
@@ -1811,11 +1832,11 @@ function LISlide1() {
           </div>
         )}
         {rows>=2&&(
-          <div className="flex items-center gap-3 rounded-2xl px-4 py-3" style={{background:"rgba(16,185,129,0.10)",border:"1px solid rgba(16,185,129,0.35)",animation:"liRowIn 0.5s cubic-bezier(0.22,1,0.36,1) both"}}>
+          <div className="flex items-center gap-3 rounded-2xl px-4 py-3" style={{background:ha(accent,0.10),border:`1px solid ${ha(accent,0.35)}`,animation:"liRowIn 0.5s cubic-bezier(0.22,1,0.36,1) both"}}>
             <span style={{fontSize:22}}>✅</span>
             <div className="text-left">
               <div className="font-bold text-sm text-white">EatBC</div>
-              <div style={{fontSize:12,color:"#34D399"}}>Community app. Your data stays yours.</div>
+              <div style={{fontSize:12,color:accent}}>Community app. Your data stays yours.</div>
             </div>
           </div>
         )}
@@ -1826,7 +1847,7 @@ function LISlide1() {
     </div>
   );
 }
-function LISlide2() {
+function LISlide2({accent}:{accent:string}) {
   const [showChat,setShowChat]=useState(false);
   useEffect(()=>{const t=setTimeout(()=>setShowChat(true),1350);return()=>clearTimeout(t);},[]);
   return(
@@ -1834,7 +1855,7 @@ function LISlide2() {
       <div className="relative flex items-center justify-center mb-4" style={{width:114,height:114}}>
         {[0,1,2].map(i=>(
           <div key={i} className="absolute inset-0 rounded-full" style={{
-            border:"1.5px solid rgba(139,92,246,0.45)",
+            border:`1.5px solid ${ha(accent,0.45)}`,
             animation:`liVeerRing 2.2s ease-out ${i*0.65}s infinite`,
           }}/>
         ))}
@@ -1842,7 +1863,7 @@ function LISlide2() {
       </div>
       {showChat&&(
         <div className="rounded-[20px] px-5 py-3 mb-4" style={{
-          maxWidth:224,background:"rgba(139,92,246,0.14)",border:"1px solid rgba(139,92,246,0.32)",
+          maxWidth:224,background:ha(accent,0.14),border:`1px solid ${ha(accent,0.32)}`,
           borderBottomLeftRadius:4,animation:"liChatIn 0.5s cubic-bezier(0.22,1,0.36,1) both",
         }}>
           <p style={{color:"rgba(255,255,255,0.92)",fontSize:13,lineHeight:1.55}}>
@@ -1850,14 +1871,14 @@ function LISlide2() {
           </p>
         </div>
       )}
-      <h2 className="font-black text-white mb-2" style={{fontSize:26,letterSpacing:"-0.5px"}}>Your AI Coach</h2>
+      <h2 className="font-black mb-2" style={{fontSize:26,letterSpacing:"-0.5px",color:accent}}>Your AI Coach</h2>
       <p style={{color:"rgba(255,255,255,0.42)",fontSize:13,maxWidth:250,lineHeight:1.75}}>
         Veer guides you in Hindi &amp; English — workouts, recipes, motivation. 24/7.
       </p>
     </div>
   );
 }
-function LIFinal({anim}:{anim:number}) {
+function LIFinal({anim,accent}:{anim:number;accent:string}) {
   const FLOATS=[
     {t:"−500 kcal",x:"6%",d:0},{t:"150g protein",x:"60%",d:0.4},
     {t:"Day 1 ✓",x:"8%",d:0.7},{t:"2,100 kcal",x:"54%",d:0.18},
@@ -1866,7 +1887,7 @@ function LIFinal({anim}:{anim:number}) {
     <div className="relative flex flex-col items-center justify-center" style={{height:340,perspective:"900px"}}>
       {anim>=1&&FLOATS.map((f,i)=>(
         <div key={i} style={{position:"absolute",bottom:"12%",left:f.x,fontSize:11,fontWeight:700,
-          color:"rgba(110,231,183,0.32)",letterSpacing:"0.3px",pointerEvents:"none",
+          color:ha(accent,0.32),letterSpacing:"0.3px",pointerEvents:"none",
           animation:`liFloat 3.8s ease-out ${f.d}s infinite`}}>{f.t}</div>
       ))}
       {/* "Eat Better & Count" text phase */}
@@ -1880,11 +1901,11 @@ function LIFinal({anim}:{anim:number}) {
           textShadow:"0 2px 24px rgba(255,255,255,0.14)",
         }}>Eat Better</div>
         <div style={{
-          fontSize:46,fontWeight:900,color:"#34D399",lineHeight:1.1,letterSpacing:"-1.5px",
+          fontSize:46,fontWeight:900,color:accent,lineHeight:1.1,letterSpacing:"-1.5px",
           opacity:anim>=2?1:0,
           transform:anim>=2?"scale(1)":"scale(0.52) translateY(32px)",
           transition:"opacity 0.6s ease 0.08s,transform 0.78s cubic-bezier(0.34,1.56,0.64,1) 0.08s",
-          textShadow:"0 0 28px rgba(52,211,153,0.6)",
+          textShadow:`0 0 28px ${ha(accent,0.6)}`,
         }}>&amp; Count</div>
       </div>
       {/* Logo phase */}
@@ -1896,15 +1917,16 @@ function LIFinal({anim}:{anim:number}) {
         <Logo size={84}/>
         <h1 className="text-white font-black leading-none mt-3" style={{
           fontSize:72,letterSpacing:"-3px",
-          textShadow:anim>=4?"0 0 48px rgba(46,206,120,0.7),0 0 96px rgba(46,206,120,0.3)":"none",
+          textShadow:anim>=4?`0 0 48px ${ha(accent,0.7)},0 0 96px ${ha(accent,0.3)}`:"none",
           transition:"text-shadow 0.9s ease",
         }}>EatBC</h1>
-        <p className="font-semibold mt-2" style={{fontSize:15,color:"#86efac"}}>Eat Better. Count Smarter.</p>
+        <p className="font-semibold mt-2" style={{fontSize:15,color:accent}}>Eat Better. Count Smarter.</p>
       </div>
     </div>
   );
 }
-function LoginIntro({onDone}:{onDone:()=>void}) {
+function LoginIntro({onDone,diet}:{onDone:()=>void;diet?:string}) {
+  const isNonVeg=diet==="Non-veg";
   const [slide,setSlide]=useState(0);
   const [prog,setProg]=useState(0);
   const [anim,setAnim]=useState(0);
@@ -1944,13 +1966,18 @@ function LoginIntro({onDone}:{onDone:()=>void}) {
     if(slide<N-1) setSlide(slide+1); else onDone();
   }
 
-  const BKGS=[
-    "linear-gradient(155deg,#0f0800 0%,#1e1200 45%,#2c1b00 100%)",
-    "linear-gradient(155deg,#031008 0%,#061b10 45%,#0a2618 100%)",
-    "linear-gradient(155deg,#070413 0%,#0f073b 45%,#190a58 100%)",
-    "linear-gradient(155deg,#020904 0%,#030e06 45%,#041205 100%)",
+  const BKGS=isNonVeg?[
+    "linear-gradient(155deg,#1e0000 0%,#320000 45%,#460000 100%)",
+    "linear-gradient(155deg,#180000 0%,#280000 45%,#3a0000 100%)",
+    "linear-gradient(155deg,#1c0000 0%,#2e0000 45%,#420000 100%)",
+    "linear-gradient(155deg,#150000 0%,#240000 45%,#360000 100%)",
+  ]:[
+    "linear-gradient(155deg,#180826 0%,#250c3b 45%,#370854 100%)",
+    "linear-gradient(155deg,#1a0929 0%,#270d40 45%,#380a57 100%)",
+    "linear-gradient(155deg,#150625 0%,#1f0934 45%,#2d0c48 100%)",
+    "linear-gradient(155deg,#12041e 0%,#1f0730 45%,#320a4a 100%)",
   ];
-  const ACCENT=["#FCD34D","#10B981","#8B5CF6","#34D399"];
+  const ACCENT=isNonVeg?["#FF4444","#FF4444","#FF4444","#FF4444"]:["#FFFA66","#FFFA66","#FFFA66","#FFFA66"];
   const tilt=use3DParallax();
   const layer=(depth:number)=>({
     transform:`translate3d(${tilt.y*depth}px,${tilt.x*depth}px,0)`,
@@ -2001,10 +2028,10 @@ function LoginIntro({onDone}:{onDone:()=>void}) {
             transform:`rotateX(${tilt.x*-5}deg) rotateY(${tilt.y*5}deg)`,
             transition:"transform 0.18s ease-out,box-shadow 0.6s ease",
           }}>
-            {slide===0&&<LISlide0/>}
-            {slide===1&&<LISlide1/>}
-            {slide===2&&<LISlide2/>}
-            {slide===3&&<LIFinal anim={anim}/>}
+            {slide===0&&<LISlide0 accent={ACCENT[slide]}/>}
+            {slide===1&&<LISlide1 accent={ACCENT[slide]}/>}
+            {slide===2&&<LISlide2 accent={ACCENT[slide]}/>}
+            {slide===3&&<LIFinal anim={anim} accent={ACCENT[slide]}/>}
           </div>
         </div>
       </div>
@@ -4210,7 +4237,7 @@ export default function App() {
   if (screen==="onboarding") return <Onboarding onDone={doneOnboarding}/>;
   if (screen==="welcome") return <Welcome lang={lang} onLang={changeLang} onNew={()=>setScreen("quiz")} onLogin={()=>setScreen("login")}/>;
   if (screen==="login")   return <Login onDone={doLogin} onBack={()=>setScreen("welcome")}/>;
-  if (screen==="intro")   return <LoginIntro onDone={()=>setScreen("dash")}/>;
+  if (screen==="intro")   return <LoginIntro diet={plan?.diet} onDone={()=>setScreen("dash")}/>;
   if (screen==="foodgame") return <FoodGame name={profile.name} onDone={finishGame}/>;
 
   if (screen==="quiz") return (
