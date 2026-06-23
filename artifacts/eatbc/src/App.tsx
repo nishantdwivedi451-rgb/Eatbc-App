@@ -219,7 +219,7 @@ interface Tracking {
   lastRecalcDate?: string;      // ISO date when plan was last recalculated
   lastRecalcWeight?: number;    // weight (kg) at last recalc
 }
-type Screen = "welcome" | "quiz" | "foodgame" | "plan" | "login" | "signup" | "dash" | "onboarding";
+type Screen = "welcome" | "quiz" | "foodgame" | "plan" | "login" | "signup" | "dash" | "onboarding" | "intro";
 
 /* ─────────────── quiz questions ─────────────── */
 interface Question {
@@ -1745,6 +1745,286 @@ function Onboarding({onDone}:{onDone:()=>void}) {
   );
 }
 
+/* ─────────────── Login Intro (shown on every explicit login / signup) ─────────────── */
+function LISlide0() {
+  const [phase,setPhase]=useState(0);
+  const [ct,setCt]=useState(0);
+  useEffect(()=>{
+    const t1=setTimeout(()=>setPhase(1),900);
+    const t2=setTimeout(()=>setPhase(2),1750);
+    return()=>{clearTimeout(t1);clearTimeout(t2);};
+  },[]);
+  useEffect(()=>{
+    if(phase<2)return;
+    const iv=setInterval(()=>setCt(c=>{const n=c+44;return n>=2500?2500:n;}),14);
+    return()=>clearInterval(iv);
+  },[phase]);
+  return(
+    <div className="flex flex-col items-center text-center">
+      <div className="mb-4" style={{fontSize:62,animation:"onbPulse 2.5s ease-in-out infinite",filter:"drop-shadow(0 0 28px rgba(252,211,77,0.55))"}}>📚</div>
+      <div className="flex flex-col items-center gap-3 mb-5">
+        <div className="flex items-center gap-2">
+          <div className="relative inline-block">
+            <span className="font-black tabular-nums" style={{fontSize:44,color:"rgba(255,255,255,0.30)",letterSpacing:"-2px"}}>150</span>
+            {phase>=1&&<div style={{position:"absolute",top:"50%",left:0,height:3,background:"#EF4444",borderRadius:2,animation:"liStrike 0.38s ease-out both"}}/>}
+          </div>
+          <span style={{fontSize:13,color:"rgba(255,255,255,0.28)",fontWeight:600}}>books max</span>
+        </div>
+        {phase>=2&&(
+          <div className="flex flex-col items-center" style={{animation:"liCounter 0.58s cubic-bezier(0.22,1,0.36,1) both"}}>
+            <span className="font-black tabular-nums leading-none" style={{fontSize:90,color:"#FCD34D",letterSpacing:"-4px",textShadow:"0 0 50px rgba(252,211,77,0.6)"}}>
+              {ct.toLocaleString()}+
+            </span>
+            <span className="font-bold mt-1" style={{fontSize:15,color:"rgba(255,255,255,0.88)"}}>ebooks globally sourced</span>
+          </div>
+        )}
+      </div>
+      <p style={{color:"rgba(255,255,255,0.42)",fontSize:13,maxWidth:250,lineHeight:1.75}}>
+        Science-backed plans from the world's best nutrition research — not influencer guesswork.
+      </p>
+    </div>
+  );
+}
+function LISlide1() {
+  const [rows,setRows]=useState(0);
+  useEffect(()=>{
+    const t1=setTimeout(()=>setRows(1),650);
+    const t2=setTimeout(()=>setRows(2),1380);
+    return()=>{clearTimeout(t1);clearTimeout(t2);};
+  },[]);
+  return(
+    <div className="flex flex-col items-center text-center">
+      <div className="mb-3" style={{fontSize:58,animation:"onbPulse 2.5s ease-in-out infinite",filter:"drop-shadow(0 0 28px rgba(16,185,129,0.55))"}}>🔒</div>
+      <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 mb-5"
+        style={{background:"rgba(16,185,129,0.14)",border:"1px solid rgba(16,185,129,0.30)"}}>
+        <Lock size={11} color="#10B981"/>
+        <span style={{color:"#10B981",fontSize:11,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase"}}>AES-256 Military Grade</span>
+      </div>
+      <div className="w-full flex flex-col gap-2.5 mb-5">
+        {rows>=1&&(
+          <div className="flex items-center gap-3 rounded-2xl px-4 py-3" style={{background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.22)",animation:"liRowIn 0.5s cubic-bezier(0.22,1,0.36,1) both"}}>
+            <span style={{fontSize:22}}>❌</span>
+            <div className="text-left">
+              <div className="font-bold text-sm" style={{color:"rgba(255,255,255,0.60)"}}>Other apps</div>
+              <div style={{fontSize:12,color:"rgba(248,113,113,0.9)"}}>Harvest &amp; sell your health data</div>
+            </div>
+          </div>
+        )}
+        {rows>=2&&(
+          <div className="flex items-center gap-3 rounded-2xl px-4 py-3" style={{background:"rgba(16,185,129,0.10)",border:"1px solid rgba(16,185,129,0.35)",animation:"liRowIn 0.5s cubic-bezier(0.22,1,0.36,1) both"}}>
+            <span style={{fontSize:22}}>✅</span>
+            <div className="text-left">
+              <div className="font-bold text-sm text-white">EatBC</div>
+              <div style={{fontSize:12,color:"#34D399"}}>Community app. Your data stays yours.</div>
+            </div>
+          </div>
+        )}
+      </div>
+      <p style={{color:"rgba(255,255,255,0.42)",fontSize:13,maxWidth:250,lineHeight:1.75}}>
+        No selling. No mining. Even we can't read your encrypted health data.
+      </p>
+    </div>
+  );
+}
+function LISlide2() {
+  const [showChat,setShowChat]=useState(false);
+  useEffect(()=>{const t=setTimeout(()=>setShowChat(true),1350);return()=>clearTimeout(t);},[]);
+  return(
+    <div className="flex flex-col items-center text-center">
+      <div className="relative flex items-center justify-center mb-4" style={{width:114,height:114}}>
+        {[0,1,2].map(i=>(
+          <div key={i} className="absolute inset-0 rounded-full" style={{
+            border:"1.5px solid rgba(139,92,246,0.45)",
+            animation:`liVeerRing 2.2s ease-out ${i*0.65}s infinite`,
+          }}/>
+        ))}
+        <div className="relative z-10"><VeerIcon size={88}/></div>
+      </div>
+      {showChat&&(
+        <div className="rounded-[20px] px-5 py-3 mb-4" style={{
+          maxWidth:224,background:"rgba(139,92,246,0.14)",border:"1px solid rgba(139,92,246,0.32)",
+          borderBottomLeftRadius:4,animation:"liChatIn 0.5s cubic-bezier(0.22,1,0.36,1) both",
+        }}>
+          <p style={{color:"rgba(255,255,255,0.92)",fontSize:13,lineHeight:1.55}}>
+            "Namaste! Main yahan hoon aapke liye. Kya poochna chahte ho? 😊"
+          </p>
+        </div>
+      )}
+      <h2 className="font-black text-white mb-2" style={{fontSize:26,letterSpacing:"-0.5px"}}>Your AI Coach</h2>
+      <p style={{color:"rgba(255,255,255,0.42)",fontSize:13,maxWidth:250,lineHeight:1.75}}>
+        Veer guides you in Hindi &amp; English — workouts, recipes, motivation. 24/7.
+      </p>
+    </div>
+  );
+}
+function LIFinal({anim}:{anim:number}) {
+  const FLOATS=[
+    {t:"−500 kcal",x:"6%",d:0},{t:"150g protein",x:"60%",d:0.4},
+    {t:"Day 1 ✓",x:"8%",d:0.7},{t:"2,100 kcal",x:"54%",d:0.18},
+  ];
+  return(
+    <div className="relative flex flex-col items-center justify-center" style={{height:340,perspective:"900px"}}>
+      {anim>=1&&FLOATS.map((f,i)=>(
+        <div key={i} style={{position:"absolute",bottom:"12%",left:f.x,fontSize:11,fontWeight:700,
+          color:"rgba(110,231,183,0.32)",letterSpacing:"0.3px",pointerEvents:"none",
+          animation:`liFloat 3.8s ease-out ${f.d}s infinite`}}>{f.t}</div>
+      ))}
+      {/* "Eat Better & Count" text phase */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-1"
+        style={{opacity:anim>=3?0:1,transition:"opacity 0.65s ease",pointerEvents:"none"}}>
+        <div style={{
+          fontSize:54,fontWeight:900,color:"#fff",lineHeight:1.1,letterSpacing:"-2px",
+          opacity:1,
+          transform:anim===0?"scale(1.22) translateZ(-80px) rotateX(14deg)":anim>=2?"scale(0.84) translateY(5px)":"scale(1) translateZ(0) rotateX(0deg)",
+          transition:"transform 0.88s cubic-bezier(0.22,1,0.36,1)",
+          textShadow:"0 2px 24px rgba(255,255,255,0.14)",
+        }}>Eat Better</div>
+        <div style={{
+          fontSize:46,fontWeight:900,color:"#34D399",lineHeight:1.1,letterSpacing:"-1.5px",
+          opacity:anim>=2?1:0,
+          transform:anim>=2?"scale(1)":"scale(0.52) translateY(32px)",
+          transition:"opacity 0.6s ease 0.08s,transform 0.78s cubic-bezier(0.34,1.56,0.64,1) 0.08s",
+          textShadow:"0 0 28px rgba(52,211,153,0.6)",
+        }}>&amp; Count</div>
+      </div>
+      {/* Logo phase */}
+      <div className="flex flex-col items-center" style={{
+        opacity:anim>=3?1:0,
+        transform:anim>=3?"scale(1) rotateY(0deg)":"scale(0.22) rotateY(90deg)",
+        transition:"opacity 0.78s ease,transform 0.92s cubic-bezier(0.34,1.56,0.64,1)",
+      }}>
+        <Logo size={84}/>
+        <h1 className="text-white font-black leading-none mt-3" style={{
+          fontSize:72,letterSpacing:"-3px",
+          textShadow:anim>=4?"0 0 48px rgba(46,206,120,0.7),0 0 96px rgba(46,206,120,0.3)":"none",
+          transition:"text-shadow 0.9s ease",
+        }}>EatBC</h1>
+        <p className="font-semibold mt-2" style={{fontSize:15,color:"#86efac"}}>Eat Better. Count Smarter.</p>
+      </div>
+    </div>
+  );
+}
+function LoginIntro({onDone}:{onDone:()=>void}) {
+  const [slide,setSlide]=useState(0);
+  const [prog,setProg]=useState(0);
+  const [anim,setAnim]=useState(0);
+  const ivRef=useRef<ReturnType<typeof setInterval>|null>(null);
+  const STEP=100/(5000/100);
+  const N=4;
+
+  useEffect(()=>{
+    setProg(0);
+    if(ivRef.current) clearInterval(ivRef.current);
+    ivRef.current=setInterval(()=>{
+      setProg(p=>{
+        const next=p+STEP;
+        if(next>=100){
+          clearInterval(ivRef.current!);
+          setTimeout(()=>{if(slide<N-1)setSlide(s=>s+1);else onDone();},0);
+          return 100;
+        }
+        return next;
+      });
+    },100);
+    return()=>{if(ivRef.current)clearInterval(ivRef.current);};
+  },[slide]);
+
+  useEffect(()=>{
+    setAnim(0);
+    if(slide!==N-1)return;
+    const t1=setTimeout(()=>setAnim(1),600);
+    const t2=setTimeout(()=>setAnim(2),1700);
+    const t3=setTimeout(()=>setAnim(3),2650);
+    const t4=setTimeout(()=>setAnim(4),3450);
+    return()=>{clearTimeout(t1);clearTimeout(t2);clearTimeout(t3);clearTimeout(t4);};
+  },[slide]);
+
+  function goNext(){
+    if(ivRef.current) clearInterval(ivRef.current);
+    if(slide<N-1) setSlide(slide+1); else onDone();
+  }
+
+  const BKGS=[
+    "linear-gradient(155deg,#0f0800 0%,#1e1200 45%,#2c1b00 100%)",
+    "linear-gradient(155deg,#031008 0%,#061b10 45%,#0a2618 100%)",
+    "linear-gradient(155deg,#070413 0%,#0f073b 45%,#190a58 100%)",
+    "linear-gradient(155deg,#020904 0%,#030e06 45%,#041205 100%)",
+  ];
+  const ACCENT=["#FCD34D","#10B981","#8B5CF6","#34D399"];
+  const tilt=use3DParallax();
+  const layer=(depth:number)=>({
+    transform:`translate3d(${tilt.y*depth}px,${tilt.x*depth}px,0)`,
+    transition:"transform 0.18s ease-out",
+  });
+
+  return(
+    <div className="min-h-screen flex flex-col relative overflow-hidden"
+      style={{background:BKGS[slide],transition:"background 0.7s ease",perspective:"1100px"}}
+      onClick={goNext}>
+      {/* Orbs */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute rounded-full" style={{width:360,height:360,top:"6%",left:"-18%",background:`radial-gradient(circle,${ACCENT[slide]}50,transparent 70%)`,filter:"blur(46px)",...layer(46)}}/>
+        <div className="absolute rounded-full" style={{width:280,height:280,bottom:"10%",right:"-14%",background:`radial-gradient(circle,${ACCENT[slide]}38,transparent 70%)`,filter:"blur(40px)",...layer(62)}}/>
+        <div className="absolute rounded-full" style={{width:160,height:160,top:"44%",right:"18%",background:`radial-gradient(circle,${ACCENT[slide]}28,transparent 70%)`,filter:"blur(26px)",...layer(80)}}/>
+      </div>
+      {/* Grid */}
+      <div className="absolute inset-0 pointer-events-none" style={{
+        backgroundImage:`linear-gradient(${ACCENT[slide]}12 1px,transparent 1px),linear-gradient(90deg,${ACCENT[slide]}12 1px,transparent 1px)`,
+        backgroundSize:"44px 44px",
+        maskImage:"radial-gradient(circle at 50% 40%,black,transparent 75%)",
+        WebkitMaskImage:"radial-gradient(circle at 50% 40%,black,transparent 75%)",
+        ...layer(20),
+      }}/>
+      {/* Story progress bars */}
+      <div className="absolute left-0 right-0 flex gap-1.5 px-4 z-20" style={{top:52}}>
+        {[0,1,2,3].map(i=>(
+          <div key={i} className="flex-1 rounded-full overflow-hidden" style={{height:3,background:"rgba(255,255,255,0.18)"}}>
+            <div className="h-full rounded-full" style={{width:i<slide?"100%":i===slide?`${prog}%`:"0%",background:ACCENT[slide],boxShadow:`0 0 8px ${ACCENT[slide]}`,transition:"width 0.1s linear"}}/>
+          </div>
+        ))}
+      </div>
+      {/* Skip */}
+      <button onClick={e=>{e.stopPropagation();onDone();}}
+        className="absolute right-4 z-20 font-bold text-sm px-4 py-1.5 rounded-full"
+        style={{top:40,background:"rgba(255,255,255,0.10)",border:"1px solid rgba(255,255,255,0.18)",backdropFilter:"blur(8px)",color:"rgba(255,255,255,0.82)"}}>
+        Skip
+      </button>
+      {/* Card */}
+      <div className="flex-1 flex items-center justify-center px-6 pt-24 pb-6 relative z-10">
+        <div key={slide} style={{...layer(-26),animation:"onbCard 0.6s cubic-bezier(0.22,1,0.36,1) both"}}>
+          <div className="relative rounded-[34px] px-8 py-10 flex items-center justify-center" style={{
+            minWidth:300,minHeight:400,
+            background:"linear-gradient(160deg,rgba(255,255,255,0.10),rgba(255,255,255,0.02))",
+            border:"1px solid rgba(255,255,255,0.16)",
+            boxShadow:`0 30px 80px -20px ${ACCENT[slide]}42, inset 0 1px 0 rgba(255,255,255,0.18)`,
+            backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)",
+            transform:`rotateX(${tilt.x*-5}deg) rotateY(${tilt.y*5}deg)`,
+            transition:"transform 0.18s ease-out,box-shadow 0.6s ease",
+          }}>
+            {slide===0&&<LISlide0/>}
+            {slide===1&&<LISlide1/>}
+            {slide===2&&<LISlide2/>}
+            {slide===3&&<LIFinal anim={anim}/>}
+          </div>
+        </div>
+      </div>
+      {/* Dots */}
+      <div className="pb-9 flex flex-col items-center gap-3 relative z-10">
+        {slide<3&&<span className="text-[11px] tracking-widest uppercase font-semibold" style={{color:"rgba(255,255,255,0.38)"}}>Tap to continue</span>}
+        <div className="flex justify-center gap-2">
+          {[0,1,2,3].map(i=>(
+            <div key={i} className="rounded-full transition-all duration-300" style={{
+              width:i===slide?24:7,height:7,
+              background:i===slide?ACCENT[slide]:"rgba(255,255,255,0.24)",
+              boxShadow:i===slide?`0 0 10px ${ACCENT[slide]}`:"none",
+            }}/>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─────────────── Welcome ─────────────── */
 const FLOAT_FOODS = ["🥗","🫓","🥑","🍎","🥦","🍚","🥛","🫐","🍊","🥚","🌾","🥜","🍋","🥕","🫑"];
 /* ─────────────── Quiz teaser (mid-quiz TDEE/BMI sneak peek) ─────────────── */
@@ -2461,13 +2741,13 @@ function InsightsCard({history,proteinTarget,t}:{
   const proteinHitRate=proteinTarget>0?Math.round((entries.filter(e=>e.protein>=proteinTarget*0.9).length/tracked)*100):0;
   const best=bestStreak(history);
   const stats=[
-    {label:"On-track rate",val:`${rate}%`,emoji:""},
-    {label:"Best streak",val:`${best} days`,emoji:""},
-    {label:"Avg protein",val:`${avgProtein}g`,emoji:""},
+    {label:"On-track rate",val:`${rate}%`,emoji:"🎯"},
+    {label:"Best streak",val:`${best} days`,emoji:"🔥"},
+    {label:"Avg protein",val:`${avgProtein}g`,emoji:"💪"},
     {label:"Days tracked",val:`${tracked}`,emoji:"📅"},
   ];
   let nudge="You're building a real habit — keep showing up.";
-  if (rate>=80) nudge="Outstanding consistency! You're in the top tier of EatBC warriors.";
+  if (rate>=80) nudge="Outstanding consistency! You're in the top tier of EatBC warriors. 🏆";
   else if (proteinTarget>0&&proteinHitRate<50) nudge="You're often short on protein — add dal, curd, eggs or paneer to a meal.";
   else if (rate<40) nudge="Small steps win. Try ticking just your breakfast every day this week.";
   return (
@@ -2578,7 +2858,7 @@ function Leaderboard({session,points,streak,t}:{
         <button disabled={busy} onClick={share}
           className="w-full mb-3 py-2.5 rounded-2xl text-white font-bold text-sm disabled:opacity-60"
           style={{background:GREEN}}>
-          {busy?"Joining…":"Join the leaderboard"}
+          {busy?"Joining…":"Join the board with my streak 🔥"}
         </button>
       )}
       {rows===null?(
@@ -2589,7 +2869,7 @@ function Leaderboard({session,points,streak,t}:{
         <div className="space-y-1.5">
           {rows.map((r,i)=>{
             const me=r.name===session.name;
-            const medal=`${i+1}`;
+            const medal=i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}`;
             return (
               <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-xl" style={{background:me?"#EAF7F0":"#fff"}}>
                 <span className="w-6 text-center font-bold text-gray-500 text-sm">{medal}</span>
@@ -2853,7 +3133,7 @@ function WorkoutTab({workout,tracking,onUpdate}:{
           <button onClick={markDone}
             className="w-full mt-4 py-3 rounded-2xl font-black text-white transition active:scale-[0.98]"
             style={{background:completedToday?"#9CA3AF":"#7C3AED"}}>
-            {completedToday?"Mark as not done":"Complete workout"}
+            {completedToday?"Mark as not done":"Complete workout 💪"}
           </button>
         </div>
       )}
@@ -3838,13 +4118,13 @@ export default function App() {
     setSession(sess); sset<Session>("eatbc:session",sess);
     if(loginPlan) setPlan(loginPlan);
     setTracking(loginTracking||{});
-    setScreen("dash");
+    setScreen("intro");
   }
   async function doSignup(sess:Session) {
     setSession(sess); sset<Session>("eatbc:session",sess);
     if(plan) await apiPost("/api/plan",{plan,profile},sess.token).catch(()=>{});
     setTracking({});
-    setScreen("dash");
+    setScreen("intro");
   }
   function logout() {
     const token=session?.token;
@@ -3930,6 +4210,7 @@ export default function App() {
   if (screen==="onboarding") return <Onboarding onDone={doneOnboarding}/>;
   if (screen==="welcome") return <Welcome lang={lang} onLang={changeLang} onNew={()=>setScreen("quiz")} onLogin={()=>setScreen("login")}/>;
   if (screen==="login")   return <Login onDone={doLogin} onBack={()=>setScreen("welcome")}/>;
+  if (screen==="intro")   return <LoginIntro onDone={()=>setScreen("dash")}/>;
   if (screen==="foodgame") return <FoodGame name={profile.name} onDone={finishGame}/>;
 
   if (screen==="quiz") return (
