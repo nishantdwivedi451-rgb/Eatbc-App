@@ -200,7 +200,7 @@ interface Plan {
 }
 interface Session { id: string; name: string; token: string; }
 interface FoodLog { n: string; cal: number; p?: number; qty: string; servings: number; }
-interface DayTracking { meals: Record<number, boolean>; water: number; log?: FoodLog[]; }
+interface DayTracking { meals: Record<number, boolean>; water: number; log?: FoodLog[]; cheatLog?: FoodLog[]; }
 /* Date-keyed daily snapshot — powers real streaks, trends and insights. */
 interface HistEntry { onTrack: boolean; cal: number; protein: number; meals: number; total: number; water: number; }
 interface Tracking {
@@ -708,7 +708,491 @@ const LOG_DB: LogFood[] = [
   {n:"Waffle cone ice cream",p:4, c:290,q:"1 medium cone",cat:"International Desserts"},
   {n:"Oreo cookies (3)",p:2, c:160,q:"3 cookies (34g)",cat:"International Desserts"},
   {n:"Protein bar (Quest / similar)",p:21,c:200,q:"1 bar (60g)",cat:"International Desserts"},
+  /* ── More Indian Regional ── */
+  {n:"Chole bhature (restaurant)",p:18,c:680,q:"2 bhature + chole",cat:"Indian Regional"},
+  {n:"Rajasthani dal baati churma",p:14,c:720,q:"2 baati + dal + churma",cat:"Indian Regional"},
+  {n:"Pav bhaji",p:10,c:450,q:"2 pav + bhaji",cat:"Indian Regional"},
+  {n:"Misal pav",p:12,c:380,q:"1 plate",cat:"Indian Regional"},
+  {n:"Kanda bhaji",p:5,c:220,q:"6 pieces (100g)",cat:"Indian Regional"},
+  {n:"Batata vada",p:3,c:180,q:"1 piece (70g)",cat:"Indian Regional"},
+  {n:"Thalipeeth",p:7,c:280,q:"2 pieces (120g)",cat:"Indian Regional"},
+  {n:"Pitla bhakri",p:10,c:350,q:"1 plate",cat:"Indian Regional"},
+  {n:"Puran poli",p:6,c:320,q:"1 piece (90g)",cat:"Indian Regional"},
+  {n:"Modak (steamed)",p:3,c:140,q:"2 pieces (80g)",cat:"Indian Regional"},
+  {n:"Shrikhand",p:8,c:280,q:"½ cup (100g)",cat:"Indian Regional"},
+  {n:"Mysore pak",p:3,c:200,q:"1 piece (40g)",cat:"Indian Regional"},
+  {n:"Rava kesari",p:3,c:250,q:"1 cup (120g)",cat:"Indian Regional"},
+  {n:"Curd rice",p:6,c:240,q:"1 cup (200g)",cat:"Indian Regional"},
+  {n:"Lemon rice",p:4,c:230,q:"1 cup (200g)",cat:"Indian Regional"},
+  {n:"Tamarind rice / puliyogare",p:4,c:250,q:"1 cup (200g)",cat:"Indian Regional"},
+  {n:"Ven pongal",p:8,c:300,q:"1 cup (200g)",cat:"Indian Regional"},
+  {n:"Kozhukattai",p:3,c:120,q:"2 pieces (80g)",cat:"Indian Regional"},
+  {n:"Kerala prawn curry",p:22,c:280,q:"1 cup (200g)",cat:"Indian Regional"},
+  {n:"Kerala fish curry",p:24,c:260,q:"1 cup (200g)",cat:"Indian Regional"},
+  {n:"Appam with stew",p:8,c:310,q:"2 appam + cup stew",cat:"Indian Regional"},
+  {n:"Puttu with kadala",p:12,c:340,q:"1 cylinder puttu + curry",cat:"Indian Regional"},
+  {n:"Malabar parotta",p:6,c:320,q:"2 parottas (120g)",cat:"Indian Regional"},
+  {n:"Kosha mangsho",p:28,c:380,q:"1 cup (200g)",cat:"Indian Regional"},
+  {n:"Mishti doi",p:6,c:180,q:"1 cup (150g)",cat:"Indian Regional"},
+  {n:"Sandesh",p:5,c:160,q:"2 pieces (60g)",cat:"Indian Regional"},
+  {n:"Luchi with aloo dum",p:7,c:420,q:"3 luchi + curry",cat:"Indian Regional"},
+  {n:"Kachori",p:5,c:250,q:"2 pieces (80g)",cat:"Indian Regional"},
+  {n:"Dahi vada",p:8,c:250,q:"2 pieces in curd",cat:"Indian Regional"},
+  {n:"Aloo tikki",p:4,c:200,q:"2 pieces (100g)",cat:"Indian Regional"},
+  {n:"Gol gappe / pani puri (8 pcs)",p:4,c:200,q:"8 pieces",cat:"Indian Regional"},
+  {n:"Dahi puri (6 pcs)",p:6,c:240,q:"6 pieces",cat:"Indian Regional"},
+  {n:"Sev puri",p:5,c:200,q:"1 plate",cat:"Indian Regional"},
+  {n:"Dum aloo (Kashmiri)",p:4,c:280,q:"1 cup",cat:"Indian Regional"},
+  {n:"Rogan josh",p:26,c:350,q:"1 cup (200g)",cat:"Indian Regional"},
+  {n:"Yakhni pulao",p:20,c:420,q:"1 plate (300g)",cat:"Indian Regional"},
+  {n:"Gushtaba",p:22,c:340,q:"2 pieces in gravy",cat:"Indian Regional"},
+  {n:"Sarson ka saag with makki roti",p:10,c:380,q:"1 bowl + 2 roti",cat:"Indian Regional"},
+  {n:"Makki ki roti",p:4,c:150,q:"1 roti (60g)",cat:"Indian Regional"},
+  {n:"Langar dal (amritsari)",p:12,c:220,q:"1 cup",cat:"Indian Regional"},
+  {n:"Amritsari kulcha",p:8,c:300,q:"1 kulcha (100g)",cat:"Indian Regional"},
+  {n:"Makhani gravy base",p:5,c:180,q:"½ cup (100g)",cat:"Indian Regional"},
+  /* ── Chinese ── */
+  {n:"Kung pao chicken",p:24,c:350,q:"1 cup (200g)",cat:"Chinese"},
+  {n:"Mapo tofu",p:14,c:280,q:"1 cup (200g)",cat:"Chinese"},
+  {n:"Peking duck (2 wraps)",p:20,c:400,q:"2 pancake wraps",cat:"Chinese"},
+  {n:"Dim sum — siu mai (3)",p:9,c:130,q:"3 pieces",cat:"Chinese"},
+  {n:"Dim sum — char siu bao",p:7,c:160,q:"1 bun (60g)",cat:"Chinese"},
+  {n:"Wonton soup",p:14,c:200,q:"1 bowl (300ml)",cat:"Chinese"},
+  {n:"Sweet & sour pork",p:18,c:380,q:"1 cup (200g)",cat:"Chinese"},
+  {n:"Beef with broccoli",p:22,c:300,q:"1 cup (200g)",cat:"Chinese"},
+  {n:"Shrimp fried rice",p:18,c:380,q:"1 cup (200g)",cat:"Chinese"},
+  {n:"Egg fried rice",p:10,c:330,q:"1 cup (200g)",cat:"Chinese"},
+  {n:"Chow mein (chicken)",p:18,c:400,q:"1 plate (250g)",cat:"Chinese"},
+  {n:"Lo mein (vegetable)",p:8,c:310,q:"1 plate (250g)",cat:"Chinese"},
+  {n:"Moo shu pork",p:18,c:320,q:"1 cup",cat:"Chinese"},
+  {n:"General Tso's chicken",p:22,c:430,q:"1 cup (200g)",cat:"Chinese"},
+  {n:"Egg drop soup",p:6,c:80,q:"1 bowl (250ml)",cat:"Chinese"},
+  {n:"Hot and sour soup",p:8,c:120,q:"1 bowl (250ml)",cat:"Chinese"},
+  {n:"Spring roll (fried)",p:4,c:170,q:"1 roll (75g)",cat:"Chinese"},
+  {n:"Scallion pancake",p:5,c:220,q:"1 pancake (100g)",cat:"Chinese"},
+  {n:"Braised pork belly (dongpo)",p:20,c:480,q:"1 piece (150g)",cat:"Chinese"},
+  {n:"Dan dan noodles",p:18,c:420,q:"1 bowl (300g)",cat:"Chinese"},
+  {n:"Congee (plain)",p:3,c:110,q:"1 bowl (300ml)",cat:"Chinese"},
+  {n:"Congee with egg & ginger",p:8,c:160,q:"1 bowl (300ml)",cat:"Chinese"},
+  /* ── Japanese ── */
+  {n:"Chicken teriyaki",p:28,c:290,q:"100g + sauce",cat:"Japanese"},
+  {n:"Tonkatsu (pork cutlet)",p:26,c:400,q:"1 cutlet (150g)",cat:"Japanese"},
+  {n:"Chicken katsu curry",p:28,c:620,q:"1 plate",cat:"Japanese"},
+  {n:"Gyoza (4 pcs, pan-fried)",p:10,c:200,q:"4 pieces",cat:"Japanese"},
+  {n:"Edamame (shelled)",p:12,c:122,q:"½ cup (75g)",cat:"Japanese"},
+  {n:"Miso ramen",p:18,c:430,q:"1 bowl",cat:"Japanese"},
+  {n:"Shoyu ramen",p:20,c:420,q:"1 bowl",cat:"Japanese"},
+  {n:"Tonkotsu ramen",p:22,c:490,q:"1 bowl",cat:"Japanese"},
+  {n:"Udon noodles (broth)",p:12,c:310,q:"1 bowl (400g)",cat:"Japanese"},
+  {n:"Soba noodles (cold, zaru)",p:10,c:220,q:"1 serving (200g)",cat:"Japanese"},
+  {n:"Onigiri (salmon)",p:8,c:190,q:"1 rice ball (120g)",cat:"Japanese"},
+  {n:"Onigiri (umeboshi)",p:3,c:160,q:"1 rice ball (110g)",cat:"Japanese"},
+  {n:"Yakitori chicken (3 skewers)",p:21,c:240,q:"3 skewers",cat:"Japanese"},
+  {n:"Takoyaki (6 pcs)",p:10,c:280,q:"6 pieces",cat:"Japanese"},
+  {n:"Okonomiyaki",p:16,c:380,q:"1 pancake (250g)",cat:"Japanese"},
+  {n:"Tempura prawn (4 pcs)",p:14,c:260,q:"4 pieces",cat:"Japanese"},
+  {n:"Tempura vegetable (6 pcs)",p:4,c:210,q:"6 pieces",cat:"Japanese"},
+  {n:"Salmon sashimi (6 pcs)",p:20,c:160,q:"6 pieces (120g)",cat:"Japanese"},
+  {n:"Tuna sashimi (6 pcs)",p:22,c:130,q:"6 pieces (120g)",cat:"Japanese"},
+  {n:"Maki roll — tuna (6 pcs)",p:10,c:180,q:"6 pieces",cat:"Japanese"},
+  {n:"Mochi (plain)",p:2,c:110,q:"1 piece (40g)",cat:"Japanese"},
+  {n:"Japanese curry rice",p:16,c:520,q:"1 plate",cat:"Japanese"},
+  /* ── Korean ── */
+  {n:"Japchae (glass noodles)",p:8,c:290,q:"1 cup (200g)",cat:"Korean"},
+  {n:"Tteokbokki",p:6,c:280,q:"1 cup (200g)",cat:"Korean"},
+  {n:"Korean fried chicken (4 pcs)",p:28,c:420,q:"4 pieces (200g)",cat:"Korean"},
+  {n:"Samgyeopsal (pork belly BBQ)",p:22,c:400,q:"200g cooked",cat:"Korean"},
+  {n:"Doenjang jjigae",p:12,c:180,q:"1 bowl (300ml)",cat:"Korean"},
+  {n:"Sundubu jjigae (soft tofu stew)",p:16,c:220,q:"1 bowl",cat:"Korean"},
+  {n:"Jjajangmyeon",p:14,c:480,q:"1 bowl (350g)",cat:"Korean"},
+  {n:"Haemul pajeon (seafood pancake)",p:14,c:300,q:"1 pancake",cat:"Korean"},
+  {n:"Kimbap (6 pcs)",p:8,c:220,q:"6 pieces",cat:"Korean"},
+  {n:"Bulgogi beef",p:24,c:310,q:"150g",cat:"Korean"},
+  /* ── Thai ── */
+  {n:"Green curry (chicken)",p:22,c:380,q:"1 cup (250g)",cat:"Thai"},
+  {n:"Red curry (beef)",p:24,c:420,q:"1 cup (250g)",cat:"Thai"},
+  {n:"Massaman curry (chicken)",p:20,c:400,q:"1 cup (250g)",cat:"Thai"},
+  {n:"Thai basil chicken (pad krapow)",p:26,c:350,q:"1 plate (250g)",cat:"Thai"},
+  {n:"Som tam (green papaya salad)",p:2,c:90,q:"1 bowl (200g)",cat:"Thai"},
+  {n:"Larb gai (minced chicken salad)",p:22,c:280,q:"1 bowl",cat:"Thai"},
+  {n:"Khao man gai (poached chicken rice)",p:28,c:460,q:"1 plate",cat:"Thai"},
+  {n:"Mango sticky rice",p:4,c:380,q:"1 serving",cat:"Thai"},
+  {n:"Tom kha gai (coconut soup)",p:18,c:280,q:"1 bowl (300ml)",cat:"Thai"},
+  {n:"Thai spring roll (fresh, 2 pcs)",p:6,c:160,q:"2 rolls",cat:"Thai"},
+  {n:"Satay chicken (4 skewers + peanut sauce)",p:24,c:320,q:"4 skewers",cat:"Thai"},
+  /* ── Italian ── */
+  {n:"Spaghetti carbonara",p:22,c:580,q:"1 plate (300g)",cat:"Italian"},
+  {n:"Spaghetti aglio e olio",p:12,c:480,q:"1 plate (280g)",cat:"Italian"},
+  {n:"Penne arrabbiata",p:12,c:420,q:"1 plate (280g)",cat:"Italian"},
+  {n:"Lasagna (meat)",p:24,c:560,q:"1 portion (300g)",cat:"Italian"},
+  {n:"Lasagna (vegetable)",p:14,c:480,q:"1 portion (300g)",cat:"Italian"},
+  {n:"Risotto (mushroom)",p:10,c:480,q:"1 bowl (300g)",cat:"Italian"},
+  {n:"Risotto (seafood)",p:20,c:460,q:"1 bowl (300g)",cat:"Italian"},
+  {n:"Pizza Margherita (2 slices)",p:16,c:420,q:"2 medium slices",cat:"Italian"},
+  {n:"Pizza pepperoni (2 slices)",p:22,c:520,q:"2 medium slices",cat:"Italian"},
+  {n:"Gnocchi in tomato sauce",p:8,c:420,q:"1 plate (280g)",cat:"Italian"},
+  {n:"Bruschetta (2 pcs)",p:5,c:180,q:"2 pieces",cat:"Italian"},
+  {n:"Caprese salad",p:14,c:220,q:"1 bowl",cat:"Italian"},
+  {n:"Minestrone soup",p:6,c:150,q:"1 bowl (300ml)",cat:"Italian"},
+  {n:"Tiramisu",p:5,c:310,q:"1 portion (100g)",cat:"Italian"},
+  {n:"Panna cotta",p:4,c:280,q:"1 serving (120g)",cat:"Italian"},
+  {n:"Gelato (2 scoops)",p:4,c:220,q:"2 scoops (120g)",cat:"Italian"},
+  /* ── Mexican / Latin ── */
+  {n:"Tacos al pastor (2)",p:18,c:340,q:"2 tacos",cat:"Mexican"},
+  {n:"Chicken quesadilla",p:24,c:460,q:"1 quesadilla (220g)",cat:"Mexican"},
+  {n:"Beef enchiladas (2)",p:22,c:480,q:"2 enchiladas",cat:"Mexican"},
+  {n:"Guacamole",p:2,c:150,q:"¼ cup (60g)",cat:"Mexican"},
+  {n:"Tortilla chips",p:2,c:140,q:"1 oz (28g)",cat:"Mexican"},
+  {n:"Black bean burrito bowl",p:20,c:520,q:"1 bowl",cat:"Mexican"},
+  {n:"Chicken fajitas",p:28,c:420,q:"2 wraps",cat:"Mexican"},
+  {n:"Churros (4 pcs)",p:4,c:310,q:"4 pieces (80g)",cat:"Mexican"},
+  {n:"Empanada (beef)",p:12,c:290,q:"1 piece (100g)",cat:"Mexican"},
+  {n:"Ceviche",p:22,c:180,q:"1 cup (200g)",cat:"Mexican"},
+  {n:"Tamale (pork)",p:14,c:320,q:"1 tamale (130g)",cat:"Mexican"},
+  {n:"Arepas with cheese",p:10,c:300,q:"1 arepa (130g)",cat:"Mexican"},
+  {n:"Açaí bowl (medium)",p:5,c:380,q:"1 bowl (300g)",cat:"Mexican"},
+  /* ── Mediterranean / Middle Eastern ── */
+  {n:"Grilled halloumi",p:16,c:280,q:"100g",cat:"Mediterranean"},
+  {n:"Spanakopita (1 piece)",p:7,c:260,q:"1 piece (100g)",cat:"Mediterranean"},
+  {n:"Tabouli salad",p:3,c:120,q:"1 cup (150g)",cat:"Mediterranean"},
+  {n:"Fattoush salad",p:3,c:130,q:"1 bowl (200g)",cat:"Mediterranean"},
+  {n:"Labneh (strained yogurt)",p:5,c:80,q:"¼ cup (60g)",cat:"Mediterranean"},
+  {n:"Pita bread",p:5,c:165,q:"1 medium (60g)",cat:"Mediterranean"},
+  {n:"Chicken kofte kebab (3)",p:24,c:300,q:"3 skewers (180g)",cat:"Mediterranean"},
+  {n:"Lamb kofta (3)",p:22,c:350,q:"3 pieces (180g)",cat:"Mediterranean"},
+  {n:"Tagine (lamb & prune)",p:26,c:420,q:"1 portion (300g)",cat:"Mediterranean"},
+  {n:"Couscous (cooked)",p:6,c:176,q:"1 cup (157g)",cat:"Mediterranean"},
+  {n:"Lentil soup (Middle Eastern)",p:12,c:200,q:"1 bowl (300ml)",cat:"Mediterranean"},
+  {n:"Baba ganoush",p:2,c:80,q:"¼ cup (60g)",cat:"Mediterranean"},
+  {n:"Shakshuka (2 eggs)",p:14,c:260,q:"1 serving",cat:"Mediterranean"},
+  {n:"Dolma / stuffed grape leaves (4)",p:5,c:180,q:"4 pieces (120g)",cat:"Mediterranean"},
+  /* ── American Comfort & BBQ ── */
+  {n:"Mac and cheese (homemade)",p:16,c:500,q:"1 cup (250g)",cat:"American"},
+  {n:"BBQ pulled pork sandwich",p:32,c:580,q:"1 sandwich",cat:"American"},
+  {n:"BBQ ribs (3 ribs)",p:36,c:620,q:"3 ribs (250g)",cat:"American"},
+  {n:"Beef brisket (smoked)",p:30,c:350,q:"150g slice",cat:"American"},
+  {n:"Coleslaw",p:1,c:120,q:"½ cup (120g)",cat:"American"},
+  {n:"Corn on the cob (buttered)",p:4,c:180,q:"1 ear + 1 tsp butter",cat:"American"},
+  {n:"Mashed potatoes (with butter)",p:4,c:240,q:"1 cup (240g)",cat:"American"},
+  {n:"Clam chowder",p:10,c:300,q:"1 cup (240ml)",cat:"American"},
+  {n:"BLT sandwich",p:18,c:380,q:"1 sandwich",cat:"American"},
+  {n:"Club sandwich",p:24,c:460,q:"1 sandwich",cat:"American"},
+  {n:"Pancakes with maple syrup (3)",p:9,c:480,q:"3 pancakes + 2 tbsp syrup",cat:"American"},
+  {n:"French toast (2 slices)",p:10,c:330,q:"2 slices",cat:"American"},
+  {n:"Eggs Benedict",p:22,c:500,q:"2 eggs on muffin",cat:"American"},
+  {n:"Avocado toast with egg",p:12,c:300,q:"1 slice bread + ½ avo + egg",cat:"American"},
+  {n:"Chicken & waffles",p:30,c:680,q:"1 serving",cat:"American"},
+  {n:"Philly cheesesteak",p:30,c:560,q:"6-inch sub",cat:"American"},
+  {n:"New England lobster roll",p:24,c:420,q:"1 roll",cat:"American"},
+  {n:"Buffalo wings (6)",p:28,c:480,q:"6 wings",cat:"American"},
+  {n:"Onion rings (serving)",p:4,c:280,q:"8 rings (100g)",cat:"American"},
+  /* ── More Fast Food ── */
+  {n:"McDonald's McFlurry",p:8,c:340,q:"1 regular",cat:"Fast Food"},
+  {n:"McDonald's Big Breakfast",p:28,c:780,q:"1 full set",cat:"Fast Food"},
+  {n:"KFC Popcorn Chicken (regular)",p:18,c:390,q:"regular serving",cat:"Fast Food"},
+  {n:"Domino's Garlic Bread (4 pcs)",p:6,c:300,q:"4 pieces",cat:"Fast Food"},
+  {n:"Pizza Hut Personal Pan Pizza",p:22,c:560,q:"1 personal pizza",cat:"Fast Food"},
+  {n:"Subway footlong Chicken (wheat)",p:46,c:620,q:"12-inch sub",cat:"Fast Food"},
+  {n:"Starbucks Frappuccino (grande)",p:6,c:380,q:"1 grande (473ml)",cat:"Fast Food"},
+  {n:"Starbucks Caramel Macchiato",p:10,c:250,q:"1 grande (355ml)",cat:"Fast Food"},
+  {n:"Dunkin' glazed doughnut",p:3,c:260,q:"1 doughnut (59g)",cat:"Fast Food"},
+  {n:"McDonald's Chicken McNuggets (10)",p:24,c:430,q:"10 pieces",cat:"Fast Food"},
+  {n:"Burger King Impossible Whopper",p:25,c:630,q:"1 burger",cat:"Fast Food"},
+  {n:"Taco Bell Chalupa",p:16,c:370,q:"1 chalupa",cat:"Fast Food"},
+  {n:"Chipotle chicken bowl",p:36,c:620,q:"1 bowl (no chips)",cat:"Fast Food"},
+  {n:"Five Guys burger (little burger)",p:26,c:550,q:"1 burger",cat:"Fast Food"},
+  /* ── Smoothies & Healthy Drinks ── */
+  {n:"Banana mango smoothie",p:4,c:280,q:"1 cup (300ml)",cat:"Smoothies"},
+  {n:"Green smoothie (spinach, apple, ginger)",p:3,c:180,q:"1 cup (300ml)",cat:"Smoothies"},
+  {n:"Protein smoothie (whey + banana + milk)",p:30,c:380,q:"1 shake (400ml)",cat:"Smoothies"},
+  {n:"Açaí smoothie bowl",p:5,c:360,q:"1 bowl (300g)",cat:"Smoothies"},
+  {n:"Mango lassi",p:7,c:250,q:"1 glass (300ml)",cat:"Smoothies"},
+  {n:"Avocado smoothie",p:4,c:310,q:"1 cup (300ml)",cat:"Smoothies"},
+  {n:"Berry smoothie (mixed berries + yogurt)",p:8,c:220,q:"1 cup (300ml)",cat:"Smoothies"},
+  {n:"Orange carrot ginger juice",p:2,c:120,q:"1 glass (250ml)",cat:"Smoothies"},
+  {n:"Wheatgrass shot",p:1,c:15,q:"1 shot (30ml)",cat:"Smoothies"},
+  {n:"Cold-pressed green juice",p:2,c:100,q:"1 bottle (250ml)",cat:"Smoothies"},
+  {n:"Turmeric ginger shot",p:0,c:25,q:"1 shot (30ml)",cat:"Smoothies"},
+  {n:"Bone broth",p:10,c:45,q:"1 cup (240ml)",cat:"Smoothies"},
+  /* ── Breakfast Cereals & Bars ── */
+  {n:"Granola with milk",p:8,c:340,q:"½ cup granola + 100ml milk",cat:"Breakfast"},
+  {n:"Overnight oats with chia & fruit",p:12,c:320,q:"1 jar (300g)",cat:"Breakfast"},
+  {n:"Weetabix (2 biscuits + milk)",p:9,c:210,q:"2 biscuits + 150ml milk",cat:"Breakfast"},
+  {n:"Corn flakes with milk",p:6,c:200,q:"1 cup + 150ml milk",cat:"Breakfast"},
+  {n:"Muesli with milk",p:9,c:280,q:"½ cup + 150ml milk",cat:"Breakfast"},
+  {n:"Porridge (oats, water)",p:5,c:130,q:"1 bowl (250g cooked)",cat:"Breakfast"},
+  {n:"Scrambled eggs (2) on toast",p:16,c:310,q:"2 eggs + 1 slice toast",cat:"Breakfast"},
+  {n:"Boiled egg (2) with soldiers",p:14,c:230,q:"2 eggs + 1 slice toast",cat:"Breakfast"},
+  {n:"Greek yogurt with granola & honey",p:14,c:320,q:"150g yogurt + 30g granola + 1 tsp honey",cat:"Breakfast"},
+  {n:"Smoothie bowl (banana, berries)",p:6,c:340,q:"1 bowl (300g)",cat:"Breakfast"},
+  {n:"Pancakes (American, plain, 3)",p:8,c:300,q:"3 medium pancakes",cat:"Breakfast"},
+  {n:"French crepe (plain)",p:5,c:140,q:"1 crepe (70g)",cat:"Breakfast"},
+  /* ── Baked Goods ── */
+  {n:"Muffin (blueberry)",p:4,c:340,q:"1 large muffin (120g)",cat:"Baked Goods"},
+  {n:"Muffin (chocolate chip)",p:5,c:360,q:"1 large muffin (120g)",cat:"Baked Goods"},
+  {n:"Banana bread slice",p:4,c:220,q:"1 slice (70g)",cat:"Baked Goods"},
+  {n:"Cinnamon roll",p:6,c:390,q:"1 roll (120g)",cat:"Baked Goods"},
+  {n:"Scone (plain)",p:5,c:218,q:"1 scone (65g)",cat:"Baked Goods"},
+  {n:"Baguette (half)",p:8,c:260,q:"½ baguette (100g)",cat:"Baked Goods"},
+  {n:"Focaccia",p:7,c:290,q:"1 slice (100g)",cat:"Baked Goods"},
+  {n:"Rye bread (2 slices)",p:6,c:170,q:"2 slices (80g)",cat:"Baked Goods"},
+  {n:"Ciabatta",p:6,c:270,q:"1 roll (100g)",cat:"Baked Goods"},
+  {n:"Pretzels (soft, large)",p:8,c:340,q:"1 large pretzel (120g)",cat:"Baked Goods"},
+  /* ── More Proteins ── */
+  {n:"Sardines in oil (100g)",p:25,c:208,q:"100g",cat:"Proteins Global"},
+  {n:"Mackerel (grilled)",p:24,c:239,q:"100g",cat:"Proteins Global"},
+  {n:"Cod fillet (baked)",p:23,c:105,q:"100g",cat:"Proteins Global"},
+  {n:"Duck breast (cooked)",p:28,c:201,q:"100g",cat:"Proteins Global"},
+  {n:"Venison (cooked)",p:30,c:158,q:"100g",cat:"Proteins Global"},
+  {n:"Bison patty (100g)",p:28,c:218,q:"100g",cat:"Proteins Global"},
+  {n:"Pork sausage (2 links)",p:10,c:250,q:"2 sausages (80g)",cat:"Proteins Global"},
+  {n:"Beef jerky",p:22,c:166,q:"1 oz (28g)",cat:"Proteins Global"},
+  {n:"Canned chickpeas (drained)",p:9,c:164,q:"½ cup (120g)",cat:"Proteins Global"},
+  {n:"Seitan (wheat protein)",p:25,c:160,q:"100g",cat:"Proteins Global"},
+  {n:"Cottage cheese (full fat)",p:11,c:120,q:"½ cup (113g)",cat:"Proteins Global"},
+  {n:"Hard boiled egg white",p:11,c:52,q:"2 egg whites",cat:"Proteins Global"},
+  {n:"Smoked salmon",p:20,c:160,q:"100g (3.5oz)",cat:"Proteins Global"},
+  {n:"Tuna steak (grilled)",p:30,c:180,q:"100g",cat:"Proteins Global"},
+  {n:"Lobster (boiled)",p:19,c:98,q:"100g meat",cat:"Proteins Global"},
+  {n:"Scallops (seared)",p:17,c:111,q:"100g",cat:"Proteins Global"},
+  /* ── More Vegetables ── */
+  {n:"Kale (raw)",p:3,c:49,q:"1 cup (67g)",cat:"Vegetables Global"},
+  {n:"Sweet potato (baked)",p:2,c:130,q:"1 medium (130g)",cat:"Vegetables Global"},
+  {n:"Zucchini (cooked)",p:2,c:27,q:"1 cup (180g)",cat:"Vegetables Global"},
+  {n:"Asparagus (steamed, 6 spears)",p:3,c:27,q:"6 spears (90g)",cat:"Vegetables Global"},
+  {n:"Brussels sprouts (roasted)",p:4,c:80,q:"1 cup (150g)",cat:"Vegetables Global"},
+  {n:"Cauliflower rice (1 cup)",p:3,c:28,q:"1 cup (100g)",cat:"Vegetables Global"},
+  {n:"Edamame (in shell)",p:8,c:100,q:"1 cup (155g)",cat:"Vegetables Global"},
+  {n:"Beet (roasted)",p:2,c:74,q:"1 medium beet (82g)",cat:"Vegetables Global"},
+  {n:"Artichoke heart",p:4,c:60,q:"½ cup (84g)",cat:"Vegetables Global"},
+  {n:"Corn (sweet, boiled)",p:5,c:177,q:"1 ear (154g)",cat:"Vegetables Global"},
+  {n:"Peas (green, cooked)",p:8,c:134,q:"1 cup (160g)",cat:"Vegetables Global"},
+  {n:"Celery stick (4)",p:1,c:14,q:"4 stalks (64g)",cat:"Vegetables Global"},
+  {n:"Cucumber (1 medium)",p:1,c:24,q:"1 medium (201g)",cat:"Vegetables Global"},
+  {n:"Tomato (1 medium)",p:1,c:22,q:"1 medium (123g)",cat:"Vegetables Global"},
+  {n:"Mushrooms (sautéed)",p:3,c:80,q:"1 cup (150g)",cat:"Vegetables Global"},
+  /* ── More Fruits ── */
+  {n:"Grapefruit (half)",p:1,c:52,q:"½ medium",cat:"Fruits Global"},
+  {n:"Lychee (10 fruits)",p:1,c:66,q:"10 fruits (100g)",cat:"Fruits Global"},
+  {n:"Dragon fruit",p:3,c:102,q:"1 medium (200g)",cat:"Fruits Global"},
+  {n:"Jackfruit (100g)",p:2,c:98,q:"100g chunks",cat:"Fruits Global"},
+  {n:"Passion fruit (2)",p:2,c:35,q:"2 fruits (40g)",cat:"Fruits Global"},
+  {n:"Plum (2 medium)",p:1,c:76,q:"2 medium plums",cat:"Fruits Global"},
+  {n:"Nectarine",p:1,c:63,q:"1 medium (142g)",cat:"Fruits Global"},
+  {n:"Fig (2 fresh)",p:1,c:74,q:"2 medium figs",cat:"Fruits Global"},
+  {n:"Cantaloupe melon (1 cup)",p:1,c:60,q:"1 cup cubed (160g)",cat:"Fruits Global"},
+  {n:"Honeydew melon (1 cup)",p:1,c:64,q:"1 cup cubed (170g)",cat:"Fruits Global"},
+  {n:"Prunes (5)",p:1,c:114,q:"5 prunes (42g)",cat:"Fruits Global"},
+  {n:"Raisins",p:1,c:130,q:"¼ cup (41g)",cat:"Fruits Global"},
+  /* ── More Nuts & Seeds ── */
+  {n:"Sunflower seeds (roasted)",p:6,c:165,q:"¼ cup (35g)",cat:"Nuts & Seeds"},
+  {n:"Pumpkin seeds (pepitas)",p:9,c:180,q:"¼ cup (35g)",cat:"Nuts & Seeds"},
+  {n:"Chia seeds",p:5,c:138,q:"2 tbsp (28g)",cat:"Nuts & Seeds"},
+  {n:"Flax seeds (ground)",p:3,c:74,q:"2 tbsp (14g)",cat:"Nuts & Seeds"},
+  {n:"Hemp seeds",p:10,c:166,q:"3 tbsp (30g)",cat:"Nuts & Seeds"},
+  {n:"Brazil nuts (3)",p:4,c:99,q:"3 nuts (21g)",cat:"Nuts & Seeds"},
+  {n:"Macadamia nuts (6)",p:2,c:120,q:"6 nuts (19g)",cat:"Nuts & Seeds"},
+  {n:"Pistachio (30 kernels)",p:6,c:160,q:"30 kernels (28g)",cat:"Nuts & Seeds"},
+  {n:"Hazelnut (15 nuts)",p:3,c:104,q:"15 nuts (20g)",cat:"Nuts & Seeds"},
+  {n:"Almond butter",p:7,c:198,q:"2 tbsp (32g)",cat:"Nuts & Seeds"},
+  /* ── Supplements & Sports ── */
+  {n:"Casein protein shake (1 scoop)",p:24,c:120,q:"30g scoop in water",cat:"Supplements"},
+  {n:"BCAA drink (1 serving)",p:5,c:25,q:"10g in water",cat:"Supplements"},
+  {n:"Creatine (plain, 5g)",p:0,c:0,q:"5g",cat:"Supplements"},
+  {n:"Mass gainer shake (1 serving)",p:50,c:1250,q:"3 scoops (300g) in milk",cat:"Supplements"},
+  {n:"Pre-workout drink",p:0,c:20,q:"1 scoop (10g) in water",cat:"Supplements"},
+  {n:"Electrolyte drink",p:0,c:50,q:"1 sachet in 500ml water",cat:"Supplements"},
+  {n:"Meal replacement shake",p:20,c:200,q:"2 scoops (50g) in water",cat:"Supplements"},
+  /* ── More Herbal Teas & Functional ── */
+  {n:"Chamomile tea",p:0,c:2,q:"1 cup (240ml)",cat:"Herbal & Functional"},
+  {n:"Peppermint tea",p:0,c:2,q:"1 cup (240ml)",cat:"Herbal & Functional"},
+  {n:"Ginger lemon tea",p:0,c:10,q:"1 cup (240ml)",cat:"Herbal & Functional"},
+  {n:"Hibiscus tea",p:0,c:5,q:"1 cup (240ml)",cat:"Herbal & Functional"},
+  {n:"Ashwagandha latte",p:3,c:80,q:"1 cup (240ml)",cat:"Herbal & Functional"},
+  {n:"Masala chai with oat milk",p:3,c:90,q:"1 cup (240ml)",cat:"Herbal & Functional"},
+  {n:"Kefir",p:9,c:110,q:"1 cup (240ml)",cat:"Herbal & Functional"},
+  {n:"Yakult probiotic",p:1,c:50,q:"1 bottle (65ml)",cat:"Herbal & Functional"},
+  {n:"Apple cider vinegar drink",p:0,c:15,q:"1 tbsp in 200ml water",cat:"Herbal & Functional"},
+  {n:"Coconut kefir",p:2,c:60,q:"½ cup (120ml)",cat:"Herbal & Functional"},
 ];
+
+/* ─────────────── Cheat Day Zone data ─────────────── */
+const CHEAT_PACKS: Record<string, LogFood[]> = {
+  "🎉 Party": [
+    {n:"Birthday cake slice",c:350,p:4,q:"1 slice (120g)",cat:"Cheat"},
+    {n:"Cocktail (mojito / margarita)",c:200,p:0,q:"1 drink (200ml)",cat:"Cheat"},
+    {n:"Nachos with cheese dip",c:380,p:8,q:"1 plate (150g)",cat:"Cheat"},
+    {n:"Party pizza (2 slices)",c:500,p:20,q:"2 slices",cat:"Cheat"},
+    {n:"Loaded potato skins (4)",c:360,p:12,q:"4 pieces",cat:"Cheat"},
+    {n:"Chocolate fountain dip",c:290,p:3,q:"50g chocolate + fruit",cat:"Cheat"},
+    {n:"Spring rolls fried (4)",c:340,p:8,q:"4 pieces",cat:"Cheat"},
+    {n:"Ice cream sundae",c:440,p:7,q:"1 large serving",cat:"Cheat"},
+  ],
+  "🍽️ Dine Out": [
+    {n:"Butter chicken (restaurant-style)",c:480,p:30,q:"1 bowl (250g)",cat:"Cheat"},
+    {n:"Paneer tikka starter",c:320,p:18,q:"6 pieces",cat:"Cheat"},
+    {n:"Garlic naan",c:280,p:8,q:"1 naan",cat:"Cheat"},
+    {n:"Dal makhani (restaurant)",c:380,p:14,q:"1 cup (200g)",cat:"Cheat"},
+    {n:"Pasta Alfredo",c:600,p:18,q:"1 plate (300g)",cat:"Cheat"},
+    {n:"Fish & chips",c:800,p:30,q:"1 full portion",cat:"Cheat"},
+    {n:"Ribeye steak (200g)",c:540,p:40,q:"200g cooked",cat:"Cheat"},
+    {n:"Creamy risotto",c:520,p:12,q:"1 bowl (280g)",cat:"Cheat"},
+    {n:"Seafood platter",c:680,p:48,q:"full platter",cat:"Cheat"},
+    {n:"Dessert platter (shared)",c:600,p:8,q:"shared 3-item dessert",cat:"Cheat"},
+  ],
+  "📦 Order In": [
+    {n:"Large pizza (3 slices)",c:750,p:30,q:"3 slices (pepperoni)",cat:"Cheat"},
+    {n:"Chicken burger meal (burger+fries+drink)",c:900,p:40,q:"full meal deal",cat:"Cheat"},
+    {n:"Biryani (order-in, large)",c:650,p:30,q:"1 plate (350g)",cat:"Cheat"},
+    {n:"Pad Thai (takeout box)",c:500,p:20,q:"1 box (300g)",cat:"Cheat"},
+    {n:"Sushi platter (12 pcs)",c:480,p:22,q:"12 pieces assorted",cat:"Cheat"},
+    {n:"Shawarma platter with sides",c:680,p:35,q:"1 platter",cat:"Cheat"},
+    {n:"Fried chicken bucket (3 pcs + sides)",c:900,p:55,q:"3 pcs + fries + coleslaw",cat:"Cheat"},
+    {n:"Chinese noodles (takeout box)",c:580,p:18,q:"1 box (300g)",cat:"Cheat"},
+    {n:"Burger + loaded fries",c:850,p:36,q:"1 burger + large fries",cat:"Cheat"},
+  ],
+  "🍺 Drinks": [
+    {n:"Beer — pint (500ml)",c:215,p:2,q:"500ml pint",cat:"Cheat"},
+    {n:"Whisky — 2 pegs (60ml)",c:130,p:0,q:"60ml neat/on rocks",cat:"Cheat"},
+    {n:"Red wine — 2 glasses (300ml)",c:250,p:0,q:"2 × 150ml glass",cat:"Cheat"},
+    {n:"Rum & cola — 2 drinks",c:360,p:0,q:"2 × 300ml",cat:"Cheat"},
+    {n:"Cocktails — 2 rounds",c:400,p:0,q:"2 standard cocktails",cat:"Cheat"},
+    {n:"Shots — 3 tequilas",c:195,p:0,q:"3 × 30ml",cat:"Cheat"},
+    {n:"Milkshake (large, thick)",c:550,p:10,q:"500ml",cat:"Cheat"},
+    {n:"Frappuccino (large)",c:380,p:5,q:"500ml",cat:"Cheat"},
+    {n:"Breezer / alcopop (2 bottles)",c:360,p:0,q:"2 × 275ml",cat:"Cheat"},
+  ],
+  "🍰 Treats": [
+    {n:"Cheesecake (large slice)",c:480,p:7,q:"1 large slice (150g)",cat:"Cheat"},
+    {n:"Ice cream — 3 scoops",c:390,p:6,q:"3 scoops (195g)",cat:"Cheat"},
+    {n:"Chocolate lava cake",c:450,p:7,q:"1 piece (150g)",cat:"Cheat"},
+    {n:"Brownie + ice cream",c:560,p:7,q:"1 brownie + 1 scoop",cat:"Cheat"},
+    {n:"Gulab jamun (3 pcs)",c:375,p:6,q:"3 pieces in syrup",cat:"Cheat"},
+    {n:"Doughnut glazed (2)",c:500,p:6,q:"2 glazed doughnuts",cat:"Cheat"},
+    {n:"Waffles with syrup + cream",c:530,p:8,q:"2 waffles loaded",cat:"Cheat"},
+    {n:"Cinnamon roll (large)",c:390,p:6,q:"1 large roll (120g)",cat:"Cheat"},
+    {n:"Mango kulfi (2 pcs)",c:280,p:5,q:"2 pieces (120g)",cat:"Cheat"},
+  ],
+};
+
+function cheatRecoveryPlan(surplus: number, plan?: Plan | null): {meals: string; workout: string; emoji: string} {
+  if (surplus < 200) return {meals:"You're within range — no change needed.",workout:"Optional: 15 min walk.",emoji:"😊"};
+  if (surplus < 500) return {meals:`Lighten tomorrow's dinner by ~${Math.round(surplus*0.5)} kcal — skip the carb, add salad.`,workout:"Add 25 min brisk walk or light cardio.",emoji:"💪"};
+  if (surplus < 900) return {meals:`Drop ~${Math.round(surplus*0.45)} kcal from tomorrow's lunch + dinner. Skip evening snack.`,workout:"40–50 min cardio tomorrow (run, cycle, or HIIT).",emoji:"🔥"};
+  return {meals:`2-day recovery: cut ~${Math.round(surplus*0.3)} kcal/day. Focus on protein + veggies, skip heavy carbs.`,workout:"2 × 45 min cardio over next 2 days.",emoji:"⚡"};
+}
+
+function CheatDayZone({dd, plan, dayCalTarget, onUpdate}: {
+  dd: DayTracking; plan?: Plan|null; dayCalTarget: number;
+  onUpdate: (dd: DayTracking) => void;
+}) {
+  const GREEN="#1DAA61";
+  const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState(Object.keys(CHEAT_PACKS)[0]);
+  const cheatLog = dd.cheatLog || [];
+  const cheatTotal = cheatLog.reduce((s, x) => s + x.cal, 0);
+  const recovery = cheatRecoveryPlan(cheatTotal, plan);
+
+  function addCheat(f: LogFood) {
+    onUpdate({...dd, cheatLog: [...cheatLog, {n:f.n, cal:f.c, p:f.p||0, qty:f.q, servings:1}]});
+  }
+  function removeCheat(i: number) {
+    onUpdate({...dd, cheatLog: cheatLog.filter((_,idx)=>idx!==i)});
+  }
+
+  return (
+    <div className="mb-4 rounded-2xl overflow-hidden" style={{border:"1px solid rgba(255,160,0,0.30)",background:"linear-gradient(135deg,#1a0e00 0%,#251500 100%)"}}>
+      {/* Header */}
+      <button className="w-full flex items-center justify-between px-4 py-3.5"
+        onClick={()=>setOpen(o=>!o)}>
+        <div className="flex items-center gap-2.5">
+          <span style={{fontSize:22}}>🎉</span>
+          <div className="text-left">
+            <div className="font-black text-sm" style={{color:"#FFB347"}}>Cheat Day Zone</div>
+            <div className="text-xs" style={{color:"rgba(255,179,71,0.55)"}}>
+              {cheatTotal>0?`${cheatTotal} kcal logged · tap to ${open?"close":"edit"}`:"Log treats, drinks & splurge meals"}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {cheatTotal>0&&(
+            <span className="font-black text-sm px-2.5 py-0.5 rounded-full" style={{background:"rgba(255,179,71,0.18)",color:"#FFB347"}}>+{cheatTotal} kcal</span>
+          )}
+          <span style={{color:"rgba(255,179,71,0.5)",fontSize:18,transform:open?"rotate(180deg)":"none",transition:"transform 0.25s"}}>⌄</span>
+        </div>
+      </button>
+
+      {open&&(
+        <div className="px-4 pb-4">
+          {/* Category tabs */}
+          <div className="flex gap-1.5 overflow-x-auto pb-2 mb-3">
+            {Object.keys(CHEAT_PACKS).map(k=>(
+              <button key={k} onClick={()=>setTab(k)}
+                className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
+                style={tab===k?{background:"#FFB347",color:"#1a0e00"}:{background:"rgba(255,179,71,0.12)",color:"rgba(255,179,71,0.70)"}}>
+                {k}
+              </button>
+            ))}
+          </div>
+
+          {/* Food grid */}
+          <div className="grid grid-cols-1 gap-1.5 mb-3">
+            {CHEAT_PACKS[tab].map((f,i)=>(
+              <button key={i} onClick={()=>addCheat(f)}
+                className="flex items-center justify-between px-3 py-2.5 rounded-xl transition-all active:scale-[0.98]"
+                style={{background:"rgba(255,179,71,0.08)",border:"1px solid rgba(255,179,71,0.14)"}}>
+                <div className="text-left">
+                  <div className="text-sm font-semibold text-white">{f.n}</div>
+                  <div className="text-xs" style={{color:"rgba(255,255,255,0.38)"}}>{f.q}</div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="font-black text-sm" style={{color:"#FFB347"}}>{f.c}</span>
+                  <span className="text-xs" style={{color:"rgba(255,179,71,0.5)"}}>kcal</span>
+                  <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-black" style={{background:"rgba(255,179,71,0.20)",color:"#FFB347"}}>+</span>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {/* Logged items */}
+          {cheatLog.length>0&&(
+            <div className="rounded-2xl p-3 mb-3" style={{background:"rgba(0,0,0,0.3)"}}>
+              <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{color:"rgba(255,179,71,0.5)"}}>Logged today</p>
+              {cheatLog.map((x,i)=>(
+                <div key={i} className="flex items-center justify-between py-1.5 border-b" style={{borderColor:"rgba(255,179,71,0.10)"}}>
+                  <span className="text-sm text-white/80">{x.n}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold" style={{color:"#FFB347"}}>{x.cal} kcal</span>
+                    <button onClick={()=>removeCheat(i)} className="text-red-400/60 hover:text-red-400 text-xs">✕</button>
+                  </div>
+                </div>
+              ))}
+              <div className="flex justify-between mt-2 pt-1">
+                <span className="text-xs font-black" style={{color:"#FFB347"}}>Total</span>
+                <span className="text-sm font-black" style={{color:"#FFB347"}}>{cheatTotal} kcal</span>
+              </div>
+            </div>
+          )}
+
+          {/* Recovery plan */}
+          {cheatTotal>200&&(
+            <div className="rounded-2xl px-4 py-3" style={{background:"rgba(255,179,71,0.08)",border:"1px solid rgba(255,179,71,0.20)"}}>
+              <p className="font-black text-sm mb-2" style={{color:"#FFB347"}}>{recovery.emoji} Recovery plan</p>
+              <div className="space-y-1.5">
+                <div className="flex gap-2 text-xs" style={{color:"rgba(255,255,255,0.65)"}}>
+                  <span>🍽️</span><span>{recovery.meals}</span>
+                </div>
+                <div className="flex gap-2 text-xs" style={{color:"rgba(255,255,255,0.65)"}}>
+                  <span>🏃</span><span>{recovery.workout}</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* ─────────────── calorie calculation ─────────────── */
 function mapRegions(arr: string[]): string[] {
@@ -2905,15 +3389,52 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet}:{
   const [bar,setBar]=useState(""); const [barBusy,setBarBusy]=useState(false); const [barErr,setBarErr]=useState("");
   const [photoSuggestions, setPhotoSuggestions] = useState<LogFood[]>([]);
   const [photoScanning, setPhotoScanning] = useState(false);
+  /* online search (Open Food Facts) */
+  const [onlineResults,setOnlineResults]=useState<LogFood[]>([]);
+  const [onlineBusy,setOnlineBusy]=useState(false);
+  const onlineTimerRef=useRef<ReturnType<typeof setTimeout>|null>(null);
 
   const total=log.reduce((s,x)=>s+x.cal,0);
   const ALL_FOODS=[...customFoods,...LOG_DB];
   const CATS=["All",...Array.from(new Set(ALL_FOODS.map(f=>f.cat)))];
-  const filtered=ALL_FOODS.filter(f=>{
+  const localFiltered=ALL_FOODS.filter(f=>{
     const matchSearch=!search||f.n.toLowerCase().includes(search.toLowerCase());
     const matchCat=cat==="All"||f.cat===cat;
     return matchSearch&&matchCat;
   }).slice(0,40);
+  const filtered=onlineResults.length>0&&search.length>2?[...localFiltered,...onlineResults]:localFiltered;
+
+  useEffect(()=>{
+    if(search.length<3){setOnlineResults([]);return;}
+    if(onlineTimerRef.current) clearTimeout(onlineTimerRef.current);
+    onlineTimerRef.current=setTimeout(async()=>{
+      if(localFiltered.length>=8){return;}  // enough local results, skip API
+      setOnlineBusy(true);
+      try{
+        const r=await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(search)}&search_simple=1&action=process&json=1&page_size=12&fields=product_name,nutriments,serving_size,brands&lc=en`,{signal:AbortSignal.timeout(5000)});
+        const d=await r.json() as {products?:Record<string,unknown>[]};
+        const results:LogFood[]=(d.products||[])
+          .filter((p)=>p.product_name&&(p.nutriments as Record<string,number>|undefined)?.["energy-kcal_serving"])
+          .slice(0,8)
+          .map((p)=>{
+            const nm=p.product_name as string;
+            const brand=p.brands as string|undefined;
+            const nu=p.nutriments as Record<string,number>;
+            return {
+              n:brand?`${nm} (${(brand).split(",")[0].trim()})`:nm,
+              c:Math.round(nu["energy-kcal_serving"]||nu["energy-kcal_100g"]||0),
+              p:Math.round(nu["proteins_serving"]||nu["proteins_100g"]||0),
+              q:(p.serving_size as string)||"per serving",
+              cat:"🌐 Online",
+            };
+          })
+          .filter(f=>f.c>0);
+        setOnlineResults(results);
+      }catch{setOnlineResults([]);}
+      setOnlineBusy(false);
+    },600);
+    return()=>{if(onlineTimerRef.current)clearTimeout(onlineTimerRef.current);};
+  },[search]);
 
   function addFood(){
     if(!pending)return;
@@ -4148,7 +4669,8 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccou
   };
   const planConsumed=dp?dp.meals.reduce((a,m,i)=>a+(dd.meals[i]?m.cal:0),0):0;
   const diaryTotal=(dd.log||[]).reduce((s,x)=>s+x.cal,0);
-  const consumed=planConsumed+diaryTotal;
+  const cheatTotal=(dd.cheatLog||[]).reduce((s,x)=>s+x.cal,0);
+  const consumed=planConsumed+diaryTotal+cheatTotal;
   const proteinFromPlan=dp?dp.meals.reduce((a,m,i)=>a+(dd.meals[i]?(m.p||0):0),0):0;
   const proteinFromDiary=(dd.log||[]).reduce((s,x)=>s+(x.p||0),0);
   const proteinConsumed=proteinFromPlan+proteinFromDiary;
@@ -4388,6 +4910,12 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccou
                   onUpdate={l=>onUpdate({...tracking,[sel]:{...dd,log:l}})}
                   t={t}
                   diet={plan?.diet}
+                />
+                <CheatDayZone
+                  dd={dd}
+                  plan={plan}
+                  dayCalTarget={cal}
+                  onUpdate={updated=>onUpdate({...tracking,[sel]:updated})}
                 />
                 <Card className="p-5 mb-4">
                   {(()=>{const wt=waterTarget(tracking.lastRecalcWeight);return(<>
