@@ -176,7 +176,7 @@ interface Profile {
   timeline?: string;
   goal?: string; condition?: string; diet?: string; region: string[];
   activity?: string; exercise?: string; meals?: string;
-  cooktime?: string; avoid?: string; weekend?: string; foodPicks?: string[];
+  cooktime?: string; avoid?: string; weekend?: string[]; foodPicks?: string[];
   foodAvoid?: string[];  // auto-blacklisted foods from repeated swaps
   wantWorkout?: string; workoutPlace?: string; workoutFocus?: string; workoutDays?: string;
 }
@@ -193,7 +193,7 @@ interface WorkoutPlan {
 interface ExGuide { muscles: string[]; steps: string[]; tip: string; emoji: string; burnType: "cardio"|"compound"|"isolation"|"hold"; }
 interface Recipe { time: string; ingredients?: string[]; steps: string[]; tip?: string; }
 interface Plan {
-  summary: string; dailyCalories: number; proteinTarget: number; bmi: string; bmiCat: string;
+  summary: string; dailyCalories: number; maintenanceCalories: number; proteinTarget: number; bmi: string; bmiCat: string;
   goal: string; diet: string; condition: string; regLabel: string;
   timeline: string; weeklyLoss: string;
   tips: string[]; days: PlanDay[]; workout?: WorkoutPlan | null;
@@ -225,8 +225,8 @@ type Screen = "welcome" | "quiz" | "foodgame" | "plan" | "login" | "signup" | "d
 interface Question {
   k: keyof Profile; label: string;
   type: "text" | "number" | "pick" | "multi" | "height";
-  ph?: string; sub?: string; opts?: string[];
-  showIf?: (p: Profile) => boolean;   // conditional questions (e.g. workout branch)
+  ph?: string; sub?: string; subFn?: (p: Profile) => string; opts?: string[];
+  showIf?: (p: Profile) => boolean;
 }
 const Q: Question[] = [
   { k:"name",      label:"What should we call you?",                    type:"text",   ph:"e.g. Nishant" },
@@ -236,6 +236,14 @@ const Q: Question[] = [
   { k:"weight",    label:"Current weight (kg)",                         type:"number", ph:"e.g. 78" },
   { k:"target",    label:"Target weight (kg)",                          type:"number", ph:"e.g. 72",
     sub:"Same number as current weight = maintain." },
+  { k:"timeline",  label:"When do you want to hit your goal?",          type:"pick",
+    subFn:(p)=>{
+      const delta=Math.abs(+(p.target||0)-(+(p.weight||0)));
+      if(!delta||isNaN(delta)) return "Pick a pace that fits your lifestyle.";
+      const rec=delta<=3?"1–3 months (small gap, very achievable)":delta<=8?"3–6 months (steady, sustainable)":delta<=18?"6 months – 1 year (realistic for your goal)":"1 year+ (safest for large changes)";
+      return `You want to change ~${delta.toFixed(0)} kg. Our recommendation: ${rec}.`;
+    },
+    opts:["1 month (aggressive)","3 months","6 months","1 year","No fixed timeline"] },
   { k:"goal",      label:"Your primary goal",                           type:"pick",   opts:["Weight loss","Muscle gain","Maintain weight","General fitness"] },
   { k:"condition", label:"Any health condition we should know about?",  type:"pick",
     opts:["None","Diabetes / pre-diabetes","High BP (hypertension)","High cholesterol","Thyroid (hypothyroid)","PCOS / PCOD","Pregnant","Breastfeeding","Other"] },
@@ -243,15 +251,18 @@ const Q: Question[] = [
   { k:"activity",  label:"How active is your daily life?",              type:"pick",
     sub:"Think work, commute and chores — not gym or sport.",
     opts:["Mostly desk job","On feet / moderate","Physically active"] },
-  { k:"region",    label:"Where are you from in India?",               type:"pick",
-    sub:"We'll tailor your meals to your regional cuisine.",
-    opts:["North Indian","South Indian","East Indian","West Indian","Pan-India"] },
+  { k:"weekend",   label:"What's your typical weekend like?",           type:"multi",
+    sub:"Pick all that apply — we'll adjust your weekend calorie targets to match.",
+    opts:["Rest & recovery","Run club / group fitness","Coffee rave / morning run","Hiking / outdoor sports","Social eating out","Travel / exploring","Home cooking & meal prep"] },
+  { k:"region",    label:"Which cuisines do you enjoy?",                type:"multi",
+    sub:"Pick all that apply — we'll mix these into your meal plan.",
+    opts:["North Indian","South Indian","Continental","Mediterranean","East Asian","Middle Eastern","Mexican","Keto","High-Protein","Plant-Based","Intermittent Fasting"] },
   { k:"wantWorkout", label:"Want a workout plan with your diet?",        type:"pick",
     sub:"We'll build a weekly training schedule with a tracker.",
     opts:["Yes, build my workout plan","No thanks, just the diet"] },
   { k:"exercise",  label:"How do you like to exercise?",                type:"pick",
     sub:"Pick whatever fits your lifestyle — we'll build around it.",
-    opts:["Running / jogging","Cycling","Swimming","Yoga / Pilates","Home workouts","Gym (weights)","Sports / games","HIIT / CrossFit"],
+    opts:["Running / jogging","Cycling","Swimming","Yoga / Pilates","Home workouts","Gym (weights)","Sports / games","HIIT / CrossFit","HYROX"],
     showIf:(p)=>!!p.wantWorkout && p.wantWorkout.startsWith("Yes") },
   { k:"workoutDays", label:"How many days a week can you train?",       type:"pick",
     opts:["2 days","3 days","4 days","5 days","6 days"],
@@ -388,10 +399,16 @@ const SLOT_CAL_CAP: Record<string,number> = {
   b:650, ms:250, l:780, es:250, d:620, bt:150,
 };
 const RMAP: Record<string,string> = {
-  "North Indian":"n","South Indian":"s","East Indian":"e","West Indian":"w",
-  "Punjabi":"n","Gujarati":"w","Rajasthani":"n","Bengali":"e",
-  "Goan":"w","Coastal":"s","Continental":"all","East Asian":"all",
-  "Pan-India":"all",
+  // Indian regions (drive Indian-food filtering)
+  "North Indian":"n","South Indian":"s",
+  // International cuisines & trending diets — mapped to "all" so they broaden,
+  // never narrow, the (Indian-first) food database.
+  "Continental":"all","Mediterranean":"all","East Asian":"all",
+  "Middle Eastern":"all","Mexican":"all",
+  "Keto":"all","High-Protein":"all","Plant-Based":"all","Intermittent Fasting":"all",
+  // Legacy keys kept for users who onboarded before the cuisine overhaul
+  "East Indian":"e","West Indian":"w","Punjabi":"n","Gujarati":"w",
+  "Rajasthani":"n","Bengali":"e","Goan":"w","Coastal":"s","Pan-India":"all",
 };
 const LABEL2SLOT: Record<string,string> = {
   "Breakfast":"b","Mid-morning":"ms","Lunch":"l","Evening snack":"es","Dinner":"d","Bedtime":"bt",
@@ -554,6 +571,20 @@ const LOG_DB: LogFood[] = [
   {n:"Coconut — grated",p:1, c:90,q:"¼ cup (20g)",cat:"Nuts & Fats"},
   {n:"Honey",p:0, c:64,q:"1 tbsp (21g)",cat:"Nuts & Fats"},
   {n:"Sugar",p:0, c:48,q:"1 tbsp (12g)",cat:"Nuts & Fats"},
+  /* Alcohol & Social Drinks — calorie tracking without judgement */
+  {n:"Beer (pint, 500ml)",p:2, c:215,q:"500ml",cat:"Alcohol"},
+  {n:"Beer (bottle, 330ml)",p:1, c:145,q:"330ml bottle",cat:"Alcohol"},
+  {n:"Red wine (glass, 150ml)",p:0, c:125,q:"1 glass (150ml)",cat:"Alcohol"},
+  {n:"White wine (glass, 150ml)",p:0, c:120,q:"1 glass (150ml)",cat:"Alcohol"},
+  {n:"Whisky / rum (peg, 30ml)",p:0, c:65,q:"1 peg (30ml)",cat:"Alcohol"},
+  {n:"Whisky & soda",p:0, c:75,q:"1 glass (200ml)",cat:"Alcohol"},
+  {n:"Vodka (shot, 30ml)",p:0, c:60,q:"1 shot (30ml)",cat:"Alcohol"},
+  {n:"Gin & tonic",p:0, c:140,q:"1 glass (250ml)",cat:"Alcohol"},
+  {n:"Rum & cola",p:0, c:180,q:"1 glass (300ml)",cat:"Alcohol"},
+  {n:"Tequila shot",p:0, c:65,q:"1 shot (30ml)",cat:"Alcohol"},
+  {n:"Champagne / prosecco",p:0, c:90,q:"1 flute (125ml)",cat:"Alcohol"},
+  {n:"Old Monk (peg, 30ml)",p:0, c:65,q:"1 peg (30ml)",cat:"Alcohol"},
+  {n:"Cocktail (standard)",p:0, c:200,q:"1 cocktail (200ml)",cat:"Alcohol"},
 ];
 
 /* ─────────────── calorie calculation ─────────────── */
@@ -575,6 +606,7 @@ function normExercise(ex: string | undefined): string {
     "Gym (weights)":             "Gym 3x week",
     "Sports / games":            "Gym 5x+ / sports",
     "HIIT / CrossFit":           "Gym 5x+ / sports",
+    "HYROX":                     "Gym 5x+ / sports",
   };
   return m[ex || ""] || ex || "None";
 }
@@ -633,14 +665,16 @@ function calcStats(d: Profile) {
     effectiveGoal = "Maintain weight";
   }
 
-  const timeline = d.timeline || "6 months (recommended)";
+  const timeline = d.timeline || "6 months";
   const deficitMap: Record<string, number> = {
     "1 month (aggressive)": 750, "3 months": 600,
-    "6 months (recommended)": 500, "1 year": 350, "No fixed timeline": 250,
+    "6 months": 500, "6 months (recommended)": 500,  // legacy key kept
+    "1 year": 350, "No fixed timeline": 250,
   };
   const surplusMap: Record<string, number> = {
     "1 month (aggressive)": 500, "3 months": 350,
-    "6 months (recommended)": 250, "1 year": 150, "No fixed timeline": 100,
+    "6 months": 250, "6 months (recommended)": 250,
+    "1 year": 150, "No fixed timeline": 100,
   };
 
   /* ── Absolute calorie floors by safety category ── */
@@ -683,7 +717,7 @@ function calcStats(d: Profile) {
   const weeklyKg = (Math.abs(weeklyKcal) / 7700).toFixed(2);
   const direction = weeklyKcal < -50 ? "loss" : weeklyKcal > 50 ? "gain" : "";
 
-  return { cm, bmi: bmi.toFixed(1), bmiCat, tdee, weeklyKg, direction, effectiveGoal };
+  return { cm, bmi: bmi.toFixed(1), bmiCat, tdee, maintenanceTdee: roundedMaintenance, weeklyKg, direction, effectiveGoal };
 }
 
 function dietOK(f: FoodItem, diet: string) {
@@ -1015,35 +1049,48 @@ function buildWorkout(p: Profile): WorkoutPlan | null {
   return {place:placeLabel,focus,daysPerWeek:days,schedule,days:dayObjs,notes};
 }
 
+/* Weekend calorie boost/cut based on what the user actually does on weekends */
+function weekendMod(dayName: string, weekendPrefs: string[]): number {
+  if (dayName !== "Sat" && dayName !== "Sun") return 0;
+  if (!weekendPrefs.length) return 0;
+  let mod = 0;
+  if (weekendPrefs.includes("Run club / group fitness"))   mod += 200;
+  if (weekendPrefs.includes("Coffee rave / morning run"))  mod += 100;
+  if (weekendPrefs.includes("Hiking / outdoor sports"))    mod += 250;
+  if (weekendPrefs.includes("Social eating out"))          mod += 150;
+  if (weekendPrefs.includes("Travel / exploring"))         mod += 100;
+  if (weekendPrefs.includes("Rest & recovery"))            mod -= 100;
+  return Math.min(450, Math.max(-200, mod));
+}
+
 function buildPlan(profile: Profile): Plan {
   const st=calcStats(profile);
   const cal=st.tdee;
+  const maintenance=st.maintenanceTdee;
   const cond=profile.condition||"None";
+  const weekendPrefs=(profile.weekend as string[]|undefined)||[];
   const ctx: MealCtx={
-    goal:st.effectiveGoal,  // use effective goal so meal scoring aligns with actual target
+    goal:st.effectiveGoal,
     cond,
     diet:profile.diet||"Pure veg",
     regions:mapRegions(profile.region),
     simplePref:false,
     picks:profile.foodPicks||[],
   };
-  /* Auto-select meal pattern: more frequent meals for higher-calorie needs
-     so no single slot balloons beyond its realistic ceiling.            */
   const autoSlotKey = cal>2500?"5-6 small meals":cal>1900?"3 meals + 2 snacks":(profile.meals||"3 meals");
   const slots=SLOTSET[autoSlotKey]||SLOTSET["3 meals"];
   const weekUsed=new Set<string>();
   const days: PlanDay[]=(WEEK as readonly string[]).map((dn,di)=>{
+    const dayCal = cal + weekendMod(dn as string, weekendPrefs);
     let raw=slots.map(([code,frac,label])=>{
-      /* Cap each slot so breakfast/lunch stay heavy and dinner + snacks stay realistic */
       const slotCap=SLOT_CAL_CAP[code]||700;
-      const targetCal=Math.min(Math.round(cal*frac),slotCap);
+      const targetCal=Math.min(Math.round(dayCal*frac),slotCap);
       const m=pickMeal(code,targetCal,di,weekUsed,ctx);
       weekUsed.add(m.n);
       return {time:label,food:m.n,cal:m.c,p:m.p||0,qty:m.q};
     });
     const total=raw.reduce((a,b)=>a+b.cal,0);
-    /* Gentle scale only — never inflate a dish beyond 1.25× its real calories */
-    let f=total?cal/total:1; f=Math.max(0.85,Math.min(1.25,f));
+    let f=total?dayCal/total:1; f=Math.max(0.85,Math.min(1.25,f));
     raw=raw.map(m=>({...m,cal:Math.round((m.cal*f)/5)*5}));
     if (di%7===6) weekUsed.clear();
     return {day:dn as DayName,meals:raw};
@@ -1084,9 +1131,16 @@ function buildPlan(profile: Profile): Plan {
     ? " Weight loss during pregnancy isn't recommended — this is a healthy maintenance plan instead."
     : "";
 
+  const deficitAmt = maintenance - cal;
+  const deficitNote = deficitAmt > 50
+    ? ` Your body burns ~${maintenance} kcal/day — eating ${cal} kcal creates a ${deficitAmt} kcal daily deficit.`
+    : deficitAmt < -50
+    ? ` Your body burns ~${maintenance} kcal/day — eating ${cal} kcal adds ${Math.abs(deficitAmt)} kcal above maintenance for muscle growth.`
+    : "";
+
   return {
-    summary:`Here's a ${goalLabel} plan at about ${cal} kcal a day, built around ${regLabel} food you actually like.${condNote}${bfNote}${pregnantNote}`,
-    dailyCalories:cal,proteinTarget,bmi:st.bmi,bmiCat:st.bmiCat,
+    summary:`Here's a ${goalLabel} plan at about ${cal} kcal a day, built around ${regLabel} food you actually like.${deficitNote}${condNote}${bfNote}${pregnantNote}`,
+    dailyCalories:cal,maintenanceCalories:maintenance,proteinTarget,bmi:st.bmi,bmiCat:st.bmiCat,
     goal:st.effectiveGoal,diet:profile.diet||"Pure veg",
     condition:cond,regLabel,timeline,weeklyLoss,
     tips:makeTips(profile,cal),days,workout:buildWorkout(profile),
@@ -1646,7 +1700,7 @@ function QuizTeaser({profile}:{profile:Profile}) {
       <div className="flex gap-4">
         <div>
           <div className="text-xl font-black text-gray-800">{roughTdee} kcal</div>
-          <div className="text-xs text-gray-400">rough daily target</div>
+          <div className="text-xs text-gray-400">est. maintenance (deficit applied at end)</div>
         </div>
         <div className="border-l border-green-200 pl-4">
           <div className="text-xl font-black" style={{color:bmiColor}}>{bmi.toFixed(1)}</div>
@@ -1794,12 +1848,14 @@ function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;on
 }
 
 /* ─────────────── Food affiliation game ─────────────── */
+/* Healthy-only ingredient picks — EatBC is a health app, so no fried/sugary
+   items (paratha, white rice, poha, chai, biscuits) make this list. */
 const FOOD_GAME: {e:string;n:string}[] = [
-  {e:"🫓",n:"Paratha"},{e:"🧀",n:"Paneer"},{e:"🍲",n:"Dal"},{e:"🫘",n:"Rajma"},
-  {e:"🥘",n:"Chole"},{e:"🥞",n:"Dosa"},{e:"🍘",n:"Idli"},{e:"🍚",n:"Rice"},
-  {e:"🍗",n:"Chicken"},{e:"🐟",n:"Fish"},{e:"🥚",n:"Egg"},{e:"🍛",n:"Khichdi"},
-  {e:"🥣",n:"Poha"},{e:"🌾",n:"Oats"},{e:"🥗",n:"Salad"},{e:"🫛",n:"Sprouts"},
-  {e:"🥛",n:"Milk"},{e:"☕",n:"Chai"},{e:"🍎",n:"Fruit"},{e:"🥜",n:"Peanuts"},
+  {e:"🧀",n:"Paneer"},{e:"🍲",n:"Dal"},{e:"🫘",n:"Rajma"},{e:"🥘",n:"Chole"},
+  {e:"🥞",n:"Dosa"},{e:"🍘",n:"Idli"},{e:"🍗",n:"Chicken"},{e:"🐟",n:"Fish"},
+  {e:"🥚",n:"Egg"},{e:"🍛",n:"Khichdi"},{e:"🌾",n:"Oats"},{e:"🥗",n:"Salad"},
+  {e:"🫛",n:"Sprouts"},{e:"🥦",n:"Veggies"},{e:"🍚",n:"Brown Rice"},{e:"🥛",n:"Milk"},
+  {e:"🍶",n:"Curd"},{e:"🍵",n:"Green Tea"},{e:"🍎",n:"Fruit"},{e:"🥜",n:"Peanuts"},
 ];
 function FoodGame({name,onDone}:{name?:string;onDone:(picks:string[])=>void}) {
   const NEED=5;
@@ -3787,7 +3843,7 @@ export default function App() {
         </div>
         {stepClamped>=5&&<QuizTeaser profile={profile}/>}
         <h2 className="text-2xl font-bold text-gray-800">{cur.label}</h2>
-        {cur.sub&&<p className="text-sm text-gray-400 mt-1 mb-4">{cur.sub}</p>}
+        {(cur.subFn?.(profile)||cur.sub)&&<p className="text-sm text-gray-400 mt-1 mb-4">{cur.subFn?.(profile)||cur.sub}</p>}
         <div className={cur.sub?"":"mt-5"}>
           {cur.type==="pick"&&(
             <div className="grid gap-2.5">
@@ -3911,7 +3967,8 @@ export default function App() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-5">
           <Chip label="BMI" val={`${plan.bmi} · ${plan.bmiCat}`}/>
           <Chip label="Goal" val={plan.goal}/>
-          <Chip label="Daily kcal" val={`${plan.dailyCalories} kcal`} accent/>
+          <Chip label="Daily target" val={`${plan.dailyCalories} kcal`} accent/>
+          <Chip label="Maintenance" val={`${plan.maintenanceCalories} kcal`}/>
           <Chip label="Diet" val={plan.diet}/>
         </div>
 
