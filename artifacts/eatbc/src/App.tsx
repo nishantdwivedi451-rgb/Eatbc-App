@@ -6,8 +6,7 @@ import {
   Sparkles, Stethoscope, User, UserPlus, ArrowRight, Scale,
   Flame, BarChart3, Trophy, Users, Bell, Plus, RefreshCw,
   Lightbulb, Globe, X, Check, Target, Dumbbell, CalendarDays, Clock, BookOpen, ChefHat,
-  Mic, MicOff, Volume2, Camera, Lock, Zap, Star,
-  Camera, Lock, Zap, Star,
+  Mic, MicOff, Volume2, Camera, Lock, Zap, Star, Activity,
 } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -219,6 +218,12 @@ interface Tracking {
   joinDate?: string;            // ISO date of first tracked day
   lastRecalcDate?: string;      // ISO date when plan was last recalculated
   lastRecalcWeight?: number;    // weight (kg) at last recalc
+  fitConnected?: boolean;
+  lastFitSync?: string;
+  fitAvgSteps?: number;
+  fitPalTier?: string;
+  fitTodaySteps?: number;
+  fitTodayCalories?: number;
 }
 type Screen = "welcome" | "quiz" | "foodgame" | "plan" | "login" | "signup" | "dash" | "onboarding";
 
@@ -2744,7 +2749,7 @@ function WeeklyReviewCard({history,weights,onClose}:{history:Record<string,HistE
 
 function AdaptiveRecalcBanner({weights, lastRecalcDate, lastRecalcWeight, goal, onRecalc}:{
   weights:Record<string,number>; lastRecalcDate?:string; lastRecalcWeight?:number;
-  goal:string; onRecalc:()=>void;
+  goal:string; onRecalc:(activity?:string)=>void;
 }) {
   const wEntries = Object.entries(weights).sort();
   if (wEntries.length < 1) return null;
@@ -3136,9 +3141,121 @@ function VeerBot({session,planCondition}:{session:Session|null;planCondition:str
   );
 }
 
+/* ─────────────── GoogleFitCard ─────────────── */
+function GoogleFitCard({session,tracking,onUpdate,onRecalc}:{
+  session:Session;tracking:Tracking;onUpdate:(t:Tracking)=>void;onRecalc:(activity?:string)=>void;
+}) {
+  const [syncing,setSyncing]=useState(false);
+  const [err,setErr]=useState("");
+
+  const connected=!!tracking.fitConnected;
+  const steps=tracking.fitTodaySteps||0;
+  const avg=tracking.fitAvgSteps||0;
+  const palTier=tracking.fitPalTier||"";
+  const lastSync=tracking.lastFitSync?new Date(tracking.lastFitSync).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"";
+
+  function connect() {
+    window.location.href=`/api/connect/googlefit?token=${encodeURIComponent(session.token)}`;
+  }
+
+  async function sync() {
+    setSyncing(true); setErr("");
+    try {
+      const data=await apiPost("/api/sync/googlefit",{},session.token) as {todaySteps?:number;avgSteps?:number;palTier?:string;todayCalories?:number};
+      const prev=data.palTier||"";
+      const tierChanged=prev&&prev!==tracking.fitPalTier;
+      const newTracking:Tracking={...tracking,
+        lastFitSync:new Date().toISOString(),
+        fitTodaySteps:data.todaySteps||0,
+        fitAvgSteps:data.avgSteps||0,
+        fitPalTier:prev,
+        fitTodayCalories:data.todayCalories||0,
+      };
+      onUpdate(newTracking);
+      if(tierChanged) onRecalc(prev);
+    } catch { setErr("Sync failed. Try again."); }
+    setSyncing(false);
+  }
+
+  async function disconnect() {
+    setSyncing(true);
+    try {
+      await apiPost("/api/disconnect/googlefit",{},session.token);
+      const newTracking:Tracking={...tracking,fitConnected:false,fitTodaySteps:0,fitAvgSteps:0,fitPalTier:"",fitTodayCalories:0,lastFitSync:""};
+      onUpdate(newTracking);
+    } catch { setErr("Disconnect failed."); }
+    setSyncing(false);
+  }
+
+  const stepsBar=Math.min(steps/10000,1);
+  const tierColor=palTier==="Physically active"?"#1DAA61":palTier==="On feet / moderate"?"#F59E0B":"#6B7280";
+
+  if(!connected) return (
+    <div className="rounded-3xl p-5 mb-4 border-2 border-dashed border-gray-200 flex flex-col items-center text-center gap-3">
+      <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{background:"#E8F5E9"}}>
+        <Activity size={22} style={{color:"#1DAA61"}}/>
+      </div>
+      <div>
+        <p className="font-bold text-gray-800">Connect Google Fit</p>
+        <p className="text-xs text-gray-400 mt-1">Auto-sync steps & calories. We'll recalculate your plan when your activity level changes.</p>
+      </div>
+      <button onClick={connect}
+        className="px-5 py-2.5 rounded-2xl text-white text-sm font-semibold shadow-md hover:opacity-90 transition"
+        style={{background:"#1DAA61"}}>
+        Connect Google Fit
+      </button>
+    </div>
+  );
+
+  return (
+    <div className="rounded-3xl p-5 mb-4" style={{background:"linear-gradient(135deg,#E8F5E9,#F0FFF4)"}}>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Activity size={18} style={{color:"#1DAA61"}}/>
+          <span className="font-bold text-gray-800 text-sm">Google Fit</span>
+          <span className="text-xs px-2 py-0.5 rounded-full text-white font-semibold" style={{background:"#1DAA61"}}>Live</span>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={sync} disabled={syncing}
+            className="text-xs px-3 py-1.5 rounded-xl border border-gray-200 bg-white text-gray-600 font-medium disabled:opacity-50 hover:bg-gray-50 transition flex items-center gap-1">
+            <RefreshCw size={11} className={syncing?"animate-spin":""}/>Sync
+          </button>
+          <button onClick={disconnect} disabled={syncing}
+            className="text-xs px-3 py-1.5 rounded-xl border border-red-100 bg-white text-red-400 font-medium hover:bg-red-50 transition disabled:opacity-50">
+            Disconnect
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 mb-3">
+        <div className="bg-white rounded-2xl p-3 shadow-sm">
+          <p className="text-xs text-gray-400 mb-0.5">Today's steps</p>
+          <p className="text-2xl font-black text-gray-800">{steps.toLocaleString()}</p>
+          <div className="h-1.5 bg-gray-100 rounded-full mt-1.5 overflow-hidden">
+            <div className="h-1.5 rounded-full transition-all" style={{width:`${stepsBar*100}%`,background:"#1DAA61"}}/>
+          </div>
+          <p className="text-[10px] text-gray-400 mt-1">Goal: 10,000</p>
+        </div>
+        <div className="bg-white rounded-2xl p-3 shadow-sm">
+          <p className="text-xs text-gray-400 mb-0.5">7-day avg steps</p>
+          <p className="text-2xl font-black text-gray-800">{avg.toLocaleString()}</p>
+          <div className="mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold text-white" style={{background:tierColor}}>
+            {palTier||"—"}
+          </div>
+        </div>
+      </div>
+
+      {palTier&&(
+        <p className="text-xs text-gray-500">Activity tier <b style={{color:tierColor}}>{palTier}</b> is used in your TDEE. Plan auto-updates when this changes.{lastSync?` Last sync ${lastSync}`:""}</p>
+      )}
+      {err&&<p className="text-xs text-red-500 mt-1">{err}</p>}
+    </div>
+  );
+}
+
 function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccount,onRecalc}:{
   session:Session;plan:Plan|null;tracking:Tracking;lang:Lang;
-  onUpdate:(t:Tracking)=>void;onSwap:(day:DayName,mealIdx:number)=>void;onLogout:()=>void;onDeleteAccount:()=>void;onRecalc:()=>void;
+  onUpdate:(t:Tracking)=>void;onSwap:(day:DayName,mealIdx:number)=>void;onLogout:()=>void;onDeleteAccount:()=>void;onRecalc:(activity?:string)=>void;
 }) {
   const t=makeT(lang);
   const today=WEEK[(new Date().getDay()+6)%7];
@@ -3156,13 +3273,11 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccou
     onUpdate({...tracking,[sel]:{...dd,meals:newMeals},mealTimes:{...(tracking.mealTimes||{}),[sel]:newTimes}});
   };
   const setWater=(n:number)=>onUpdate({...tracking,[sel]:{...dd,water:n}});
-  const logW=(w:number)=>onUpdate({
-  ...tracking,
-  weights:{
-    ...(tracking.weights||{}),
-    [new Date().toISOString().slice(0,10)]:w
-  }
-} as Tracking);
+  const logW=(w:number)=>{
+    const newTracking={...tracking,weights:{...(tracking.weights||{}),[isoDate()]:w}} as Tracking;
+    onUpdate(newTracking);
+    onRecalc();
+  };
   const planConsumed=dp?dp.meals.reduce((a,m,i)=>a+(dd.meals[i]?m.cal:0),0):0;
   const diaryTotal=(dd.log||[]).reduce((s,x)=>s+x.cal,0);
   const consumed=planConsumed+diaryTotal;
@@ -3256,6 +3371,7 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccou
   ];
 
   return (
+    <>
     <Shell wide>
       <div style={{animation:"eFade .4s ease both"}}>
         <div className="rounded-3xl p-6 text-white shadow-lg mb-4"
@@ -3408,6 +3524,7 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccou
 
         {tab==="progress"&&(
           <>
+            <GoogleFitCard session={session} tracking={tracking} onUpdate={onUpdate} onRecalc={onRecalc}/>
             <TrendsCard history={history} calTarget={cal} proteinTarget={proteinTargetVal} weights={tracking.weights||{}} t={t}/>
             <EatingWindowCard mealTimes={tracking.mealTimes||{}} today={today}/>
             <InsightsCard history={history} proteinTarget={proteinTargetVal} t={t}/>
@@ -3463,6 +3580,7 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccou
       )}
     </Shell>
     <VeerBot session={session} planCondition={plan?.condition||""}/>
+    </>
   );
 }
 
@@ -3487,12 +3605,36 @@ export default function App() {
     const s=sget<Session>("eatbc:session");
     if (s?.token){
       setSession(s);
+      const params=new URLSearchParams(window.location.search);
+      const fitJustConnected=params.get("fitConnected")==="true";
+      const fitError=params.get("fitError");
+      if(fitJustConnected||fitError) {
+        window.history.replaceState({},"",window.location.pathname);
+      }
       Promise.all([
         apiGet("/api/plan",s.token),
         apiGet("/api/tracking",s.token),
       ]).then(([pd,td])=>{
         if(pd.plan) setPlan(pd.plan);
-        setTracking(td.tracking||{});
+        const tr:Tracking=td.tracking||{};
+        if(fitJustConnected) {
+          // Kick off first sync in background
+          apiPost("/api/sync/googlefit",{},s.token).then((syncData:{todaySteps?:number;avgSteps?:number;palTier?:string;todayCalories?:number})=>{
+            setTracking(prev=>({
+              ...prev,
+              fitConnected:true,
+              lastFitSync:new Date().toISOString(),
+              fitTodaySteps:syncData.todaySteps||0,
+              fitAvgSteps:syncData.avgSteps||0,
+              fitPalTier:syncData.palTier||"",
+              fitTodayCalories:syncData.todayCalories||0,
+            }));
+          }).catch(()=>{
+            setTracking(prev=>({...prev,fitConnected:true}));
+          });
+        } else {
+          setTracking(tr);
+        }
         setScreen("dash");
       }).catch(()=>{
         sdel("eatbc:session");
@@ -3629,12 +3771,13 @@ export default function App() {
     quoteRef.current=pickQuote();
   }
 
-  function recalcPlan() {
+  function recalcPlan(activity?: string) {
     if (!plan) return;
     const wEntries = Object.entries(tracking.weights||{}).sort();
     if (!wEntries.length) return;
     const newWeight = wEntries[wEntries.length-1][1];
-    const newProfile = {...profile, weight: String(newWeight)};
+    const effectiveActivity = activity || tracking.fitPalTier || profile.activity;
+    const newProfile = {...profile, weight: String(newWeight), ...(effectiveActivity ? {activity: effectiveActivity} : {})};
     try {
       const newPlan = buildPlan(newProfile);
       const newTracking:Tracking = {
@@ -3857,7 +4000,7 @@ export default function App() {
       onSwap={swapMeal}
       onLogout={logout}
       onDeleteAccount={deleteAccount}
-      onRecalc={recalcPlan}/>
+      onRecalc={(activity?:string)=>recalcPlan(activity)}/>
   );
 
   return <Shell><Card className="p-10 text-center text-gray-400">Loading…</Card></Shell>;
