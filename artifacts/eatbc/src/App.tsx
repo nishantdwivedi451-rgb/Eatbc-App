@@ -219,7 +219,7 @@ interface Tracking {
   lastRecalcDate?: string;      // ISO date when plan was last recalculated
   lastRecalcWeight?: number;    // weight (kg) at last recalc
 }
-type Screen = "welcome" | "quiz" | "foodgame" | "plan" | "login" | "signup" | "dash" | "onboarding";
+type Screen = "welcome" | "quiz" | "foodgame" | "plan" | "login" | "signup" | "dash" | "onboarding" | "intro";
 
 /* ─────────────── quiz questions ─────────────── */
 interface Question {
@@ -537,6 +537,11 @@ const LOG_DB: LogFood[] = [
   {n:"Fresh fruit juice",p:1, c:100,q:"1 glass (200ml)",cat:"Beverages"},
   {n:"Sugarcane juice",p:0, c:180,q:"1 glass (250ml)",cat:"Beverages"},
   {n:"Protein shake (whey, 1 scoop)",p:24,c:120,q:"30g powder in water",cat:"Beverages"},
+  {n:"Nimbu pani (lemonade)",p:0, c:60, q:"1 glass (250ml)",cat:"Beverages"},
+  {n:"Aam panna",p:0, c:90, q:"1 glass (250ml)",cat:"Beverages"},
+  {n:"Jaljeera",p:0, c:40, q:"1 glass (200ml)",cat:"Beverages"},
+  {n:"Coconut milk",p:2, c:140,q:"½ cup (100ml)",cat:"Beverages"},
+  {n:"Turmeric latte (golden milk)",p:4, c:120,q:"1 cup (250ml)",cat:"Beverages"},
   /* Restaurant & Takeout */
   {n:"Biryani — chicken (plate)",p:30,c:540,q:"1 plate (350g)",cat:"Restaurant"},
   {n:"Biryani — veg (plate)",p:12,c:450,q:"1 plate (300g)",cat:"Restaurant"},
@@ -844,6 +849,15 @@ const EXERCISE_GUIDE: Record<string, ExGuide> = {
   "DB Romanian deadlift":{muscles:["Hamstrings","Glutes","Lower back"],steps:["Hold dumbbells at hips, feet hip-width apart","Push hips back and hinge forward, keeping back flat and weights close to legs","Lower weights to mid-shin level — feel the hamstring stretch","Drive hips forward to return to standing, squeezing glutes at the top","Don't round your back at any point"],tip:"Think of closing a car door with your glutes at the top — hard squeeze = full hip extension.",emoji:"🏋️",burnType:"compound"},
   "DB walking lunge":{muscles:["Quads","Glutes","Hamstrings","Balance"],steps:["Hold dumbbells at sides and stand tall","Step forward with one leg and lower until both knees form 90°","Keep front knee over ankle — don't let it cave in","Push through front heel to bring feet together and step forward with the other leg","Continue alternating for the set distance or rep count"],tip:"Keep your torso upright and take long enough strides so your front shin stays vertical.",emoji:"🚶",burnType:"compound"},
   "DB calf raise":{muscles:["Gastrocnemius","Soleus"],steps:["Hold dumbbells at sides, stand on floor or a step edge","Rise up onto the balls of both feet as high as possible","Pause for 1 second at the top","Lower slowly — 3 seconds — for a full calf stretch","Avoid bouncing — the slow lower is where it works"],tip:"Single-leg version dramatically increases difficulty without needing heavier weights.",emoji:"🦶",burnType:"isolation"},
+  /* HYROX stations */
+  "Ski erg":{muscles:["Lats","Triceps","Core","Shoulders","Cardio"],steps:["Stand facing the ski erg handle; grab both handles above your head","Drive arms down and back in a powerful sweeping motion, bending your knees slightly","Follow through until arms pass your hips; use hip hinge to add power","Reset arms overhead with control and immediately repeat","Keep a steady rhythm — smooth strokes beat frantic ones"],tip:"Hinge at the hip every stroke — it's more like a deadlift than an arm exercise. That's where the power comes from.",emoji:"🎿",burnType:"cardio"},
+  "Sled push":{muscles:["Quads","Glutes","Calves","Shoulders","Core"],steps:["Load the sled with appropriate weight; place hands on the uprights at hip height","Drive one foot back and push powerfully off the ground, like a sprint start","Keep hips low and back flat — don't stand upright during the push","Take short, powerful steps and drive through your whole foot","Push continuously until the distance is complete"],tip:"Low hips = more power. The moment you stand up tall, the sled slows down — stay aggressive and low.",emoji:"🛷",burnType:"compound"},
+  "Sled pull":{muscles:["Back","Biceps","Hamstrings","Core","Glutes"],steps:["Attach a harness or rope to the sled; face away from the sled","Hold the rope at arm's length and lean forward slightly at the hip","Drive your feet into the ground, taking short powerful backward steps","Pull the rope hand over hand, keeping tension throughout","Stay low and maintain a powerful hip position — don't bend over too far"],tip:"Think of it as a reverse sled push — keep that same low, powerful hip position for maximum drive.",emoji:"⛓️",burnType:"compound"},
+  "Burpee broad jumps":{muscles:["Full body","Glutes","Quads","Chest","Cardio"],steps:["Stand with feet shoulder-width apart","Drop your hands to the floor and jump feet back into a plank (no push-up in HYROX)","Jump feet back toward hands","Explode forward with a powerful broad jump — aim for maximum distance","Land softly in a quarter-squat and immediately flow into the next rep"],tip:"The broad jump is the scoring distance — spend energy on the jump, not the plank. Keep the floor portion brisk and efficient.",emoji:"🦘",burnType:"cardio"},
+  "Rowing (erg)":{muscles:["Back","Legs","Core","Biceps","Cardio"],steps:["Sit on the erg, feet strapped in, knees bent, shins vertical","Hinge forward from the hip and grip the handle","Drive powerfully through your legs first — legs, then lean back, then pull arms","Pull the handle to your lower chest, elbows driving past your torso","Return in reverse: arms out, lean forward, slide in — stay fluid"],tip:"It's 60% legs, 20% back, 20% arms. Most beginners over-arm-pull — focus on the leg drive as the primary power source.",emoji:"🚣",burnType:"cardio"},
+  "Farmers carry":{muscles:["Grip","Trapezius","Core","Glutes","Legs"],steps:["Pick up two heavy dumbbells or kettlebells at your sides — hip hinge, neutral back","Stand tall, shoulders back and down, core braced tight","Walk with purpose — short, controlled steps; don't let the weights sway","Keep your gaze forward and breathe steadily throughout","Set weights down under control and pick back up for the next rep"],tip:"If your grip fails before your legs and core, use chalk. But let grip be your training signal — it's the first thing to give out in a race.",emoji:"🧺",burnType:"compound"},
+  "Sandbag lunges":{muscles:["Quads","Glutes","Core","Balance","Shoulders"],steps:["Hoist a sandbag onto one shoulder or hold it in a bear hug at chest height","Step forward with one foot; lower the back knee toward the floor","Keep torso upright — the sandbag will try to pull you forward; resist","Push through the front heel to return to standing","Alternate legs each step, covering the required distance"],tip:"Shoulder carry is harder than bear hug but better training for race day. Keep the bag high and tight — a drooping bag kills your balance.",emoji:"💼",burnType:"compound"},
+  "Wall balls":{muscles:["Quads","Glutes","Shoulders","Core","Cardio"],steps:["Hold a 6–9 kg medicine ball at your chest; stand 30 cm from the wall","Squat down to at least parallel, keeping the ball at chest and chest up","Drive up explosively and press the ball at the wall target (3 m up)","Catch the ball as it falls, absorbing into a squat immediately","Cycle continuously — squat, throw, catch forms one fluid movement"],tip:"The catch drives you into the next squat — don't fight it. Let gravity load the next rep. Rhythm beats power every time.",emoji:"🏐",burnType:"compound"},
 };
 
 /* ─────────────── recipe database ─────────────── */
@@ -938,10 +952,17 @@ const EX: Record<string, Record<string, ExDef[]>> = {
     push: [{n:"Push-ups"},{n:"Bench dips"}],
     pull: [{n:"Park bar rows",note:"if a bar is available"},{n:"Superman hold",hold:true}],
   },
+  hyrox: {
+    cardio:[{n:"Ski erg",note:"1000m / 4 min"},{n:"Rowing (erg)",note:"1000m / 4 min"},{n:"Run intervals",note:"1 km at race pace"}],
+    push:  [{n:"Sled push",note:"2×25m"},{n:"Wall balls",note:"20 reps per set"},{n:"Burpee broad jumps",note:"4×20m"}],
+    pull:  [{n:"Sled pull",note:"2×25m"},{n:"Farmers carry",note:"2×50m"},{n:"Sandbag lunges",note:"2×25m each leg"}],
+    legs:  [{n:"Bodyweight squats"},{n:"Reverse lunges",note:"each leg"},{n:"Glute bridges"},{n:"Bulgarian split squat",note:"each leg"}],
+    core:  [{n:"Plank",hold:true},{n:"Dead bug"},{n:"Mountain climbers"},{n:"Leg raises"}],
+  },
 };
 const PLACE_KEY: Record<string,string> = {
   "Home — no equipment":"home","Home — dumbbells / bands":"dumbbell",
-  "Full gym":"gym","Outdoor / cardio":"outdoor",
+  "Full gym":"gym","Outdoor / cardio":"outdoor","HYROX Gym":"hyrox",
 };
 /* Infer workout location from exercise type when workoutPlace not asked */
 const EXERCISE_TO_PLACE: Record<string,string> = {
@@ -953,6 +974,7 @@ const EXERCISE_TO_PLACE: Record<string,string> = {
   "Gym (weights)":      "Full gym",
   "Sports / games":     "Outdoor / cardio",
   "HIIT / CrossFit":    "Home — dumbbells / bands",
+  "HYROX":              "HYROX Gym",
 };
 /* Infer training focus from diet goal when workoutFocus not asked */
 const GOAL_TO_FOCUS: Record<string,string> = {
@@ -983,6 +1005,7 @@ function buildWorkout(p: Profile): WorkoutPlan | null {
   const muscle = focus==="Build muscle" || focus==="Get stronger";
   const burn = focus==="Burn fat";
   const cardioPlace = placeKey==="outdoor";
+  const isHyrox = placeKey==="hyrox";
 
   type Slot = { cat: string; n: number };
   const FB=(label:string):{label:string;focus:string;cats:Slot[]}=>(
@@ -993,8 +1016,19 @@ function buildWorkout(p: Profile): WorkoutPlan | null {
   const upper={label:"Upper Body",focus:"Chest · back · arms",cats:[{cat:"push",n:2},{cat:"pull",n:2},{cat:"core",n:1}]};
   const lower={label:"Lower Body",focus:"Legs · core",cats:[{cat:"legs",n:3},{cat:"core",n:1}]};
 
+  /* HYROX-specific 5-day rotation: machine aerobic → sled/push → carry/pull → simulation → recovery */
+  const hyroxTemplates:{label:string;focus:string;cats:Slot[]}[]=[
+    {label:"Machine Endurance",focus:"Ski erg · rowing · run",cats:[{cat:"cardio",n:2},{cat:"core",n:1}]},
+    {label:"Sled & Push",focus:"Sled push · wall balls · burpee broad jumps",cats:[{cat:"push",n:2},{cat:"legs",n:1},{cat:"core",n:1}]},
+    {label:"Carry & Pull",focus:"Sled pull · farmers carry · sandbag lunges",cats:[{cat:"pull",n:3},{cat:"core",n:1}]},
+    {label:"Race Simulation",focus:"All 8 HYROX stations at reduced volume",cats:[{cat:"cardio",n:1},{cat:"push",n:1},{cat:"pull",n:1},{cat:"legs",n:1},{cat:"core",n:1}]},
+    {label:"Run & Recovery",focus:"Easy run + mobility",cats:[{cat:"cardio",n:1},{cat:"legs",n:2},{cat:"core",n:1}]},
+  ];
+
   let templates:{label:string;focus:string;cats:Slot[]}[];
-  if (cardioPlace) {
+  if (isHyrox) {
+    templates = hyroxTemplates.slice(0, Math.min(days, 5));
+  } else if (cardioPlace) {
     templates = Array.from({length:Math.min(days,6)},(_,i)=>(
       {label:`Session ${i+1}`,focus:"Cardio + circuit",
        cats:[{cat:"cardio",n:1},{cat:"legs",n:1},{cat:"core",n:1},{cat:"push",n:1}]}));
@@ -1037,7 +1071,13 @@ function buildWorkout(p: Profile): WorkoutPlan | null {
   const intensity=focus==="Get stronger"?"Rest 2–3 min between heavy sets."
     :burn?"Keep rest short (30–45 sec) to keep the heart rate up."
     :"Rest 60–90 sec between sets.";
-  const notes=[
+  const notes= isHyrox ? [
+    "Warm up 10 min: 500m easy row + dynamic leg swings and hip circles.",
+    "HYROX race order: 1 km run → ski erg → 1 km run → sled push → 1 km run → sled pull → 1 km run → burpee broad jumps → 1 km run → rowing → 1 km run → farmers carry → 1 km run → sandbag lunges → 1 km run → wall balls.",
+    "In training: prioritise your weakest station — spend 10 extra minutes on it after each session.",
+    "Race simulation day: do all stations at 50% volume with 1-min easy jogs between — build the rhythm.",
+    "Recovery is critical: HYROX training is very high load. Sleep 8 hrs, eat your protein target, and never skip rest days.",
+  ] : [
     "Warm up 5 min (light cardio + dynamic stretches) before every session.",
     intensity,
     "Add a little weight or 1–2 reps whenever a set feels easy — progressive overload drives results.",
@@ -1369,6 +1409,31 @@ function PlanWeek({plan}:{plan:Plan}) {
 }
 
 /* ─────────────── WeightLog ─────────────── */
+function WeightSparkline({entries}:{entries:[string,number][]}) {
+  if (entries.length < 2) return null;
+  const vals = entries.map(([,w])=>w);
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const range = Math.max(max - min, 0.5);
+  const W=100, H=30, pad=3;
+  const pts = vals.map((v,i)=>{
+    const x = pad+(i/(vals.length-1))*(W-pad*2);
+    const y = pad+(1-(v-min)/range)*(H-pad*2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+  const trending = vals[vals.length-1] <= vals[0];
+  const col = trending ? "#1DAA61" : "#EA580C";
+  return (
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{display:"block",overflow:"visible"}}>
+      <polyline points={pts} fill="none" stroke={col} strokeWidth={1.5} strokeLinejoin="round"/>
+      {vals.map((v,i)=>{
+        const x = pad+(i/(vals.length-1))*(W-pad*2);
+        const y = pad+(1-(v-min)/range)*(H-pad*2);
+        return <circle key={i} cx={x.toFixed(1)} cy={y.toFixed(1)} r={2.5} fill={col}/>;
+      })}
+    </svg>
+  );
+}
+
 function WeightLog({t,onLog}:{t:Tracking;onLog:(w:number)=>void}) {
   const [w,setW]=useState("");
   const [wErr,setWErr]=useState("");
@@ -1420,12 +1485,17 @@ function WeightLog({t,onLog}:{t:Tracking;onLog:(w:number)=>void}) {
         </div>
       )}
       {entries.length>0&&!wErr&&(
-        <div className="text-sm text-gray-500 mt-2">
-          Latest: <b className="text-gray-700">{latest} kg</b>
-          {diff!=null&&(
-            <span style={{color:+diff<=0?GREEN:"#EA580C"}}>
-              {" "}({+diff>0?"+":""}{diff} kg since start)
-            </span>
+        <div className="flex items-center justify-between mt-2">
+          <div className="text-sm text-gray-500">
+            Latest: <b className="text-gray-700">{latest} kg</b>
+            {diff!=null&&(
+              <span style={{color:+diff<=0?GREEN:"#EA580C"}}>
+                {" "}({+diff>0?"+":""}{diff} kg since start)
+              </span>
+            )}
+          </div>
+          {entries.length>=2&&(
+            <WeightSparkline entries={entries.slice(-7)}/>
           )}
         </div>
       )}
@@ -1675,6 +1745,286 @@ function Onboarding({onDone}:{onDone:()=>void}) {
   );
 }
 
+/* ─────────────── Login Intro (shown on every explicit login / signup) ─────────────── */
+function LISlide0() {
+  const [phase,setPhase]=useState(0);
+  const [ct,setCt]=useState(0);
+  useEffect(()=>{
+    const t1=setTimeout(()=>setPhase(1),900);
+    const t2=setTimeout(()=>setPhase(2),1750);
+    return()=>{clearTimeout(t1);clearTimeout(t2);};
+  },[]);
+  useEffect(()=>{
+    if(phase<2)return;
+    const iv=setInterval(()=>setCt(c=>{const n=c+44;return n>=2500?2500:n;}),14);
+    return()=>clearInterval(iv);
+  },[phase]);
+  return(
+    <div className="flex flex-col items-center text-center">
+      <div className="mb-4" style={{fontSize:62,animation:"onbPulse 2.5s ease-in-out infinite",filter:"drop-shadow(0 0 28px rgba(252,211,77,0.55))"}}>📚</div>
+      <div className="flex flex-col items-center gap-3 mb-5">
+        <div className="flex items-center gap-2">
+          <div className="relative inline-block">
+            <span className="font-black tabular-nums" style={{fontSize:44,color:"rgba(255,255,255,0.30)",letterSpacing:"-2px"}}>150</span>
+            {phase>=1&&<div style={{position:"absolute",top:"50%",left:0,height:3,background:"#EF4444",borderRadius:2,animation:"liStrike 0.38s ease-out both"}}/>}
+          </div>
+          <span style={{fontSize:13,color:"rgba(255,255,255,0.28)",fontWeight:600}}>books max</span>
+        </div>
+        {phase>=2&&(
+          <div className="flex flex-col items-center" style={{animation:"liCounter 0.58s cubic-bezier(0.22,1,0.36,1) both"}}>
+            <span className="font-black tabular-nums leading-none" style={{fontSize:90,color:"#FCD34D",letterSpacing:"-4px",textShadow:"0 0 50px rgba(252,211,77,0.6)"}}>
+              {ct.toLocaleString()}+
+            </span>
+            <span className="font-bold mt-1" style={{fontSize:15,color:"rgba(255,255,255,0.88)"}}>ebooks globally sourced</span>
+          </div>
+        )}
+      </div>
+      <p style={{color:"rgba(255,255,255,0.42)",fontSize:13,maxWidth:250,lineHeight:1.75}}>
+        Science-backed plans from the world's best nutrition research — not influencer guesswork.
+      </p>
+    </div>
+  );
+}
+function LISlide1() {
+  const [rows,setRows]=useState(0);
+  useEffect(()=>{
+    const t1=setTimeout(()=>setRows(1),650);
+    const t2=setTimeout(()=>setRows(2),1380);
+    return()=>{clearTimeout(t1);clearTimeout(t2);};
+  },[]);
+  return(
+    <div className="flex flex-col items-center text-center">
+      <div className="mb-3" style={{fontSize:58,animation:"onbPulse 2.5s ease-in-out infinite",filter:"drop-shadow(0 0 28px rgba(16,185,129,0.55))"}}>🔒</div>
+      <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 mb-5"
+        style={{background:"rgba(16,185,129,0.14)",border:"1px solid rgba(16,185,129,0.30)"}}>
+        <Lock size={11} color="#10B981"/>
+        <span style={{color:"#10B981",fontSize:11,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase"}}>AES-256 Military Grade</span>
+      </div>
+      <div className="w-full flex flex-col gap-2.5 mb-5">
+        {rows>=1&&(
+          <div className="flex items-center gap-3 rounded-2xl px-4 py-3" style={{background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.22)",animation:"liRowIn 0.5s cubic-bezier(0.22,1,0.36,1) both"}}>
+            <span style={{fontSize:22}}>❌</span>
+            <div className="text-left">
+              <div className="font-bold text-sm" style={{color:"rgba(255,255,255,0.60)"}}>Other apps</div>
+              <div style={{fontSize:12,color:"rgba(248,113,113,0.9)"}}>Harvest &amp; sell your health data</div>
+            </div>
+          </div>
+        )}
+        {rows>=2&&(
+          <div className="flex items-center gap-3 rounded-2xl px-4 py-3" style={{background:"rgba(16,185,129,0.10)",border:"1px solid rgba(16,185,129,0.35)",animation:"liRowIn 0.5s cubic-bezier(0.22,1,0.36,1) both"}}>
+            <span style={{fontSize:22}}>✅</span>
+            <div className="text-left">
+              <div className="font-bold text-sm text-white">EatBC</div>
+              <div style={{fontSize:12,color:"#34D399"}}>Community app. Your data stays yours.</div>
+            </div>
+          </div>
+        )}
+      </div>
+      <p style={{color:"rgba(255,255,255,0.42)",fontSize:13,maxWidth:250,lineHeight:1.75}}>
+        No selling. No mining. Even we can't read your encrypted health data.
+      </p>
+    </div>
+  );
+}
+function LISlide2() {
+  const [showChat,setShowChat]=useState(false);
+  useEffect(()=>{const t=setTimeout(()=>setShowChat(true),1350);return()=>clearTimeout(t);},[]);
+  return(
+    <div className="flex flex-col items-center text-center">
+      <div className="relative flex items-center justify-center mb-4" style={{width:114,height:114}}>
+        {[0,1,2].map(i=>(
+          <div key={i} className="absolute inset-0 rounded-full" style={{
+            border:"1.5px solid rgba(139,92,246,0.45)",
+            animation:`liVeerRing 2.2s ease-out ${i*0.65}s infinite`,
+          }}/>
+        ))}
+        <div className="relative z-10"><VeerIcon size={88}/></div>
+      </div>
+      {showChat&&(
+        <div className="rounded-[20px] px-5 py-3 mb-4" style={{
+          maxWidth:224,background:"rgba(139,92,246,0.14)",border:"1px solid rgba(139,92,246,0.32)",
+          borderBottomLeftRadius:4,animation:"liChatIn 0.5s cubic-bezier(0.22,1,0.36,1) both",
+        }}>
+          <p style={{color:"rgba(255,255,255,0.92)",fontSize:13,lineHeight:1.55}}>
+            "Namaste! Main yahan hoon aapke liye. Kya poochna chahte ho? 😊"
+          </p>
+        </div>
+      )}
+      <h2 className="font-black text-white mb-2" style={{fontSize:26,letterSpacing:"-0.5px"}}>Your AI Coach</h2>
+      <p style={{color:"rgba(255,255,255,0.42)",fontSize:13,maxWidth:250,lineHeight:1.75}}>
+        Veer guides you in Hindi &amp; English — workouts, recipes, motivation. 24/7.
+      </p>
+    </div>
+  );
+}
+function LIFinal({anim}:{anim:number}) {
+  const FLOATS=[
+    {t:"−500 kcal",x:"6%",d:0},{t:"150g protein",x:"60%",d:0.4},
+    {t:"Day 1 ✓",x:"8%",d:0.7},{t:"2,100 kcal",x:"54%",d:0.18},
+  ];
+  return(
+    <div className="relative flex flex-col items-center justify-center" style={{height:340,perspective:"900px"}}>
+      {anim>=1&&FLOATS.map((f,i)=>(
+        <div key={i} style={{position:"absolute",bottom:"12%",left:f.x,fontSize:11,fontWeight:700,
+          color:"rgba(110,231,183,0.32)",letterSpacing:"0.3px",pointerEvents:"none",
+          animation:`liFloat 3.8s ease-out ${f.d}s infinite`}}>{f.t}</div>
+      ))}
+      {/* "Eat Better & Count" text phase */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-1"
+        style={{opacity:anim>=3?0:1,transition:"opacity 0.65s ease",pointerEvents:"none"}}>
+        <div style={{
+          fontSize:54,fontWeight:900,color:"#fff",lineHeight:1.1,letterSpacing:"-2px",
+          opacity:1,
+          transform:anim===0?"scale(1.22) translateZ(-80px) rotateX(14deg)":anim>=2?"scale(0.84) translateY(5px)":"scale(1) translateZ(0) rotateX(0deg)",
+          transition:"transform 0.88s cubic-bezier(0.22,1,0.36,1)",
+          textShadow:"0 2px 24px rgba(255,255,255,0.14)",
+        }}>Eat Better</div>
+        <div style={{
+          fontSize:46,fontWeight:900,color:"#34D399",lineHeight:1.1,letterSpacing:"-1.5px",
+          opacity:anim>=2?1:0,
+          transform:anim>=2?"scale(1)":"scale(0.52) translateY(32px)",
+          transition:"opacity 0.6s ease 0.08s,transform 0.78s cubic-bezier(0.34,1.56,0.64,1) 0.08s",
+          textShadow:"0 0 28px rgba(52,211,153,0.6)",
+        }}>&amp; Count</div>
+      </div>
+      {/* Logo phase */}
+      <div className="flex flex-col items-center" style={{
+        opacity:anim>=3?1:0,
+        transform:anim>=3?"scale(1) rotateY(0deg)":"scale(0.22) rotateY(90deg)",
+        transition:"opacity 0.78s ease,transform 0.92s cubic-bezier(0.34,1.56,0.64,1)",
+      }}>
+        <Logo size={84}/>
+        <h1 className="text-white font-black leading-none mt-3" style={{
+          fontSize:72,letterSpacing:"-3px",
+          textShadow:anim>=4?"0 0 48px rgba(46,206,120,0.7),0 0 96px rgba(46,206,120,0.3)":"none",
+          transition:"text-shadow 0.9s ease",
+        }}>EatBC</h1>
+        <p className="font-semibold mt-2" style={{fontSize:15,color:"#86efac"}}>Eat Better. Count Smarter.</p>
+      </div>
+    </div>
+  );
+}
+function LoginIntro({onDone}:{onDone:()=>void}) {
+  const [slide,setSlide]=useState(0);
+  const [prog,setProg]=useState(0);
+  const [anim,setAnim]=useState(0);
+  const ivRef=useRef<ReturnType<typeof setInterval>|null>(null);
+  const STEP=100/(5000/100);
+  const N=4;
+
+  useEffect(()=>{
+    setProg(0);
+    if(ivRef.current) clearInterval(ivRef.current);
+    ivRef.current=setInterval(()=>{
+      setProg(p=>{
+        const next=p+STEP;
+        if(next>=100){
+          clearInterval(ivRef.current!);
+          setTimeout(()=>{if(slide<N-1)setSlide(s=>s+1);else onDone();},0);
+          return 100;
+        }
+        return next;
+      });
+    },100);
+    return()=>{if(ivRef.current)clearInterval(ivRef.current);};
+  },[slide]);
+
+  useEffect(()=>{
+    setAnim(0);
+    if(slide!==N-1)return;
+    const t1=setTimeout(()=>setAnim(1),600);
+    const t2=setTimeout(()=>setAnim(2),1700);
+    const t3=setTimeout(()=>setAnim(3),2650);
+    const t4=setTimeout(()=>setAnim(4),3450);
+    return()=>{clearTimeout(t1);clearTimeout(t2);clearTimeout(t3);clearTimeout(t4);};
+  },[slide]);
+
+  function goNext(){
+    if(ivRef.current) clearInterval(ivRef.current);
+    if(slide<N-1) setSlide(slide+1); else onDone();
+  }
+
+  const BKGS=[
+    "linear-gradient(155deg,#0f0800 0%,#1e1200 45%,#2c1b00 100%)",
+    "linear-gradient(155deg,#031008 0%,#061b10 45%,#0a2618 100%)",
+    "linear-gradient(155deg,#070413 0%,#0f073b 45%,#190a58 100%)",
+    "linear-gradient(155deg,#020904 0%,#030e06 45%,#041205 100%)",
+  ];
+  const ACCENT=["#FCD34D","#10B981","#8B5CF6","#34D399"];
+  const tilt=use3DParallax();
+  const layer=(depth:number)=>({
+    transform:`translate3d(${tilt.y*depth}px,${tilt.x*depth}px,0)`,
+    transition:"transform 0.18s ease-out",
+  });
+
+  return(
+    <div className="min-h-screen flex flex-col relative overflow-hidden"
+      style={{background:BKGS[slide],transition:"background 0.7s ease",perspective:"1100px"}}
+      onClick={goNext}>
+      {/* Orbs */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute rounded-full" style={{width:360,height:360,top:"6%",left:"-18%",background:`radial-gradient(circle,${ACCENT[slide]}50,transparent 70%)`,filter:"blur(46px)",...layer(46)}}/>
+        <div className="absolute rounded-full" style={{width:280,height:280,bottom:"10%",right:"-14%",background:`radial-gradient(circle,${ACCENT[slide]}38,transparent 70%)`,filter:"blur(40px)",...layer(62)}}/>
+        <div className="absolute rounded-full" style={{width:160,height:160,top:"44%",right:"18%",background:`radial-gradient(circle,${ACCENT[slide]}28,transparent 70%)`,filter:"blur(26px)",...layer(80)}}/>
+      </div>
+      {/* Grid */}
+      <div className="absolute inset-0 pointer-events-none" style={{
+        backgroundImage:`linear-gradient(${ACCENT[slide]}12 1px,transparent 1px),linear-gradient(90deg,${ACCENT[slide]}12 1px,transparent 1px)`,
+        backgroundSize:"44px 44px",
+        maskImage:"radial-gradient(circle at 50% 40%,black,transparent 75%)",
+        WebkitMaskImage:"radial-gradient(circle at 50% 40%,black,transparent 75%)",
+        ...layer(20),
+      }}/>
+      {/* Story progress bars */}
+      <div className="absolute left-0 right-0 flex gap-1.5 px-4 z-20" style={{top:52}}>
+        {[0,1,2,3].map(i=>(
+          <div key={i} className="flex-1 rounded-full overflow-hidden" style={{height:3,background:"rgba(255,255,255,0.18)"}}>
+            <div className="h-full rounded-full" style={{width:i<slide?"100%":i===slide?`${prog}%`:"0%",background:ACCENT[slide],boxShadow:`0 0 8px ${ACCENT[slide]}`,transition:"width 0.1s linear"}}/>
+          </div>
+        ))}
+      </div>
+      {/* Skip */}
+      <button onClick={e=>{e.stopPropagation();onDone();}}
+        className="absolute right-4 z-20 font-bold text-sm px-4 py-1.5 rounded-full"
+        style={{top:40,background:"rgba(255,255,255,0.10)",border:"1px solid rgba(255,255,255,0.18)",backdropFilter:"blur(8px)",color:"rgba(255,255,255,0.82)"}}>
+        Skip
+      </button>
+      {/* Card */}
+      <div className="flex-1 flex items-center justify-center px-6 pt-24 pb-6 relative z-10">
+        <div key={slide} style={{...layer(-26),animation:"onbCard 0.6s cubic-bezier(0.22,1,0.36,1) both"}}>
+          <div className="relative rounded-[34px] px-8 py-10 flex items-center justify-center" style={{
+            minWidth:300,minHeight:400,
+            background:"linear-gradient(160deg,rgba(255,255,255,0.10),rgba(255,255,255,0.02))",
+            border:"1px solid rgba(255,255,255,0.16)",
+            boxShadow:`0 30px 80px -20px ${ACCENT[slide]}42, inset 0 1px 0 rgba(255,255,255,0.18)`,
+            backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)",
+            transform:`rotateX(${tilt.x*-5}deg) rotateY(${tilt.y*5}deg)`,
+            transition:"transform 0.18s ease-out,box-shadow 0.6s ease",
+          }}>
+            {slide===0&&<LISlide0/>}
+            {slide===1&&<LISlide1/>}
+            {slide===2&&<LISlide2/>}
+            {slide===3&&<LIFinal anim={anim}/>}
+          </div>
+        </div>
+      </div>
+      {/* Dots */}
+      <div className="pb-9 flex flex-col items-center gap-3 relative z-10">
+        {slide<3&&<span className="text-[11px] tracking-widest uppercase font-semibold" style={{color:"rgba(255,255,255,0.38)"}}>Tap to continue</span>}
+        <div className="flex justify-center gap-2">
+          {[0,1,2,3].map(i=>(
+            <div key={i} className="rounded-full transition-all duration-300" style={{
+              width:i===slide?24:7,height:7,
+              background:i===slide?ACCENT[slide]:"rgba(255,255,255,0.24)",
+              boxShadow:i===slide?`0 0 10px ${ACCENT[slide]}`:"none",
+            }}/>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─────────────── Welcome ─────────────── */
 const FLOAT_FOODS = ["🥗","🫓","🥑","🍎","🥦","🍚","🥛","🫐","🍊","🥚","🌾","🥜","🍋","🥕","🫑"];
 /* ─────────────── Quiz teaser (mid-quiz TDEE/BMI sneak peek) ─────────────── */
@@ -1688,7 +2038,20 @@ function QuizTeaser({profile}:{profile:Profile}) {
   const bmr = (profile.sex!=="Male"
     ? 10*w+6.25*cm-5*(+(profile.age||25))-161
     : 10*w+6.25*cm-5*(+(profile.age||25))+5);
-  const roughTdee = Math.round(bmr*1.4/50)*50;
+  const teaserPalMatrix: Record<string,Record<string,number>> = {
+    "Mostly desk job":    {"None":1.2,"Walks / light":1.375,"Gym 3x week":1.55,"Gym 5x+ / sports":1.65},
+    "On feet / moderate": {"None":1.375,"Walks / light":1.475,"Gym 3x week":1.60,"Gym 5x+ / sports":1.75},
+    "Physically active":  {"None":1.55,"Walks / light":1.65,"Gym 3x week":1.75,"Gym 5x+ / sports":1.90},
+  };
+  const teaserNormEx: Record<string,string> = {
+    "Running / jogging":"Gym 3x week","Cycling":"Gym 3x week","Swimming":"Gym 3x week",
+    "Yoga / Pilates":"Walks / light","Home workouts":"Gym 3x week","Gym (weights)":"Gym 3x week",
+    "Sports / games":"Gym 5x+ / sports","HIIT / CrossFit":"Gym 5x+ / sports","HYROX":"Gym 5x+ / sports",
+  };
+  const teaserExKey = teaserNormEx[profile.exercise||""] || "None";
+  const teaserPalRow = teaserPalMatrix[profile.activity||"Mostly desk job"] || teaserPalMatrix["Mostly desk job"];
+  const teaserPal = teaserPalRow[teaserExKey] ?? 1.375;
+  const roughTdee = Math.round(bmr*teaserPal/50)*50;
   const bmiColor = bmi<18.5?"#60a5fa":bmi<23?"#4ade80":bmi<27.5?"#fbbf24":"#f87171";
   return (
     <div className="rounded-2xl px-4 py-3.5 mb-5 border"
@@ -2378,13 +2741,13 @@ function InsightsCard({history,proteinTarget,t}:{
   const proteinHitRate=proteinTarget>0?Math.round((entries.filter(e=>e.protein>=proteinTarget*0.9).length/tracked)*100):0;
   const best=bestStreak(history);
   const stats=[
-    {label:"On-track rate",val:`${rate}%`,emoji:""},
-    {label:"Best streak",val:`${best} days`,emoji:""},
-    {label:"Avg protein",val:`${avgProtein}g`,emoji:""},
+    {label:"On-track rate",val:`${rate}%`,emoji:"🎯"},
+    {label:"Best streak",val:`${best} days`,emoji:"🔥"},
+    {label:"Avg protein",val:`${avgProtein}g`,emoji:"💪"},
     {label:"Days tracked",val:`${tracked}`,emoji:"📅"},
   ];
   let nudge="You're building a real habit — keep showing up.";
-  if (rate>=80) nudge="Outstanding consistency! You're in the top tier of EatBC warriors.";
+  if (rate>=80) nudge="Outstanding consistency! You're in the top tier of EatBC warriors. 🏆";
   else if (proteinTarget>0&&proteinHitRate<50) nudge="You're often short on protein — add dal, curd, eggs or paneer to a meal.";
   else if (rate<40) nudge="Small steps win. Try ticking just your breakfast every day this week.";
   return (
@@ -2495,7 +2858,7 @@ function Leaderboard({session,points,streak,t}:{
         <button disabled={busy} onClick={share}
           className="w-full mb-3 py-2.5 rounded-2xl text-white font-bold text-sm disabled:opacity-60"
           style={{background:GREEN}}>
-          {busy?"Joining…":"Join the leaderboard"}
+          {busy?"Joining…":"Join the board with my streak 🔥"}
         </button>
       )}
       {rows===null?(
@@ -2506,7 +2869,7 @@ function Leaderboard({session,points,streak,t}:{
         <div className="space-y-1.5">
           {rows.map((r,i)=>{
             const me=r.name===session.name;
-            const medal=`${i+1}`;
+            const medal=i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}`;
             return (
               <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-xl" style={{background:me?"#EAF7F0":"#fff"}}>
                 <span className="w-6 text-center font-bold text-gray-500 text-sm">{medal}</span>
@@ -2770,7 +3133,7 @@ function WorkoutTab({workout,tracking,onUpdate}:{
           <button onClick={markDone}
             className="w-full mt-4 py-3 rounded-2xl font-black text-white transition active:scale-[0.98]"
             style={{background:completedToday?"#9CA3AF":"#7C3AED"}}>
-            {completedToday?"Mark as not done":"Complete workout"}
+            {completedToday?"Mark as not done":"Complete workout 💪"}
           </button>
         </div>
       )}
@@ -2900,7 +3263,7 @@ function AdaptiveRecalcBanner({weights, lastRecalcDate, lastRecalcWeight, goal, 
         </p>
         <p className="text-xs text-blue-500 mt-0.5">Your calorie target needs recalculation.</p>
       </div>
-      <button onClick={onRecalc}
+      <button onClick={()=>onRecalc()}
         className="shrink-0 px-3 py-1.5 rounded-xl text-white text-xs font-semibold"
         style={{background:"#3B82F6"}}>
         Update
@@ -3092,7 +3455,7 @@ function VeerBot({session,planCondition}:{session:Session|null;planCondition:str
     await new Promise<void>(resolve=>{
       const utt=new SpeechSynthesisUtterance(text);
       utt.lang="en-IN"; utt.rate=0.92;
-      utt.onend=resolve; utt.onerror=resolve;
+      utt.onend=()=>resolve(); utt.onerror=()=>resolve();
       window.speechSynthesis.speak(utt);
     });
   }
@@ -3510,6 +3873,28 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccou
                     })}
                   </div>
                 </Card>
+                {cal>0&&(
+                  <div className="rounded-2xl px-4 py-3 mb-3 flex items-center justify-between"
+                    style={{
+                      background:consumed>=cal?"#FEF2F2":consumed/cal>0.85?"#FFFBEB":"#F0FDF4",
+                      border:`1px solid ${consumed>=cal?"#FECACA":consumed/cal>0.85?"#FDE68A":"#BBF7D0"}`,
+                    }}>
+                    <div>
+                      <div className="text-sm font-semibold"
+                        style={{color:consumed>=cal?"#DC2626":consumed/cal>0.85?"#D97706":"#16A34A"}}>
+                        {consumed>=cal?`${consumed-cal} kcal over target`:`${cal-consumed} kcal remaining`}
+                      </div>
+                      <div className="text-xs text-gray-400">{consumed} / {cal} kcal for {sel}</div>
+                    </div>
+                    <div className="w-20 h-2 rounded-full overflow-hidden" style={{background:"#E5E7EB"}}>
+                      <div className="h-2 rounded-full transition-all duration-500"
+                        style={{
+                          width:`${Math.min(consumed/cal,1)*100}%`,
+                          background:consumed>=cal?"#EF4444":consumed/cal>0.85?"#F59E0B":"#22C55E",
+                        }}/>
+                    </div>
+                  </div>
+                )}
                 <FoodLogger
                   log={dd.log||[]}
                   customFoods={tracking.customFoods||[]}
@@ -3643,9 +4028,7 @@ export default function App() {
   const cur=activeQ[stepClamped];
   const setVal=(v:string|string[])=>{
     setQErr("");
-    // region is stored as string[] but the quiz uses type:"pick" (returns string)
-    const val = cur.k==="region" && typeof v==="string" ? [v] : v;
-    setProfile(p=>({...p,[cur.k]:val}));
+    setProfile(p=>({...p,[cur.k]:v}));
   };
   const toggleMulti=(o:string)=>setProfile(p=>{
     const a=(p[cur.k] as string[])||[];
@@ -3735,13 +4118,13 @@ export default function App() {
     setSession(sess); sset<Session>("eatbc:session",sess);
     if(loginPlan) setPlan(loginPlan);
     setTracking(loginTracking||{});
-    setScreen("dash");
+    setScreen("intro");
   }
   async function doSignup(sess:Session) {
     setSession(sess); sset<Session>("eatbc:session",sess);
     if(plan) await apiPost("/api/plan",{plan,profile},sess.token).catch(()=>{});
     setTracking({});
-    setScreen("dash");
+    setScreen("intro");
   }
   function logout() {
     const token=session?.token;
@@ -3827,6 +4210,7 @@ export default function App() {
   if (screen==="onboarding") return <Onboarding onDone={doneOnboarding}/>;
   if (screen==="welcome") return <Welcome lang={lang} onLang={changeLang} onNew={()=>setScreen("quiz")} onLogin={()=>setScreen("login")}/>;
   if (screen==="login")   return <Login onDone={doLogin} onBack={()=>setScreen("welcome")}/>;
+  if (screen==="intro")   return <LoginIntro onDone={()=>setScreen("dash")}/>;
   if (screen==="foodgame") return <FoodGame name={profile.name} onDone={finishGame}/>;
 
   if (screen==="quiz") return (
