@@ -1899,23 +1899,16 @@ function makeT(lang: Lang){ return (k: keyof typeof STR)=> STR[k]?.[lang] ?? STR
 /* ─────────────── UI primitives ─────────────── */
 function Logo({size=40}:{size?:number}) {
   return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      {/* Dark base */}
-      <rect width="48" height="48" rx="13" fill="#111111"/>
-      {/* Yellow plate circle */}
-      <circle cx="24" cy="26" r="16" fill="#FFFA66"/>
+    <svg width={size} height={size} viewBox="0 0 36 36" fill="none">
+      <rect width="36" height="36" rx="8" fill="#111111"/>
       {/* Fork tines */}
-      <rect x="16" y="8" width="3" height="11" rx="1.5" fill="#111111"/>
-      <rect x="22.5" y="8" width="3" height="11" rx="1.5" fill="#111111"/>
-      <rect x="29" y="8" width="3" height="11" rx="1.5" fill="#111111"/>
-      {/* Fork neck join */}
-      <rect x="16" y="18" width="16" height="3" rx="1.5" fill="#111111"/>
-      {/* Fork handle */}
-      <rect x="22.5" y="18" width="3" height="18" rx="1.5" fill="#111111"/>
-      {/* EKG heartbeat on plate */}
-      <path d="M9 26 L16 26 L18 20 L20 32 L22 24 L24 28 L26 26 L39 26"
-        stroke="#111111" strokeWidth="2.2" fill="none"
-        strokeLinecap="round" strokeLinejoin="round"/>
+      <rect x="9"  y="5" width="4" height="13" rx="2" fill="#FFFA66"/>
+      <rect x="16" y="5" width="4" height="13" rx="2" fill="#FFFA66"/>
+      <rect x="23" y="5" width="4" height="13" rx="2" fill="#FFFA66"/>
+      {/* Neck — tapers from full tine span to handle width */}
+      <path d="M9 15 L27 15 C27 22 20 24 20 25 L16 25 C16 24 9 22 9 15 Z" fill="#FFFA66"/>
+      {/* Handle */}
+      <rect x="16" y="23" width="4" height="9" rx="2" fill="#FFFA66"/>
     </svg>
   );
 }
@@ -3134,10 +3127,10 @@ function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;on
         {/* Hero */}
         <div className="flex flex-col items-center mb-6">
           <div className="flex items-center gap-3" style={{animation:"bobFloat 3.5s ease-in-out infinite"}}>
-            <div style={{filter:`drop-shadow(0 0 18px rgba(255,250,102,0.55))`}}>
-              <Logo size={46}/>
+            <div style={{filter:`drop-shadow(0 0 16px rgba(255,250,102,0.55))`}}>
+              <Logo size={39}/>
             </div>
-            <h1 className="font-black text-white leading-none" style={{fontSize:62,letterSpacing:"-3px"}}>EatBC</h1>
+            <h1 className="font-black text-white leading-none" style={{fontSize:53,letterSpacing:"-2.5px"}}>EatBC</h1>
           </div>
           <p className="mt-3 text-center font-bold" style={{color:"rgba(255,255,255,0.50)",fontSize:14.5,letterSpacing:"-0.2px"}}>
             Eat Better &amp; Count
