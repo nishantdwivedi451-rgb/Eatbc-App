@@ -1171,16 +1171,23 @@ function buildPlan(profile: Profile): Plan {
     ? " Weight loss during pregnancy isn't recommended — this is a healthy maintenance plan instead."
     : "";
 
-  const deficitAmt = maintenance - cal;
+  /* Actual daily calories = average of what the meals genuinely add up to.
+     This accounts for SLOT_CAL_CAP limits and rounding — keeps the ring
+     in sync with what users actually eat from their plan.              */
+  const avgActualCal = Math.round(
+    days.reduce((s,d)=>s+d.meals.reduce((ms,m)=>ms+m.cal,0),0)/days.length/10
+  )*10;
+
+  const deficitAmt = maintenance - avgActualCal;
   const deficitNote = deficitAmt > 50
-    ? ` Your body burns ~${maintenance} kcal/day — eating ${cal} kcal creates a ${deficitAmt} kcal daily deficit.`
+    ? ` Your body burns ~${maintenance} kcal/day — eating ${avgActualCal} kcal creates a ${deficitAmt} kcal daily deficit.`
     : deficitAmt < -50
-    ? ` Your body burns ~${maintenance} kcal/day — eating ${cal} kcal adds ${Math.abs(deficitAmt)} kcal above maintenance for muscle growth.`
+    ? ` Your body burns ~${maintenance} kcal/day — eating ${avgActualCal} kcal adds ${Math.abs(deficitAmt)} kcal above maintenance for muscle growth.`
     : "";
 
   return {
-    summary:`Here's a ${goalLabel} plan at about ${cal} kcal a day, built around ${regLabel} food you actually like.${deficitNote}${condNote}${bfNote}${pregnantNote}`,
-    dailyCalories:cal,maintenanceCalories:maintenance,proteinTarget,bmi:st.bmi,bmiCat:st.bmiCat,
+    summary:`Here's a ${goalLabel} plan at about ${avgActualCal} kcal a day, built around ${regLabel} food you actually like.${deficitNote}${condNote}${bfNote}${pregnantNote}`,
+    dailyCalories:avgActualCal,maintenanceCalories:maintenance,proteinTarget,bmi:st.bmi,bmiCat:st.bmiCat,
     goal:st.effectiveGoal,diet:profile.diet||"Pure veg",
     condition:cond,regLabel,timeline,weeklyLoss,
     tips:makeTips(profile,cal),days,workout:buildWorkout(profile),
@@ -1289,16 +1296,24 @@ function makeT(lang: Lang){ return (k: keyof typeof STR)=> STR[k]?.[lang] ?? STR
 
 /* ─────────────── UI primitives ─────────────── */
 function Logo({size=40}:{size?:number}) {
-  const id="lg"+size;
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <defs><linearGradient id={id} x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stopColor="#22C16B"/><stop offset="1" stopColor="#0E8A4D"/>
-      </linearGradient></defs>
-      <rect width="48" height="48" rx="14" fill={`url(#${id})`}/>
-      <path d="M24 13c-5 0-9 3.5-9 9 0 6 5 11 9 13 4-2 9-7 9-13 0-5.5-4-9-9-9z" fill="#fff" opacity="0.18"/>
-      <path d="M24 12c-1 5-4 7-7 8 0 6 3.5 9 7 11 3.5-2 7-5 7-11-3-1-6-3-7-8z" fill="#fff"/>
-      <path d="M14 30h6l2-4 3 8 2-4h7" stroke="#0E8A4D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+      {/* Dark base */}
+      <rect width="48" height="48" rx="13" fill="#111111"/>
+      {/* Yellow plate circle */}
+      <circle cx="24" cy="26" r="16" fill="#FFFA66"/>
+      {/* Fork tines */}
+      <rect x="16" y="8" width="3" height="11" rx="1.5" fill="#111111"/>
+      <rect x="22.5" y="8" width="3" height="11" rx="1.5" fill="#111111"/>
+      <rect x="29" y="8" width="3" height="11" rx="1.5" fill="#111111"/>
+      {/* Fork neck join */}
+      <rect x="16" y="18" width="16" height="3" rx="1.5" fill="#111111"/>
+      {/* Fork handle */}
+      <rect x="22.5" y="18" width="3" height="18" rx="1.5" fill="#111111"/>
+      {/* EKG heartbeat on plate */}
+      <path d="M9 26 L16 26 L18 20 L20 32 L22 24 L24 28 L26 26 L39 26"
+        stroke="#111111" strokeWidth="2.2" fill="none"
+        strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
   );
 }
@@ -2141,7 +2156,6 @@ const TESTIMONIALS=[
 
 function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;onNew:()=>void;onLogin:()=>void}) {
   const t=makeT(lang);
-  const [quote]=useState(pickQuote);
   const [visible,setVisible]=useState(false);
   const [slide,setSlide]=useState(0);
   useEffect(()=>{const tm=setTimeout(()=>setVisible(true),80);return()=>clearTimeout(tm);},[]);
@@ -2149,87 +2163,100 @@ function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;on
     const iv=setInterval(()=>setSlide(s=>(s+1)%TESTIMONIALS.length),4000);
     return()=>clearInterval(iv);
   },[]);
+  const Y="#FFFA66";
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-5 py-10 relative overflow-hidden"
-      style={{background:"linear-gradient(160deg,#043d25 0%,#0a6e3c 35%,#1DAA61 70%,#28c46e 100%)"}}>
-      <FloatingFoods/>
+      style={{background:"#0A0A0A"}}>
+      {/* Background atmosphere */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute rounded-full" style={{width:380,height:380,background:"rgba(255,255,255,0.05)",top:"-100px",right:"-100px"}}/>
-        <div className="absolute rounded-full" style={{width:280,height:280,background:"rgba(0,0,0,0.08)",bottom:"-70px",left:"-70px"}}/>
+        <div className="absolute rounded-full" style={{width:480,height:480,background:"radial-gradient(circle,rgba(255,250,102,0.14) 0%,transparent 68%)",top:-160,left:-160}}/>
+        <div className="absolute rounded-full" style={{width:420,height:420,background:"radial-gradient(circle,rgba(55,8,84,0.60) 0%,transparent 68%)",bottom:-120,right:-120}}/>
+        <div className="absolute inset-0" style={{backgroundImage:"radial-gradient(rgba(255,255,255,0.05) 1px,transparent 1px)",backgroundSize:"28px 28px"}}/>
       </div>
       {/* Language toggle */}
-      <div className="absolute z-20 flex items-center gap-1 rounded-full p-1" style={{top:20,right:20,background:"rgba(255,255,255,0.15)",backdropFilter:"blur(6px)"}}>
-        <Globe size={14} className="text-white/80 ml-1.5"/>
+      <div className="absolute z-20 flex items-center gap-1 rounded-full p-1" style={{top:20,right:20,background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.11)",backdropFilter:"blur(8px)"}}>
+        <Globe size={13} style={{color:"rgba(255,255,255,0.45)",marginLeft:6}}/>
         {(["en","hi"] as Lang[]).map(l=>(
           <button key={l} onClick={()=>onLang(l)}
             className="text-xs font-bold px-2.5 py-1 rounded-full transition"
-            style={lang===l?{background:"#fff",color:GREEN}:{color:"rgba(255,255,255,0.85)"}}>
+            style={lang===l?{background:Y,color:"#0A0A0A"}:{color:"rgba(255,255,255,0.5)"}}>
             {l==="en"?"EN":"हिं"}
           </button>
         ))}
       </div>
       <div className={`relative z-10 w-full max-w-sm transition-all duration-700 ${visible?"opacity-100 translate-y-0":"opacity-0 translate-y-8"}`}>
-        <div className="flex flex-col items-center mb-7">
-          <Logo size={76}/>
-          <h1 className="text-5xl font-black text-white mt-3 tracking-tight">EatBC</h1>
-          <p className="text-green-200 font-medium text-base mt-1 tracking-wide">{t("tagline")}</p>
+        {/* Hero */}
+        <div className="flex flex-col items-center mb-6">
+          <div style={{filter:`drop-shadow(0 0 22px rgba(255,250,102,0.50))`,animation:"bobFloat 3.5s ease-in-out infinite"}}>
+            <Logo size={72}/>
+          </div>
+          <div className="flex items-center gap-1.5 mt-4 mb-3 px-4 py-1.5 rounded-full text-xs font-black tracking-widest"
+            style={{background:"rgba(255,250,102,0.10)",border:"1px solid rgba(255,250,102,0.25)",color:Y,letterSpacing:"0.08em"}}>
+            🇮🇳 DESI · SCIENTIFIC · FREE FOREVER
+          </div>
+          <h1 className="font-black text-white leading-none" style={{fontSize:78,letterSpacing:"-4px"}}>EatBC</h1>
+          <p className="mt-2 text-center" style={{color:"rgba(255,255,255,0.50)",fontSize:14.5,maxWidth:230,lineHeight:1.55}}>
+            {t("tagline")}
+          </p>
         </div>
-        {/* Stats strip */}
-        <div className="flex items-center justify-center gap-3 mb-5 flex-wrap">
-          {["12,000+ plans built","Indian food first","Free forever"].map((s,i)=>(
-            <span key={i} className="text-xs font-semibold text-green-200/80 flex items-center gap-1">
-              <CheckCircle2 size={11} className="text-green-300"/>{s}
-            </span>
+
+        {/* Stats row */}
+        <div className="grid grid-cols-3 gap-2 mb-5">
+          {[{icon:"🏆",stat:"12K+",label:"Plans built"},{icon:"🇮🇳",stat:"100%",label:"Indian food"},{icon:"♾️",stat:"∞",label:"Free forever"}].map((s,i)=>(
+            <div key={i} className="flex flex-col items-center py-3 px-1.5 rounded-2xl" style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)"}}>
+              <span style={{fontSize:20,lineHeight:1}}>{s.icon}</span>
+              <span className="font-black text-base mt-1 leading-none" style={{color:Y}}>{s.stat}</span>
+              <span className="text-center mt-1" style={{fontSize:11,color:"rgba(255,255,255,0.40)",lineHeight:1.3}}>{s.label}</span>
+            </div>
           ))}
         </div>
 
-        {/* Testimonials carousel */}
+        {/* Testimonial carousel */}
         <div className="mb-5">
-          <div className="relative overflow-hidden rounded-2xl">
-            <div className="flex transition-transform duration-500 ease-out"
-              style={{transform:`translateX(-${slide*100}%)`}}>
-              {TESTIMONIALS.map((r,i)=>(
-                <div key={i} className="w-full shrink-0 px-4 py-3"
-                  style={{background:"rgba(255,255,255,0.11)",border:"1px solid rgba(255,255,255,0.18)",backdropFilter:"blur(8px)"}}>
-                  <p className="text-white/90 text-sm leading-snug min-h-[2.5rem]">"{r.text}"</p>
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-green-200 text-xs font-semibold">{maskName(r.name)}</span>
-                    <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{background:"rgba(29,170,97,0.4)",color:"#86efac"}}>{r.tag}</span>
+          <div className="relative overflow-hidden rounded-2xl" style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)"}}>
+            <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-2xl" style={{background:Y}}/>
+            <div className="absolute top-1 right-3 font-black pointer-events-none select-none" style={{fontSize:68,lineHeight:1,color:"rgba(255,250,102,0.06)"}}>&#8220;</div>
+            <div className="overflow-hidden">
+              <div className="flex transition-transform duration-500 ease-out" style={{transform:`translateX(-${slide*100}%)`}}>
+                {TESTIMONIALS.map((r,i)=>(
+                  <div key={i} className="w-full shrink-0 pl-5 pr-4 py-4">
+                    <p className="text-sm leading-relaxed" style={{color:"rgba(255,255,255,0.82)"}}>{r.text}</p>
+                    <div className="flex items-center justify-between mt-2.5">
+                      <span className="text-xs font-semibold" style={{color:"rgba(255,255,255,0.40)"}}>{maskName(r.name)}</span>
+                      <span className="text-xs px-2.5 py-0.5 rounded-full font-bold" style={{background:"rgba(255,250,102,0.14)",color:Y}}>{r.tag}</span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
-          {/* dots */}
-          <div className="flex items-center justify-center gap-1.5 mt-2.5">
+          <div className="flex items-center justify-center gap-1.5 mt-2">
             {TESTIMONIALS.map((_,i)=>(
               <button key={i} onClick={()=>setSlide(i)} aria-label={`Testimonial ${i+1}`}
                 className="rounded-full transition-all duration-300"
-                style={{
-                  width:slide===i?16:6,height:6,
-                  background:slide===i?"#86efac":"rgba(255,255,255,0.35)",
-                }}/>
+                style={{width:slide===i?16:5,height:5,background:slide===i?Y:"rgba(255,255,255,0.2)"}}/>
             ))}
           </div>
         </div>
 
+        {/* CTAs */}
         <div className="space-y-3">
           <button onClick={onNew}
-            className="group relative w-full py-4 px-5 rounded-2xl shadow-xl transition-all duration-150 active:scale-[0.97]"
-            style={{background:"#ffffff",color:GREEN}}>
+            className="group relative w-full py-4 px-5 rounded-2xl font-black text-[1.05rem] transition-all duration-150 active:scale-[0.97]"
+            style={{background:Y,color:"#0A0A0A",boxShadow:"0 8px 32px rgba(255,250,102,0.25)"}}>
             <span className="absolute left-5 top-1/2 -translate-y-1/2"><UserPlus size={21}/></span>
-            <span className="block text-center font-black text-[1.05rem]">{t("newWarrior")}</span>
-            <span className="absolute right-5 top-1/2 -translate-y-1/2 opacity-40 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all"><ArrowRight size={19}/></span>
+            <span className="block text-center">{t("newWarrior")}</span>
+            <span className="absolute right-5 top-1/2 -translate-y-1/2 opacity-50 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all"><ArrowRight size={19}/></span>
           </button>
           <button onClick={onLogin}
-            className="group relative w-full py-4 px-5 rounded-2xl transition-all duration-150 active:scale-[0.97] hover:bg-white/10"
-            style={{border:"2px solid rgba(255,255,255,0.55)",color:"#ffffff"}}>
+            className="group relative w-full py-4 px-5 rounded-2xl font-black text-[1.05rem] transition-all duration-150 active:scale-[0.97]"
+            style={{background:"transparent",border:"1.5px solid rgba(255,255,255,0.20)",color:"rgba(255,255,255,0.82)"}}>
             <span className="absolute left-5 top-1/2 -translate-y-1/2"><User size={21}/></span>
-            <span className="block text-center font-black text-[1.05rem]">{t("alreadyHustle")}</span>
+            <span className="block text-center">{t("alreadyHustle")}</span>
             <span className="absolute right-5 top-1/2 -translate-y-1/2 opacity-40 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all"><ArrowRight size={19}/></span>
           </button>
         </div>
-        <p className="text-center text-green-200/60 text-xs mt-6 flex items-center justify-center gap-1.5">
+        <p className="text-center text-xs mt-6 flex items-center justify-center gap-1.5" style={{color:"rgba(255,255,255,0.28)"}}>
           <Stethoscope size={12}/> {t("notMedical")}
         </p>
       </div>
