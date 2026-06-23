@@ -1707,7 +1707,7 @@ function OnbSlide3({accent}:{accent:string}) {
     if(playing)return;
     setPlaying(true);setAudioErr(false);
     try{
-      const res=await fetch("/api/veer-tts",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:"Namaste! Main hoon Veer — aapka AI health coach. Aaj ka din achha guzaaro aur apna plan follow karo. You've got this!"})});
+      const res=await fetch("/api/veer-tts",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:"Hi, I am Veer, your AI powered lifestyle coach. I am here to help you eat better, move smarter, and hit your goals — every single day."})});
       if(!res.ok)throw new Error();
       const blob=await res.blob();
       const url=URL.createObjectURL(blob);
@@ -1734,7 +1734,7 @@ function OnbSlide3({accent}:{accent:string}) {
           borderBottomLeftRadius:4,animation:"liChatIn 0.5s cubic-bezier(0.22,1,0.36,1) both",
         }}>
           <p style={{color:"rgba(255,255,255,0.92)",fontSize:13,lineHeight:1.55}}>
-            "Namaste! Main hoon Veer — aapka AI health coach. 🙏"
+            "Hi, I am Veer — your AI powered lifestyle coach."
           </p>
         </div>
       )}

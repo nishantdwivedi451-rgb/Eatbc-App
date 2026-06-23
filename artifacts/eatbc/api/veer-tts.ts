@@ -1,8 +1,19 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-// Default to "Adam" — a warm, clear male voice.
-// Override by setting ELEVENLABS_VOICE_ID in Vercel env vars.
 const DEFAULT_VOICE_ID = "N2al4jd45e882svx17SU";
+
+function cleanForTTS(raw: string): string {
+  return raw
+    // strip all emoji / pictograph / symbol unicode ranges
+    .replace(/[\u{1F000}-\u{1FFFF}]/gu, "")
+    .replace(/[\u{2600}-\u{27BF}]/gu, "")
+    .replace(/[\u{2300}-\u{23FF}]/gu, "")
+    // strip leftover variation selectors / zero-width chars
+    .replace(/[︀-️​-‍﻿]/g, "")
+    // collapse multiple spaces / leading-trailing whitespace
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
@@ -14,6 +25,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!apiKey) return res.status(500).json({ error: "TTS not configured" });
 
   const voiceId = process.env.ELEVENLABS_VOICE_ID || DEFAULT_VOICE_ID;
+  const clean = cleanForTTS(text).slice(0, 500);
 
   const elRes = await fetch(
     `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
@@ -25,12 +37,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         "xi-api-key": apiKey,
       },
       body: JSON.stringify({
-        text: text.slice(0, 500), // guard token limit
-        model_id: "eleven_turbo_v2",
+        text: clean,
+        model_id: "eleven_turbo_v2_5",
         voice_settings: {
-          stability: 0.52,
-          similarity_boost: 0.82,
-          style: 0.28,
+          stability: 0.70,
+          similarity_boost: 0.75,
+          style: 0.05,
           use_speaker_boost: true,
         },
       }),
