@@ -2472,72 +2472,135 @@ function QuoteIllustration({theme,accent}:{theme:string;accent:string}) {
 function DailyQuote({onDone}:{onDone:()=>void}) {
   const [q]=useState(()=>MOTIVATION_QUOTES[Math.floor(Math.random()*MOTIVATION_QUOTES.length)]);
   const accent=THEME_ACCENT[q.theme]||"#FFFA66";
-  const [phase,setPhase]=useState<0|1|2>(0);
+  // phase: 0=glass intact | 1=cracks draw | 2=shards fly | 3=content in
+  const [phase,setPhase]=useState<0|1|2|3>(0);
   useEffect(()=>{
-    const t1=setTimeout(()=>setPhase(1),550);
-    const t2=setTimeout(()=>setPhase(2),1350);
-    return()=>{clearTimeout(t1);clearTimeout(t2);};
+    const t1=setTimeout(()=>setPhase(1),400);
+    const t2=setTimeout(()=>setPhase(2),900);
+    const t3=setTimeout(()=>setPhase(3),1380);
+    return()=>{clearTimeout(t1);clearTimeout(t2);clearTimeout(t3);};
   },[]);
+  const words=q.text.split(" ");
   return(
     <div className="min-h-screen relative overflow-hidden flex flex-col items-center justify-center"
-      style={{background:"#0A0A0A"}} onClick={phase>=2?onDone:undefined}>
-      {/* Accent atmosphere */}
-      <div style={{position:"absolute",inset:0,
-        background:`radial-gradient(circle at 50% 45%,${ha(accent,0.20)} 0%,transparent 62%)`}}/>
+      style={{background:"#0A0A0A"}} onClick={phase>=3?onDone:undefined}>
+
+      {/* Deep accent glow */}
+      <div style={{position:"absolute",inset:0,background:`radial-gradient(ellipse 80% 60% at 50% 50%,${ha(accent,0.22)} 0%,transparent 70%)`}}/>
+      {/* Secondary purple glow */}
+      <div style={{position:"absolute",width:400,height:400,borderRadius:"50%",bottom:-120,right:-80,background:"radial-gradient(circle,rgba(139,92,246,0.28) 0%,transparent 70%)",filter:"blur(40px)"}}/>
       {/* Dot grid */}
-      <div style={{position:"absolute",inset:0,backgroundImage:"radial-gradient(rgba(255,255,255,0.04) 1px,transparent 1px)",backgroundSize:"28px 28px"}}/>
-      {/* Quote content (revealed after glass breaks) */}
-      <div className="relative z-10 text-center px-7 max-w-sm mx-auto" style={{
-        opacity:phase>=2?1:0,
-        transform:phase>=2?"none":"translateY(18px) scale(0.96)",
-        transition:"opacity 0.9s ease 0.15s, transform 0.9s ease 0.15s",
-        pointerEvents:phase>=2?"auto":"none",
-      }}>
-        <div style={{animation:phase>=2?"bobFloat 4s ease-in-out infinite":"none"}}>
+      <div style={{position:"absolute",inset:0,backgroundImage:"radial-gradient(rgba(255,255,255,0.055) 1.2px,transparent 1.2px)",backgroundSize:"24px 24px"}}/>
+
+      {/* ── Content (phase 3) ── */}
+      <div className="relative z-10 flex flex-col items-center text-center px-6 max-w-sm mx-auto w-full">
+
+        {/* Chip label */}
+        <div style={{
+          opacity:phase>=3?1:0,
+          transform:phase>=3?"none":"translateY(-14px)",
+          transition:"opacity 0.45s ease, transform 0.45s cubic-bezier(0.34,1.56,0.64,1)",
+        }}>
+          <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 mb-5"
+            style={{background:ha(accent,0.15),border:`1px solid ${ha(accent,0.35)}`,letterSpacing:"0.12em"}}>
+            <span style={{fontSize:12}}>⚡</span>
+            <span className="font-black text-[10px] uppercase tracking-widest" style={{color:accent}}>Today's fuel</span>
+          </div>
+        </div>
+
+        {/* Illustration */}
+        <div style={{
+          opacity:phase>=3?1:0,
+          transform:phase>=3?"scale(1)":"scale(0.5)",
+          transition:"opacity 0.5s ease 0.05s, transform 0.6s cubic-bezier(0.34,1.56,0.64,1) 0.05s",
+          animation:phase>=3?"bobFloat 3.8s ease-in-out infinite":"none",
+          marginBottom:20,
+        }}>
           <QuoteIllustration theme={q.theme} accent={accent}/>
         </div>
-        <p className="font-black text-white text-xl leading-snug mt-4 mb-3" style={{letterSpacing:"-0.5px"}}>
-          "{q.text}"
-        </p>
+
+        {/* Quote — word by word pop-in */}
+        <div className="mb-4" style={{minHeight:96}}>
+          {words.map((word,i)=>(
+            <span key={i} style={{
+              display:"inline-block",
+              marginRight:"0.28em",
+              fontWeight:900,
+              fontSize:22,
+              lineHeight:1.25,
+              letterSpacing:"-0.4px",
+              color:"#fff",
+              opacity:phase>=3?1:0,
+              transform:phase>=3?"none":"translateY(20px) scale(0.7)",
+              transition:`opacity 0.38s ease ${i*0.04}s, transform 0.42s cubic-bezier(0.34,1.56,0.64,1) ${i*0.04}s`,
+            }}>{word}</span>
+          ))}
+        </div>
+
+        {/* Author */}
         {q.author&&(
-          <p className="text-sm font-semibold mb-6" style={{color:ha(accent,0.80)}}>— {q.author}</p>
+          <div style={{
+            opacity:phase>=3?1:0,
+            transform:phase>=3?"none":"translateY(10px)",
+            transition:"opacity 0.4s ease 0.3s, transform 0.4s ease 0.3s",
+            marginBottom:28,
+          }}>
+            <span className="text-xs font-bold px-3 py-1 rounded-full" style={{background:ha(accent,0.14),color:ha(accent,0.90),border:`1px solid ${ha(accent,0.25)}`}}>
+              — {q.author}
+            </span>
+          </div>
         )}
-        {!q.author&&<div className="mb-6"/>}
-        <button onClick={e=>{e.stopPropagation();onDone();}}
-          className="px-10 py-3.5 rounded-full font-black text-base tracking-wide transition-all active:scale-95"
-          style={{background:accent,color:"#0A0A0A",boxShadow:`0 8px 32px ${ha(accent,0.35)}`}}>
-          Let's crush it →
-        </button>
-        <p className="mt-3 text-xs" style={{color:"rgba(255,255,255,0.22)"}}>tap anywhere to continue</p>
+        {!q.author&&<div style={{marginBottom:28}}/>}
+
+        {/* CTA */}
+        <div style={{
+          opacity:phase>=3?1:0,
+          transform:phase>=3?"none":"translateY(20px)",
+          transition:"opacity 0.45s ease 0.38s, transform 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.38s",
+        }}>
+          <button onClick={e=>{e.stopPropagation();onDone();}}
+            className="px-10 py-4 rounded-2xl font-black text-base tracking-wide transition-all active:scale-95"
+            style={{
+              background:accent,color:"#0A0A0A",
+              boxShadow:`0 0 0 0 ${ha(accent,0.5)}, 0 12px 40px ${ha(accent,0.40)}`,
+              animation:phase>=3?"onbPulse 2.6s ease-in-out 1s infinite":"none",
+            }}>
+            Let's crush it →
+          </button>
+          <p className="mt-3 text-xs" style={{color:"rgba(255,255,255,0.20)"}}>tap anywhere to continue</p>
+        </div>
       </div>
-      {/* Glass overlay */}
-      <div className="absolute inset-0 z-20" style={{pointerEvents:phase>=2?"none":"none"}}>
-        {/* SVG crack lines */}
+
+      {/* ── Glass overlay (z above content) ── */}
+      <div className="absolute inset-0 z-20" style={{pointerEvents:"none"}}>
+        {/* Crack SVG */}
         <svg viewBox="0 0 100 100" preserveAspectRatio="none"
-          className="absolute inset-0 w-full h-full" style={{zIndex:2,pointerEvents:"none"}}>
+          className="absolute inset-0 w-full h-full"
+          style={{zIndex:3,pointerEvents:"none",opacity:phase>=2?0:1,transition:"opacity 0.18s ease 0.28s"}}>
           {["M52,44 L20,0","M52,44 L65,0","M52,44 L100,20","M52,44 L100,58",
             "M52,44 L70,100","M52,44 L28,100","M52,44 L0,68","M52,44 L0,32",
             "M28,22 L14,6","M72,8 L84,2","M88,38 L98,30","M82,76 L94,86",
             "M40,90 L36,100","M8,82 L2,92"].map((d,i)=>(
-            <path key={i} d={d} stroke={accent} strokeWidth={i<8?"0.9":"0.4"} fill="none"
-              strokeDasharray="400" strokeDashoffset="400"
-              style={{animation:`crackDraw ${0.38+i*0.02}s ease ${i*0.022}s both`}}/>
+            <path key={i} d={d} stroke={accent} strokeWidth={i<8?"1.2":"0.55"} fill="none"
+              strokeDasharray="400" strokeDashoffset={phase>=1?"0":"400"}
+              style={{transition:`stroke-dashoffset ${0.32+i*0.018}s ease ${i*0.022}s`}}/>
           ))}
-          <circle cx="52" cy="44" r="2" fill={accent}/>
+          <circle cx="52" cy="44" r="2.5" fill={accent} opacity={phase>=1?1:0} style={{transition:"opacity 0.2s ease 0.05s"}}/>
         </svg>
-        {/* Glass shards */}
+        {/* Shards — vivid coloured so they're clearly visible */}
         {SHARDS.map((s,i)=>(
           <div key={i} style={{
             position:"absolute",inset:0,
             background:i%2===0
-              ?"linear-gradient(145deg,rgba(255,255,255,0.10),rgba(255,255,255,0.04))"
-              :"linear-gradient(145deg,rgba(255,255,255,0.06),rgba(255,255,255,0.11))",
-            backdropFilter:"blur(6px) saturate(1.6)",
+              ?`linear-gradient(145deg,${ha(accent,0.38)},${ha(accent,0.18)})`
+              :`linear-gradient(160deg,${ha(accent,0.22)},${ha(accent,0.42)})`,
+            backdropFilter:"blur(10px) saturate(1.8) brightness(1.1)",
+            WebkitBackdropFilter:"blur(10px) saturate(1.8) brightness(1.1)",
             clipPath:s.clip,
-            boxShadow:"inset 0 0 0 0.5px rgba(255,255,255,0.18)",
-            transition:`transform 0.52s cubic-bezier(0.4,0.07,0.2,0.97) ${i*0.038}s, opacity 0.52s ease ${i*0.038}s`,
-            transform:phase>=1?`translate(${s.tx}px,${s.ty}px) rotate(${s.rot}deg) scale(0.35)`:"none",
-            opacity:phase>=1?0:1,
+            boxShadow:`inset 0 0 0 1px ${ha(accent,0.45)}, inset 0 1px 0 rgba(255,255,255,0.25)`,
+            transition:`transform 0.55s cubic-bezier(0.36,0.07,0.19,0.97) ${i*0.04}s, opacity 0.48s ease ${i*0.04}s`,
+            transform:phase>=2?`translate(${s.tx}px,${s.ty}px) rotate(${s.rot}deg) scale(0.2)`:"none",
+            opacity:phase>=2?0:1,
           }}/>
         ))}
       </div>
