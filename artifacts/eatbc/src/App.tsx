@@ -2226,12 +2226,37 @@ function OnbSlide3({accent}:{accent:string}) {
       <p style={{color:"rgba(255,255,255,0.42)",fontSize:13,maxWidth:250,lineHeight:1.75}}>
         Diet, workouts &amp; motivation in Hindi &amp; English. 24/7, always free.
       </p>
-      <button onClick={playVeer} disabled={playing}
-        className="mt-4 flex items-center gap-2 px-5 py-2.5 rounded-full font-bold text-sm transition-all active:scale-95"
-        style={{background:ha(accent,0.18),border:`1px solid ${ha(accent,0.40)}`,color:accent,opacity:playing?0.7:1}}>
-        {playing?<><span style={{animation:"onbPulse 1s ease-in-out infinite",display:"inline-block"}}>🔊</span> Playing…</>:<>▶ Hear Veer</>}
-      </button>
-      {audioErr&&<p style={{color:"rgba(255,100,100,0.7)",fontSize:11,marginTop:6}}>TTS unavailable — check API key</p>}
+      <div className="mt-5 flex items-center gap-3">
+        <button onClick={playVeer} disabled={playing}
+          className="relative flex items-center justify-center rounded-full flex-shrink-0 transition-all active:scale-95"
+          style={{width:56,height:56,
+            background:`linear-gradient(135deg,${ha(accent,playing?0.30:0.22)},${ha(accent,0.10)})`,
+            border:`2px solid ${ha(accent,playing?0.85:0.55)}`,
+            boxShadow:playing?`0 0 18px ${ha(accent,0.35)}`:`0 4px 16px ${ha(accent,0.18)}`,
+          }}>
+          {playing&&<span className="absolute inset-0 rounded-full pointer-events-none" style={{border:`2px solid ${ha(accent,0.55)}`,animation:"liVeerRing 1.3s ease-out infinite"}}/>}
+          {playing?(
+            <span className="flex items-end gap-px" style={{height:20}}>
+              {[11,20,14,18,10].map((h,i)=>(
+                <span key={i} style={{width:3,borderRadius:3,background:accent,height:h,animation:`veerBar 0.65s ease-in-out ${i*0.1}s infinite alternate`}}/>
+              ))}
+            </span>
+          ):(
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+              <polygon points="8,4 19,11 8,18" fill={accent} strokeLinejoin="round"/>
+            </svg>
+          )}
+        </button>
+        <div>
+          <p style={{color:accent,fontWeight:800,fontSize:15,letterSpacing:"-0.2px",lineHeight:1.2}}>
+            {playing?"Playing…":"Hear Veer"}
+          </p>
+          <p style={{color:"rgba(255,255,255,0.40)",fontSize:11.5,marginTop:3}}>
+            {playing?"Your AI coach is speaking":"Tap to hear your AI coach"}
+          </p>
+        </div>
+      </div>
+      {audioErr&&<p style={{color:"rgba(255,100,100,0.7)",fontSize:11,marginTop:8}}>TTS unavailable — check API key</p>}
     </div>
   );
 }
