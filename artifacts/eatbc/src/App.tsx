@@ -537,6 +537,11 @@ const LOG_DB: LogFood[] = [
   {n:"Fresh fruit juice",p:1, c:100,q:"1 glass (200ml)",cat:"Beverages"},
   {n:"Sugarcane juice",p:0, c:180,q:"1 glass (250ml)",cat:"Beverages"},
   {n:"Protein shake (whey, 1 scoop)",p:24,c:120,q:"30g powder in water",cat:"Beverages"},
+  {n:"Nimbu pani (lemonade)",p:0, c:60, q:"1 glass (250ml)",cat:"Beverages"},
+  {n:"Aam panna",p:0, c:90, q:"1 glass (250ml)",cat:"Beverages"},
+  {n:"Jaljeera",p:0, c:40, q:"1 glass (200ml)",cat:"Beverages"},
+  {n:"Coconut milk",p:2, c:140,q:"½ cup (100ml)",cat:"Beverages"},
+  {n:"Turmeric latte (golden milk)",p:4, c:120,q:"1 cup (250ml)",cat:"Beverages"},
   /* Restaurant & Takeout */
   {n:"Biryani — chicken (plate)",p:30,c:540,q:"1 plate (350g)",cat:"Restaurant"},
   {n:"Biryani — veg (plate)",p:12,c:450,q:"1 plate (300g)",cat:"Restaurant"},
@@ -844,6 +849,15 @@ const EXERCISE_GUIDE: Record<string, ExGuide> = {
   "DB Romanian deadlift":{muscles:["Hamstrings","Glutes","Lower back"],steps:["Hold dumbbells at hips, feet hip-width apart","Push hips back and hinge forward, keeping back flat and weights close to legs","Lower weights to mid-shin level — feel the hamstring stretch","Drive hips forward to return to standing, squeezing glutes at the top","Don't round your back at any point"],tip:"Think of closing a car door with your glutes at the top — hard squeeze = full hip extension.",emoji:"🏋️",burnType:"compound"},
   "DB walking lunge":{muscles:["Quads","Glutes","Hamstrings","Balance"],steps:["Hold dumbbells at sides and stand tall","Step forward with one leg and lower until both knees form 90°","Keep front knee over ankle — don't let it cave in","Push through front heel to bring feet together and step forward with the other leg","Continue alternating for the set distance or rep count"],tip:"Keep your torso upright and take long enough strides so your front shin stays vertical.",emoji:"🚶",burnType:"compound"},
   "DB calf raise":{muscles:["Gastrocnemius","Soleus"],steps:["Hold dumbbells at sides, stand on floor or a step edge","Rise up onto the balls of both feet as high as possible","Pause for 1 second at the top","Lower slowly — 3 seconds — for a full calf stretch","Avoid bouncing — the slow lower is where it works"],tip:"Single-leg version dramatically increases difficulty without needing heavier weights.",emoji:"🦶",burnType:"isolation"},
+  /* HYROX stations */
+  "Ski erg":{muscles:["Lats","Triceps","Core","Shoulders","Cardio"],steps:["Stand facing the ski erg handle; grab both handles above your head","Drive arms down and back in a powerful sweeping motion, bending your knees slightly","Follow through until arms pass your hips; use hip hinge to add power","Reset arms overhead with control and immediately repeat","Keep a steady rhythm — smooth strokes beat frantic ones"],tip:"Hinge at the hip every stroke — it's more like a deadlift than an arm exercise. That's where the power comes from.",emoji:"🎿",burnType:"cardio"},
+  "Sled push":{muscles:["Quads","Glutes","Calves","Shoulders","Core"],steps:["Load the sled with appropriate weight; place hands on the uprights at hip height","Drive one foot back and push powerfully off the ground, like a sprint start","Keep hips low and back flat — don't stand upright during the push","Take short, powerful steps and drive through your whole foot","Push continuously until the distance is complete"],tip:"Low hips = more power. The moment you stand up tall, the sled slows down — stay aggressive and low.",emoji:"🛷",burnType:"compound"},
+  "Sled pull":{muscles:["Back","Biceps","Hamstrings","Core","Glutes"],steps:["Attach a harness or rope to the sled; face away from the sled","Hold the rope at arm's length and lean forward slightly at the hip","Drive your feet into the ground, taking short powerful backward steps","Pull the rope hand over hand, keeping tension throughout","Stay low and maintain a powerful hip position — don't bend over too far"],tip:"Think of it as a reverse sled push — keep that same low, powerful hip position for maximum drive.",emoji:"⛓️",burnType:"compound"},
+  "Burpee broad jumps":{muscles:["Full body","Glutes","Quads","Chest","Cardio"],steps:["Stand with feet shoulder-width apart","Drop your hands to the floor and jump feet back into a plank (no push-up in HYROX)","Jump feet back toward hands","Explode forward with a powerful broad jump — aim for maximum distance","Land softly in a quarter-squat and immediately flow into the next rep"],tip:"The broad jump is the scoring distance — spend energy on the jump, not the plank. Keep the floor portion brisk and efficient.",emoji:"🦘",burnType:"cardio"},
+  "Rowing (erg)":{muscles:["Back","Legs","Core","Biceps","Cardio"],steps:["Sit on the erg, feet strapped in, knees bent, shins vertical","Hinge forward from the hip and grip the handle","Drive powerfully through your legs first — legs, then lean back, then pull arms","Pull the handle to your lower chest, elbows driving past your torso","Return in reverse: arms out, lean forward, slide in — stay fluid"],tip:"It's 60% legs, 20% back, 20% arms. Most beginners over-arm-pull — focus on the leg drive as the primary power source.",emoji:"🚣",burnType:"cardio"},
+  "Farmers carry":{muscles:["Grip","Trapezius","Core","Glutes","Legs"],steps:["Pick up two heavy dumbbells or kettlebells at your sides — hip hinge, neutral back","Stand tall, shoulders back and down, core braced tight","Walk with purpose — short, controlled steps; don't let the weights sway","Keep your gaze forward and breathe steadily throughout","Set weights down under control and pick back up for the next rep"],tip:"If your grip fails before your legs and core, use chalk. But let grip be your training signal — it's the first thing to give out in a race.",emoji:"🧺",burnType:"compound"},
+  "Sandbag lunges":{muscles:["Quads","Glutes","Core","Balance","Shoulders"],steps:["Hoist a sandbag onto one shoulder or hold it in a bear hug at chest height","Step forward with one foot; lower the back knee toward the floor","Keep torso upright — the sandbag will try to pull you forward; resist","Push through the front heel to return to standing","Alternate legs each step, covering the required distance"],tip:"Shoulder carry is harder than bear hug but better training for race day. Keep the bag high and tight — a drooping bag kills your balance.",emoji:"💼",burnType:"compound"},
+  "Wall balls":{muscles:["Quads","Glutes","Shoulders","Core","Cardio"],steps:["Hold a 6–9 kg medicine ball at your chest; stand 30 cm from the wall","Squat down to at least parallel, keeping the ball at chest and chest up","Drive up explosively and press the ball at the wall target (3 m up)","Catch the ball as it falls, absorbing into a squat immediately","Cycle continuously — squat, throw, catch forms one fluid movement"],tip:"The catch drives you into the next squat — don't fight it. Let gravity load the next rep. Rhythm beats power every time.",emoji:"🏐",burnType:"compound"},
 };
 
 /* ─────────────── recipe database ─────────────── */
@@ -938,10 +952,17 @@ const EX: Record<string, Record<string, ExDef[]>> = {
     push: [{n:"Push-ups"},{n:"Bench dips"}],
     pull: [{n:"Park bar rows",note:"if a bar is available"},{n:"Superman hold",hold:true}],
   },
+  hyrox: {
+    cardio:[{n:"Ski erg",note:"1000m / 4 min"},{n:"Rowing (erg)",note:"1000m / 4 min"},{n:"Run intervals",note:"1 km at race pace"}],
+    push:  [{n:"Sled push",note:"2×25m"},{n:"Wall balls",note:"20 reps per set"},{n:"Burpee broad jumps",note:"4×20m"}],
+    pull:  [{n:"Sled pull",note:"2×25m"},{n:"Farmers carry",note:"2×50m"},{n:"Sandbag lunges",note:"2×25m each leg"}],
+    legs:  [{n:"Bodyweight squats"},{n:"Reverse lunges",note:"each leg"},{n:"Glute bridges"},{n:"Bulgarian split squat",note:"each leg"}],
+    core:  [{n:"Plank",hold:true},{n:"Dead bug"},{n:"Mountain climbers"},{n:"Leg raises"}],
+  },
 };
 const PLACE_KEY: Record<string,string> = {
   "Home — no equipment":"home","Home — dumbbells / bands":"dumbbell",
-  "Full gym":"gym","Outdoor / cardio":"outdoor",
+  "Full gym":"gym","Outdoor / cardio":"outdoor","HYROX Gym":"hyrox",
 };
 /* Infer workout location from exercise type when workoutPlace not asked */
 const EXERCISE_TO_PLACE: Record<string,string> = {
@@ -953,6 +974,7 @@ const EXERCISE_TO_PLACE: Record<string,string> = {
   "Gym (weights)":      "Full gym",
   "Sports / games":     "Outdoor / cardio",
   "HIIT / CrossFit":    "Home — dumbbells / bands",
+  "HYROX":              "HYROX Gym",
 };
 /* Infer training focus from diet goal when workoutFocus not asked */
 const GOAL_TO_FOCUS: Record<string,string> = {
@@ -983,6 +1005,7 @@ function buildWorkout(p: Profile): WorkoutPlan | null {
   const muscle = focus==="Build muscle" || focus==="Get stronger";
   const burn = focus==="Burn fat";
   const cardioPlace = placeKey==="outdoor";
+  const isHyrox = placeKey==="hyrox";
 
   type Slot = { cat: string; n: number };
   const FB=(label:string):{label:string;focus:string;cats:Slot[]}=>(
@@ -993,8 +1016,19 @@ function buildWorkout(p: Profile): WorkoutPlan | null {
   const upper={label:"Upper Body",focus:"Chest · back · arms",cats:[{cat:"push",n:2},{cat:"pull",n:2},{cat:"core",n:1}]};
   const lower={label:"Lower Body",focus:"Legs · core",cats:[{cat:"legs",n:3},{cat:"core",n:1}]};
 
+  /* HYROX-specific 5-day rotation: machine aerobic → sled/push → carry/pull → simulation → recovery */
+  const hyroxTemplates:{label:string;focus:string;cats:Slot[]}[]=[
+    {label:"Machine Endurance",focus:"Ski erg · rowing · run",cats:[{cat:"cardio",n:2},{cat:"core",n:1}]},
+    {label:"Sled & Push",focus:"Sled push · wall balls · burpee broad jumps",cats:[{cat:"push",n:2},{cat:"legs",n:1},{cat:"core",n:1}]},
+    {label:"Carry & Pull",focus:"Sled pull · farmers carry · sandbag lunges",cats:[{cat:"pull",n:3},{cat:"core",n:1}]},
+    {label:"Race Simulation",focus:"All 8 HYROX stations at reduced volume",cats:[{cat:"cardio",n:1},{cat:"push",n:1},{cat:"pull",n:1},{cat:"legs",n:1},{cat:"core",n:1}]},
+    {label:"Run & Recovery",focus:"Easy run + mobility",cats:[{cat:"cardio",n:1},{cat:"legs",n:2},{cat:"core",n:1}]},
+  ];
+
   let templates:{label:string;focus:string;cats:Slot[]}[];
-  if (cardioPlace) {
+  if (isHyrox) {
+    templates = hyroxTemplates.slice(0, Math.min(days, 5));
+  } else if (cardioPlace) {
     templates = Array.from({length:Math.min(days,6)},(_,i)=>(
       {label:`Session ${i+1}`,focus:"Cardio + circuit",
        cats:[{cat:"cardio",n:1},{cat:"legs",n:1},{cat:"core",n:1},{cat:"push",n:1}]}));
@@ -1037,7 +1071,13 @@ function buildWorkout(p: Profile): WorkoutPlan | null {
   const intensity=focus==="Get stronger"?"Rest 2–3 min between heavy sets."
     :burn?"Keep rest short (30–45 sec) to keep the heart rate up."
     :"Rest 60–90 sec between sets.";
-  const notes=[
+  const notes= isHyrox ? [
+    "Warm up 10 min: 500m easy row + dynamic leg swings and hip circles.",
+    "HYROX race order: 1 km run → ski erg → 1 km run → sled push → 1 km run → sled pull → 1 km run → burpee broad jumps → 1 km run → rowing → 1 km run → farmers carry → 1 km run → sandbag lunges → 1 km run → wall balls.",
+    "In training: prioritise your weakest station — spend 10 extra minutes on it after each session.",
+    "Race simulation day: do all stations at 50% volume with 1-min easy jogs between — build the rhythm.",
+    "Recovery is critical: HYROX training is very high load. Sleep 8 hrs, eat your protein target, and never skip rest days.",
+  ] : [
     "Warm up 5 min (light cardio + dynamic stretches) before every session.",
     intensity,
     "Add a little weight or 1–2 reps whenever a set feels easy — progressive overload drives results.",
@@ -1369,6 +1409,31 @@ function PlanWeek({plan}:{plan:Plan}) {
 }
 
 /* ─────────────── WeightLog ─────────────── */
+function WeightSparkline({entries}:{entries:[string,number][]}) {
+  if (entries.length < 2) return null;
+  const vals = entries.map(([,w])=>w);
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const range = Math.max(max - min, 0.5);
+  const W=100, H=30, pad=3;
+  const pts = vals.map((v,i)=>{
+    const x = pad+(i/(vals.length-1))*(W-pad*2);
+    const y = pad+(1-(v-min)/range)*(H-pad*2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+  const trending = vals[vals.length-1] <= vals[0];
+  const col = trending ? "#1DAA61" : "#EA580C";
+  return (
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{display:"block",overflow:"visible"}}>
+      <polyline points={pts} fill="none" stroke={col} strokeWidth={1.5} strokeLinejoin="round"/>
+      {vals.map((v,i)=>{
+        const x = pad+(i/(vals.length-1))*(W-pad*2);
+        const y = pad+(1-(v-min)/range)*(H-pad*2);
+        return <circle key={i} cx={x.toFixed(1)} cy={y.toFixed(1)} r={2.5} fill={col}/>;
+      })}
+    </svg>
+  );
+}
+
 function WeightLog({t,onLog}:{t:Tracking;onLog:(w:number)=>void}) {
   const [w,setW]=useState("");
   const [wErr,setWErr]=useState("");
@@ -1420,12 +1485,17 @@ function WeightLog({t,onLog}:{t:Tracking;onLog:(w:number)=>void}) {
         </div>
       )}
       {entries.length>0&&!wErr&&(
-        <div className="text-sm text-gray-500 mt-2">
-          Latest: <b className="text-gray-700">{latest} kg</b>
-          {diff!=null&&(
-            <span style={{color:+diff<=0?GREEN:"#EA580C"}}>
-              {" "}({+diff>0?"+":""}{diff} kg since start)
-            </span>
+        <div className="flex items-center justify-between mt-2">
+          <div className="text-sm text-gray-500">
+            Latest: <b className="text-gray-700">{latest} kg</b>
+            {diff!=null&&(
+              <span style={{color:+diff<=0?GREEN:"#EA580C"}}>
+                {" "}({+diff>0?"+":""}{diff} kg since start)
+              </span>
+            )}
+          </div>
+          {entries.length>=2&&(
+            <WeightSparkline entries={entries.slice(-7)}/>
           )}
         </div>
       )}
@@ -1688,7 +1758,20 @@ function QuizTeaser({profile}:{profile:Profile}) {
   const bmr = (profile.sex!=="Male"
     ? 10*w+6.25*cm-5*(+(profile.age||25))-161
     : 10*w+6.25*cm-5*(+(profile.age||25))+5);
-  const roughTdee = Math.round(bmr*1.4/50)*50;
+  const teaserPalMatrix: Record<string,Record<string,number>> = {
+    "Mostly desk job":    {"None":1.2,"Walks / light":1.375,"Gym 3x week":1.55,"Gym 5x+ / sports":1.65},
+    "On feet / moderate": {"None":1.375,"Walks / light":1.475,"Gym 3x week":1.60,"Gym 5x+ / sports":1.75},
+    "Physically active":  {"None":1.55,"Walks / light":1.65,"Gym 3x week":1.75,"Gym 5x+ / sports":1.90},
+  };
+  const teaserNormEx: Record<string,string> = {
+    "Running / jogging":"Gym 3x week","Cycling":"Gym 3x week","Swimming":"Gym 3x week",
+    "Yoga / Pilates":"Walks / light","Home workouts":"Gym 3x week","Gym (weights)":"Gym 3x week",
+    "Sports / games":"Gym 5x+ / sports","HIIT / CrossFit":"Gym 5x+ / sports","HYROX":"Gym 5x+ / sports",
+  };
+  const teaserExKey = teaserNormEx[profile.exercise||""] || "None";
+  const teaserPalRow = teaserPalMatrix[profile.activity||"Mostly desk job"] || teaserPalMatrix["Mostly desk job"];
+  const teaserPal = teaserPalRow[teaserExKey] ?? 1.375;
+  const roughTdee = Math.round(bmr*teaserPal/50)*50;
   const bmiColor = bmi<18.5?"#60a5fa":bmi<23?"#4ade80":bmi<27.5?"#fbbf24":"#f87171";
   return (
     <div className="rounded-2xl px-4 py-3.5 mb-5 border"
@@ -2900,7 +2983,7 @@ function AdaptiveRecalcBanner({weights, lastRecalcDate, lastRecalcWeight, goal, 
         </p>
         <p className="text-xs text-blue-500 mt-0.5">Your calorie target needs recalculation.</p>
       </div>
-      <button onClick={onRecalc}
+      <button onClick={()=>onRecalc()}
         className="shrink-0 px-3 py-1.5 rounded-xl text-white text-xs font-semibold"
         style={{background:"#3B82F6"}}>
         Update
@@ -3092,7 +3175,7 @@ function VeerBot({session,planCondition}:{session:Session|null;planCondition:str
     await new Promise<void>(resolve=>{
       const utt=new SpeechSynthesisUtterance(text);
       utt.lang="en-IN"; utt.rate=0.92;
-      utt.onend=resolve; utt.onerror=resolve;
+      utt.onend=()=>resolve(); utt.onerror=()=>resolve();
       window.speechSynthesis.speak(utt);
     });
   }
@@ -3510,6 +3593,28 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccou
                     })}
                   </div>
                 </Card>
+                {cal>0&&(
+                  <div className="rounded-2xl px-4 py-3 mb-3 flex items-center justify-between"
+                    style={{
+                      background:consumed>=cal?"#FEF2F2":consumed/cal>0.85?"#FFFBEB":"#F0FDF4",
+                      border:`1px solid ${consumed>=cal?"#FECACA":consumed/cal>0.85?"#FDE68A":"#BBF7D0"}`,
+                    }}>
+                    <div>
+                      <div className="text-sm font-semibold"
+                        style={{color:consumed>=cal?"#DC2626":consumed/cal>0.85?"#D97706":"#16A34A"}}>
+                        {consumed>=cal?`${consumed-cal} kcal over target`:`${cal-consumed} kcal remaining`}
+                      </div>
+                      <div className="text-xs text-gray-400">{consumed} / {cal} kcal for {sel}</div>
+                    </div>
+                    <div className="w-20 h-2 rounded-full overflow-hidden" style={{background:"#E5E7EB"}}>
+                      <div className="h-2 rounded-full transition-all duration-500"
+                        style={{
+                          width:`${Math.min(consumed/cal,1)*100}%`,
+                          background:consumed>=cal?"#EF4444":consumed/cal>0.85?"#F59E0B":"#22C55E",
+                        }}/>
+                    </div>
+                  </div>
+                )}
                 <FoodLogger
                   log={dd.log||[]}
                   customFoods={tracking.customFoods||[]}
@@ -3643,9 +3748,7 @@ export default function App() {
   const cur=activeQ[stepClamped];
   const setVal=(v:string|string[])=>{
     setQErr("");
-    // region is stored as string[] but the quiz uses type:"pick" (returns string)
-    const val = cur.k==="region" && typeof v==="string" ? [v] : v;
-    setProfile(p=>({...p,[cur.k]:val}));
+    setProfile(p=>({...p,[cur.k]:v}));
   };
   const toggleMulti=(o:string)=>setProfile(p=>{
     const a=(p[cur.k] as string[])||[];
