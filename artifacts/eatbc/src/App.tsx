@@ -2154,6 +2154,273 @@ const TESTIMONIALS=[
   {name:"Sneha R., Mumbai",text:"My PCOS diet is now actually manageable. No more guessing.",tag:"PCOS"},
 ];
 
+/* ─────────────── Daily motivation quote ─────────────── */
+interface MQuote { text:string; author?:string; theme:string; }
+const MOTIVATION_QUOTES:MQuote[]=[
+  // Fitness & movement
+  {text:"The only bad workout is the one that didn't happen.",theme:"runner"},
+  {text:"Your body can stand almost anything. It's your mind you have to convince.",theme:"lightning"},
+  {text:"Push yourself because no one else is going to do it for you.",theme:"fire"},
+  {text:"The pain you feel today will be the strength you feel tomorrow.",theme:"mountain"},
+  {text:"Don't stop when you're tired. Stop when you're done.",theme:"fire"},
+  {text:"Train like a beast. Eat like a champion.",theme:"runner"},
+  {text:"Results don't care about your excuses.",theme:"lightning"},
+  {text:"Your future self is watching you right now through memories.",theme:"star"},
+  {text:"Consistency beats intensity every single time.",theme:"water"},
+  {text:"Every rep. Every meal. Every night's sleep. It all adds up.",theme:"fire"},
+  // Nutrition wisdom
+  {text:"Let food be thy medicine and medicine be thy food.",author:"Hippocrates",theme:"leaf"},
+  {text:"You are what you eat. Don't be fast, cheap, easy, or fake.",theme:"leaf"},
+  {text:"Take care of your body. It's the only place you have to live.",author:"Jim Rohn",theme:"heart"},
+  {text:"Eat to nourish your body, not to punish or reward it.",theme:"lotus"},
+  {text:"A healthy outside starts from the inside.",theme:"heart"},
+  {text:"One meal at a time. One day at a time.",theme:"sunrise"},
+  {text:"Your plate is a canvas. Make it colorful.",theme:"leaf"},
+  {text:"Eating well is a form of self-respect.",theme:"lotus"},
+  {text:"What you eat in private, you wear in public.",theme:"fire"},
+  {text:"When diet is wrong, medicine is of no use. When diet is correct, medicine is of no need.",author:"Ayurvedic wisdom",theme:"lotus"},
+  {text:"Food is not the enemy. Ultra-processing is.",theme:"leaf"},
+  // Mindset
+  {text:"The mind is everything. What you think, you become.",author:"Buddha",theme:"lotus"},
+  {text:"You don't have to be great to start, but you have to start to be great.",author:"Zig Ziglar",theme:"sunrise"},
+  {text:"Discipline is choosing between what you want now and what you want most.",theme:"mountain"},
+  {text:"Fall seven times, stand up eight.",author:"Japanese proverb",theme:"lightning"},
+  {text:"One day or day one. You decide.",theme:"star"},
+  {text:"Motivation gets you started. Habit keeps you going.",theme:"water"},
+  {text:"You are stronger than you think, braver than you believe.",theme:"heart"},
+  {text:"Energy flows where attention goes.",theme:"fire"},
+  {text:"It always seems impossible until it's done.",author:"Nelson Mandela",theme:"lightning"},
+  {text:"The secret to getting ahead is getting started.",author:"Mark Twain",theme:"runner"},
+  {text:"Strong is the new skinny.",theme:"lightning"},
+  {text:"You have exactly one body. Treat it accordingly.",theme:"heart"},
+  // Goals & progress
+  {text:"Every accomplishment starts with the decision to try.",theme:"star"},
+  {text:"Progress, not perfection.",theme:"sunrise"},
+  {text:"A year from now you may wish you had started today.",theme:"mountain"},
+  {text:"Success is the sum of small efforts, repeated day in and day out.",author:"Robert Collier",theme:"water"},
+  {text:"Don't compare your chapter 1 to someone else's chapter 20.",theme:"star"},
+  {text:"The difference between ordinary and extraordinary is that little extra.",theme:"lightning"},
+  {text:"Dream big. Start small. Act now.",theme:"sunrise"},
+  {text:"You're not behind. You're on your own path.",theme:"leaf"},
+  {text:"Track your progress, not your comparison.",theme:"runner"},
+  {text:"It's not about perfect. It's about effort.",author:"Jillian Michaels",theme:"fire"},
+  {text:"Small steps every day — that's how mountains are climbed.",theme:"mountain"},
+  // Indian & ancient wisdom
+  {text:"As is the food, so is the mind. As is the mind, so is the man.",author:"Sivananda",theme:"lotus"},
+  {text:"Health is wealth. Peace of mind is happiness.",author:"Swami Vishnu-devananda",theme:"heart"},
+  {text:"Arogya eva sarvaartha saadhanam — Good health is the means to achieve all goals.",author:"Ancient wisdom",theme:"lotus"},
+  {text:"Eat breakfast like a king, lunch like a prince, dinner like a pauper.",author:"Ayurvedic wisdom",theme:"sunrise"},
+  {text:"Balance is not something you find, it's something you create.",theme:"water"},
+  {text:"Nourish your body, calm your mind, and let your spirit soar.",theme:"leaf"},
+  {text:"The groundwork for all happiness is good health.",author:"Leigh Hunt",theme:"heart"},
+  {text:"A fit body, a calm mind, a house full of love.",theme:"lotus"},
+  {text:"To keep the body in good health is a duty — otherwise we shall not be able to keep our mind strong.",author:"Buddha",theme:"star"},
+  {text:"Rest when you're weary. Refresh and renew yourself.",author:"Ralph Marston",theme:"water"},
+  {text:"Your health is an investment, not an expense.",theme:"heart"},
+  {text:"Abs are made in the kitchen.",theme:"leaf"},
+  {text:"Be the energy you want to attract.",theme:"star"},
+  {text:"Silence the doubt. Trust the process.",theme:"mountain"},
+  {text:"The body achieves what the mind believes.",theme:"fire"},
+];
+const THEME_ACCENT:Record<string,string>={
+  fire:"#FF6B35",mountain:"#7C9EB2",sunrise:"#FFB347",
+  runner:"#52B788",lotus:"#C77DFF",lightning:"#FFFA66",
+  leaf:"#74C69D",heart:"#FF6B9D",star:"#A8DADC",water:"#4CC9F0",
+};
+const SHARDS=[
+  {clip:"polygon(0% 0%,20% 0%,52% 44%,0% 32%)",    tx:-150,ty:-120,rot:-38},
+  {clip:"polygon(20% 0%,65% 0%,52% 44%)",            tx:0,  ty:-160,rot:12},
+  {clip:"polygon(65% 0%,100% 0%,100% 20%,52% 44%)", tx:150,ty:-120,rot:32},
+  {clip:"polygon(100% 20%,100% 58%,52% 44%)",        tx:165,ty:0,   rot:45},
+  {clip:"polygon(100% 58%,100% 100%,70% 100%,52% 44%)",tx:140,ty:130,rot:35},
+  {clip:"polygon(70% 100%,28% 100%,52% 44%)",        tx:0,  ty:160, rot:-15},
+  {clip:"polygon(28% 100%,0% 100%,0% 68%,52% 44%)", tx:-140,ty:130,rot:-32},
+  {clip:"polygon(0% 68%,0% 32%,52% 44%)",            tx:-165,ty:0,  rot:-45},
+];
+
+function QuoteIllustration({theme,accent}:{theme:string;accent:string}) {
+  const a=accent;
+  switch(theme){
+    case "fire":return(
+      <svg width="130" height="130" viewBox="0 0 100 100">
+        <ellipse cx="50" cy="80" rx="26" ry="9" fill={ha(a,0.20)}/>
+        <path d="M50,16 C63,32 74,44 69,62 C66,72 57,77 50,77 C43,77 34,72 31,62 C26,44 37,32 50,16 Z" fill={a}/>
+        <path d="M50,30 C57,42 61,52 58,62 C56,67 50,70 50,70 C50,70 44,67 42,62 C39,52 43,42 50,30 Z" fill="rgba(255,255,255,0.32)"/>
+        <path d="M50,42 C53,48 54,54 52,60 C51,63 50,65 50,65 C50,65 49,63 48,60 C46,54 47,48 50,42 Z" fill="rgba(255,255,255,0.5)"/>
+        <circle cx="38" cy="60" r="4" fill={ha(a,0.45)} style={{filter:"blur(3px)"}}/>
+        <circle cx="62" cy="55" r="3" fill={ha(a,0.35)} style={{filter:"blur(2px)"}}/>
+      </svg>);
+    case "mountain":return(
+      <svg width="130" height="130" viewBox="0 0 100 100">
+        <polygon points="50,14 20,75 80,75" fill={a}/>
+        <polygon points="74,30 54,75 94,75" fill={ha(a,0.50)}/>
+        <polygon points="26,42 6,75 46,75" fill={ha(a,0.38)}/>
+        <polygon points="38,44 50,14 62,44" fill="rgba(255,255,255,0.28)"/>
+        <circle cx="14" cy="24" r="2.5" fill={a}/>
+        <circle cx="82" cy="18" r="2" fill={a}/>
+        <circle cx="90" cy="30" r="1.5" fill={ha(a,0.6)}/>
+        <line x1="6" y1="75" x2="94" y2="75" stroke={ha(a,0.25)} strokeWidth="1.5"/>
+      </svg>);
+    case "sunrise":return(
+      <svg width="130" height="130" viewBox="0 0 100 100">
+        <circle cx="50" cy="65" r="20" fill={a}/>
+        {[0,30,60,90,120,150,210,240,270,300,330].map((deg,i)=>{
+          const rad=deg*Math.PI/180,inn=26,out=34;
+          return <line key={i} x1={50+inn*Math.cos(rad)} y1={65+inn*Math.sin(rad)}
+            x2={50+out*Math.cos(rad)} y2={65+out*Math.sin(rad)}
+            stroke={a} strokeWidth="2.2" strokeLinecap="round"/>;
+        })}
+        <rect x="5" y="65" width="34" height="2.5" rx="1.25" fill={ha(a,0.5)}/>
+        <rect x="61" y="65" width="34" height="2.5" rx="1.25" fill={ha(a,0.5)}/>
+        <rect x="14" y="73" width="72" height="2" rx="1" fill={ha(a,0.30)}/>
+        <rect x="22" y="80" width="56" height="1.5" rx="0.75" fill={ha(a,0.18)}/>
+      </svg>);
+    case "runner":return(
+      <svg width="130" height="130" viewBox="0 0 100 100">
+        <circle cx="50" cy="18" r="8" fill={a}/>
+        <path d="M50,26 L44,48 L30,62" stroke={a} strokeWidth="5" fill="none" strokeLinecap="round"/>
+        <path d="M44,48 L52,68" stroke={a} strokeWidth="5" fill="none" strokeLinecap="round"/>
+        <path d="M50,26 L60,44 L72,55" stroke={a} strokeWidth="5" fill="none" strokeLinecap="round"/>
+        <path d="M44,38 L36,50 L30,62 L24,72" stroke={a} strokeWidth="5" fill="none" strokeLinecap="round"/>
+        <path d="M60,44 L68,55 L72,55 L78,65" stroke={a} strokeWidth="5" fill="none" strokeLinecap="round"/>
+        <ellipse cx="50" cy="85" rx="34" ry="3" fill={ha(a,0.15)}/>
+        {[0,1,2,3,4].map(i=>(
+          <circle key={i} cx={20+i*15} cy={85} r="1.5" fill={ha(a,0.4)}/>
+        ))}
+      </svg>);
+    case "lotus":return(
+      <svg width="130" height="130" viewBox="0 0 100 100">
+        <path d="M50,75 C50,75 28,58 28,42 C28,32 36,26 44,30 C40,20 50,15 50,15 C50,15 60,20 56,30 C64,26 72,32 72,42 C72,58 50,75 50,75 Z" fill={a}/>
+        <path d="M50,75 C50,75 36,62 36,50 C36,44 42,40 47,42 C44,36 50,32 50,32 C50,32 56,36 53,42 C58,40 64,44 64,50 C64,62 50,75 50,75 Z" fill="rgba(255,255,255,0.3)"/>
+        <ellipse cx="50" cy="78" rx="22" ry="5" fill={ha(a,0.18)}/>
+        <line x1="50" y1="75" x2="50" y2="85" stroke={ha(a,0.5)} strokeWidth="2"/>
+        <path d="M38,54 C32,48 30,40 34,36" stroke={ha(a,0.4)} strokeWidth="1.5" fill="none"/>
+        <path d="M62,54 C68,48 70,40 66,36" stroke={ha(a,0.4)} strokeWidth="1.5" fill="none"/>
+      </svg>);
+    case "lightning":return(
+      <svg width="130" height="130" viewBox="0 0 100 100">
+        <path d="M58,10 L36,52 L50,52 L42,90 L64,48 L50,48 Z" fill={a}/>
+        <path d="M58,10 L50,52 L56,52 L50,72" stroke="rgba(255,255,255,0.3)" strokeWidth="2" fill="none"/>
+        <ellipse cx="50" cy="90" rx="22" ry="5" fill={ha(a,0.15)}/>
+        {[[-18,-8],[-26,18],[18,12],[24,-4]].map(([x,y],i)=>(
+          <circle key={i} cx={50+x} cy={50+y} r={2-i*0.3} fill={ha(a,0.45)}/>
+        ))}
+      </svg>);
+    case "leaf":return(
+      <svg width="130" height="130" viewBox="0 0 100 100">
+        <path d="M50,20 C70,20 85,35 85,55 C85,70 70,80 50,80 C50,80 15,72 15,50 C15,30 30,20 50,20 Z" fill={a}/>
+        <path d="M50,80 L50,25" stroke="rgba(255,255,255,0.35)" strokeWidth="2"/>
+        <path d="M50,45 C60,40 72,38 82,42" stroke="rgba(255,255,255,0.25)" strokeWidth="1.5" fill="none"/>
+        <path d="M50,55 C62,52 74,52 84,55" stroke="rgba(255,255,255,0.20)" strokeWidth="1.5" fill="none"/>
+        <path d="M50,65 C58,65 66,67 74,70" stroke="rgba(255,255,255,0.15)" strokeWidth="1.5" fill="none"/>
+        <ellipse cx="50" cy="85" rx="18" ry="4" fill={ha(a,0.20)}/>
+      </svg>);
+    case "heart":return(
+      <svg width="130" height="130" viewBox="0 0 100 100">
+        <path d="M50,80 C50,80 18,60 18,38 C18,26 28,20 38,24 C44,26 48,30 50,34 C52,30 56,26 62,24 C72,20 82,26 82,38 C82,60 50,80 50,80 Z" fill={a}/>
+        <path d="M50,80 C50,80 28,65 24,48 C28,54 36,56 42,52 C38,58 42,68 50,74 C58,68 62,58 58,52 C64,56 72,54 76,48 C72,65 50,80 50,80 Z" fill="rgba(255,255,255,0.18)"/>
+        <path d="M22,48 L30,48 L34,42 L38,56 L42,44 L46,52 L50,48 L78,48" stroke="rgba(255,255,255,0.45)" strokeWidth="2" fill="none" strokeLinecap="round"/>
+        <ellipse cx="50" cy="84" rx="20" ry="4" fill={ha(a,0.18)}/>
+      </svg>);
+    case "star":return(
+      <svg width="130" height="130" viewBox="0 0 100 100">
+        <polygon points="50,12 56,34 80,34 60,50 68,72 50,58 32,72 40,50 20,34 44,34" fill={a}/>
+        <polygon points="50,20 54,32 68,32 57,42 61,56 50,47 39,56 43,42 32,32 46,32" fill="rgba(255,255,255,0.28)"/>
+        <circle cx="22" cy="22" r="2.5" fill={ha(a,0.7)}/>
+        <circle cx="80" cy="18" r="2" fill={ha(a,0.6)}/>
+        <circle cx="88" cy="68" r="1.5" fill={ha(a,0.5)}/>
+        <circle cx="14" cy="72" r="2" fill={ha(a,0.5)}/>
+        <circle cx="76" cy="82" r="1.5" fill={ha(a,0.4)}/>
+      </svg>);
+    case "water":default:return(
+      <svg width="130" height="130" viewBox="0 0 100 100">
+        {[0,1,2,3].map(i=>(
+          <path key={i} d={`M8,${42+i*13} C22,${36+i*13} 38,${48+i*13} 50,${42+i*13} C62,${36+i*13} 78,${48+i*13} 92,${42+i*13}`}
+            stroke={i===0?a:ha(a,0.65-i*0.15)} strokeWidth={3-i*0.5} fill="none" strokeLinecap="round"/>
+        ))}
+        <circle cx="50" cy="26" r="12" fill={ha(a,0.30)} style={{filter:"blur(4px)"}}/>
+        <path d="M44,18 C44,22 42,28 50,28 C58,28 56,22 56,18 C56,14 50,10 50,10 C50,10 44,14 44,18 Z" fill={a}/>
+        <ellipse cx="50" cy="90" rx="28" ry="4" fill={ha(a,0.15)}/>
+      </svg>);
+  }
+}
+
+function DailyQuote({onDone}:{onDone:()=>void}) {
+  const [q]=useState(()=>MOTIVATION_QUOTES[Math.floor(Math.random()*MOTIVATION_QUOTES.length)]);
+  const accent=THEME_ACCENT[q.theme]||"#FFFA66";
+  const [phase,setPhase]=useState<0|1|2>(0);
+  useEffect(()=>{
+    const t1=setTimeout(()=>setPhase(1),550);
+    const t2=setTimeout(()=>setPhase(2),1350);
+    return()=>{clearTimeout(t1);clearTimeout(t2);};
+  },[]);
+  return(
+    <div className="min-h-screen relative overflow-hidden flex flex-col items-center justify-center"
+      style={{background:"#0A0A0A"}} onClick={phase>=2?onDone:undefined}>
+      {/* Accent atmosphere */}
+      <div style={{position:"absolute",inset:0,
+        background:`radial-gradient(circle at 50% 45%,${ha(accent,0.20)} 0%,transparent 62%)`}}/>
+      {/* Dot grid */}
+      <div style={{position:"absolute",inset:0,backgroundImage:"radial-gradient(rgba(255,255,255,0.04) 1px,transparent 1px)",backgroundSize:"28px 28px"}}/>
+      {/* Quote content (revealed after glass breaks) */}
+      <div className="relative z-10 text-center px-7 max-w-sm mx-auto" style={{
+        opacity:phase>=2?1:0,
+        transform:phase>=2?"none":"translateY(18px) scale(0.96)",
+        transition:"opacity 0.9s ease 0.15s, transform 0.9s ease 0.15s",
+        pointerEvents:phase>=2?"auto":"none",
+      }}>
+        <div style={{animation:phase>=2?"bobFloat 4s ease-in-out infinite":"none"}}>
+          <QuoteIllustration theme={q.theme} accent={accent}/>
+        </div>
+        <p className="font-black text-white text-xl leading-snug mt-4 mb-3" style={{letterSpacing:"-0.5px"}}>
+          "{q.text}"
+        </p>
+        {q.author&&(
+          <p className="text-sm font-semibold mb-6" style={{color:ha(accent,0.80)}}>— {q.author}</p>
+        )}
+        {!q.author&&<div className="mb-6"/>}
+        <button onClick={e=>{e.stopPropagation();onDone();}}
+          className="px-10 py-3.5 rounded-full font-black text-base tracking-wide transition-all active:scale-95"
+          style={{background:accent,color:"#0A0A0A",boxShadow:`0 8px 32px ${ha(accent,0.35)}`}}>
+          Let's crush it →
+        </button>
+        <p className="mt-3 text-xs" style={{color:"rgba(255,255,255,0.22)"}}>tap anywhere to continue</p>
+      </div>
+      {/* Glass overlay */}
+      <div className="absolute inset-0 z-20" style={{pointerEvents:phase>=2?"none":"none"}}>
+        {/* SVG crack lines */}
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none"
+          className="absolute inset-0 w-full h-full" style={{zIndex:2,pointerEvents:"none"}}>
+          {["M52,44 L20,0","M52,44 L65,0","M52,44 L100,20","M52,44 L100,58",
+            "M52,44 L70,100","M52,44 L28,100","M52,44 L0,68","M52,44 L0,32",
+            "M28,22 L14,6","M72,8 L84,2","M88,38 L98,30","M82,76 L94,86",
+            "M40,90 L36,100","M8,82 L2,92"].map((d,i)=>(
+            <path key={i} d={d} stroke={accent} strokeWidth={i<8?"0.9":"0.4"} fill="none"
+              strokeDasharray="400" strokeDashoffset="400"
+              style={{animation:`crackDraw ${0.38+i*0.02}s ease ${i*0.022}s both`}}/>
+          ))}
+          <circle cx="52" cy="44" r="2" fill={accent}/>
+        </svg>
+        {/* Glass shards */}
+        {SHARDS.map((s,i)=>(
+          <div key={i} style={{
+            position:"absolute",inset:0,
+            background:i%2===0
+              ?"linear-gradient(145deg,rgba(255,255,255,0.10),rgba(255,255,255,0.04))"
+              :"linear-gradient(145deg,rgba(255,255,255,0.06),rgba(255,255,255,0.11))",
+            backdropFilter:"blur(6px) saturate(1.6)",
+            clipPath:s.clip,
+            boxShadow:"inset 0 0 0 0.5px rgba(255,255,255,0.18)",
+            transition:`transform 0.52s cubic-bezier(0.4,0.07,0.2,0.97) ${i*0.038}s, opacity 0.52s ease ${i*0.038}s`,
+            transform:phase>=1?`translate(${s.tx}px,${s.ty}px) rotate(${s.rot}deg) scale(0.35)`:"none",
+            opacity:phase>=1?0:1,
+          }}/>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;onNew:()=>void;onLogin:()=>void}) {
   const t=makeT(lang);
   const [visible,setVisible]=useState(false);
@@ -2192,7 +2459,7 @@ function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;on
           </div>
           <div className="flex items-center gap-1.5 mt-4 mb-3 px-4 py-1.5 rounded-full text-xs font-black tracking-widest"
             style={{background:"rgba(255,250,102,0.10)",border:"1px solid rgba(255,250,102,0.25)",color:Y,letterSpacing:"0.08em"}}>
-            🇮🇳 DESI · SCIENTIFIC · FREE FOREVER
+            ⚡ AI POWERED · SCIENTIFIC · FREE FOREVER
           </div>
           <h1 className="font-black text-white leading-none" style={{fontSize:78,letterSpacing:"-4px"}}>EatBC</h1>
           <p className="mt-2 text-center" style={{color:"rgba(255,255,255,0.50)",fontSize:14.5,maxWidth:230,lineHeight:1.55}}>
@@ -2202,7 +2469,7 @@ function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;on
 
         {/* Stats row */}
         <div className="grid grid-cols-3 gap-2 mb-5">
-          {[{icon:"🏆",stat:"12K+",label:"Plans built"},{icon:"🇮🇳",stat:"100%",label:"Indian food"},{icon:"♾️",stat:"∞",label:"Free forever"}].map((s,i)=>(
+          {[{icon:"🏋️",stat:"10x",label:"Nutritionist & dietician trained"},{icon:"🔒",stat:"✓",label:"Safe data · no spam, ever"},{icon:"♾️",stat:"∞",label:"Free forever"}].map((s,i)=>(
             <div key={i} className="flex flex-col items-center py-3 px-1.5 rounded-2xl" style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)"}}>
               <span style={{fontSize:20,lineHeight:1}}>{s.icon}</span>
               <span className="font-black text-base mt-1 leading-none" style={{color:Y}}>{s.stat}</span>
@@ -4264,7 +4531,8 @@ export default function App() {
   if (screen==="onboarding") return <Onboarding onDone={doneOnboarding}/>;
   if (screen==="welcome") return <Welcome lang={lang} onLang={changeLang} onNew={()=>setScreen("quiz")} onLogin={()=>setScreen("login")}/>;
   if (screen==="login")   return <Login onDone={doLogin} onBack={()=>setScreen("welcome")}/>;
-  if (screen==="intro")   return <LoginIntro diet={plan?.diet} onDone={()=>setScreen("dash")}/>;
+  if (screen==="intro")   return <LoginIntro diet={plan?.diet} onDone={()=>setScreen("quote")}/>;
+  if (screen==="quote")   return <DailyQuote onDone={()=>setScreen("dash")}/>;
   if (screen==="foodgame") return <FoodGame name={profile.name} onDone={finishGame}/>;
 
   if (screen==="quiz") return (
