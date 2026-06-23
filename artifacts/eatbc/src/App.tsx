@@ -1675,11 +1675,36 @@ function FloatingFoods() {
     </div>
   );
 }
+/* Mask a reviewer's name for on-screen privacy: keep the first letter and
+   last initial + city, blur the rest. "Priya S., Delhi" → "P••••a S., Delhi" */
+function maskName(name:string):string {
+  const [who,...rest]=name.split(",");
+  const parts=who.trim().split(/\s+/);
+  const first=parts[0]||"";
+  const masked=first.length<=2
+    ? first[0]+"•"
+    : first[0]+"•".repeat(Math.min(first.length-2,4))+first[first.length-1];
+  const tail=parts.slice(1).join(" ");
+  const city=rest.join(",").trim();
+  return `${masked}${tail?` ${tail}`:""}${city?`, ${city}`:""}`;
+}
+
+const TESTIMONIALS=[
+  {name:"Priya S., Delhi",text:"Lost 6 kg in 2 months eating dal and roti every day!",tag:"Weight loss"},
+  {name:"Arjun M., Bangalore",text:"Finally a plan that doesn't tell me to eat salad for dinner.",tag:"Muscle gain"},
+  {name:"Sneha R., Mumbai",text:"My PCOS diet is now actually manageable. No more guessing.",tag:"PCOS"},
+];
+
 function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;onNew:()=>void;onLogin:()=>void}) {
   const t=makeT(lang);
   const [quote]=useState(pickQuote);
   const [visible,setVisible]=useState(false);
+  const [slide,setSlide]=useState(0);
   useEffect(()=>{const tm=setTimeout(()=>setVisible(true),80);return()=>clearTimeout(tm);},[]);
+  useEffect(()=>{
+    const iv=setInterval(()=>setSlide(s=>(s+1)%TESTIMONIALS.length),4000);
+    return()=>clearInterval(iv);
+  },[]);
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-5 py-10 relative overflow-hidden"
       style={{background:"linear-gradient(160deg,#043d25 0%,#0a6e3c 35%,#1DAA61 70%,#28c46e 100%)"}}>
@@ -1714,22 +1739,34 @@ function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;on
           ))}
         </div>
 
-        {/* Testimonials */}
-        <div className="grid gap-2.5 mb-5">
-          {[
-            {name:"Priya S., Delhi",text:"Lost 6 kg in 2 months eating dal and roti every day!",tag:"Weight loss"},
-            {name:"Arjun M., Bangalore",text:"Finally a plan that doesn't tell me to eat salad for dinner.",tag:"Muscle gain"},
-            {name:"Sneha R., Mumbai",text:"My PCOS diet is now actually manageable. No more guessing.",tag:"PCOS"},
-          ].map((r,i)=>(
-            <div key={i} className="rounded-2xl px-4 py-3"
-              style={{background:"rgba(255,255,255,0.11)",border:"1px solid rgba(255,255,255,0.18)",backdropFilter:"blur(8px)"}}>
-              <p className="text-white/90 text-sm leading-snug">"{r.text}"</p>
-              <div className="flex items-center justify-between mt-2">
-                <span className="text-green-200 text-xs font-semibold">{r.name}</span>
-                <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{background:"rgba(29,170,97,0.4)",color:"#86efac"}}>{r.tag}</span>
-              </div>
+        {/* Testimonials carousel */}
+        <div className="mb-5">
+          <div className="relative overflow-hidden rounded-2xl">
+            <div className="flex transition-transform duration-500 ease-out"
+              style={{transform:`translateX(-${slide*100}%)`}}>
+              {TESTIMONIALS.map((r,i)=>(
+                <div key={i} className="w-full shrink-0 px-4 py-3"
+                  style={{background:"rgba(255,255,255,0.11)",border:"1px solid rgba(255,255,255,0.18)",backdropFilter:"blur(8px)"}}>
+                  <p className="text-white/90 text-sm leading-snug min-h-[2.5rem]">"{r.text}"</p>
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-green-200 text-xs font-semibold">{maskName(r.name)}</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{background:"rgba(29,170,97,0.4)",color:"#86efac"}}>{r.tag}</span>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
+          {/* dots */}
+          <div className="flex items-center justify-center gap-1.5 mt-2.5">
+            {TESTIMONIALS.map((_,i)=>(
+              <button key={i} onClick={()=>setSlide(i)} aria-label={`Testimonial ${i+1}`}
+                className="rounded-full transition-all duration-300"
+                style={{
+                  width:slide===i?16:6,height:6,
+                  background:slide===i?"#86efac":"rgba(255,255,255,0.35)",
+                }}/>
+            ))}
+          </div>
         </div>
 
         <div className="space-y-3">
