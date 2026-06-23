@@ -2587,16 +2587,26 @@ function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;on
           </p>
         </div>
 
-        {/* Stats row */}
-        <div className="grid grid-cols-3 gap-2 mb-5">
-          {[{icon:"🏋️",stat:"10x",label:"Nutritionist & dietician trained"},{icon:"🔒",stat:"",label:"Safe data · no spam, ever"},{icon:"♾️",stat:"∞",label:"Free forever"}].map((s,i)=>(
-            <div key={i} className="flex flex-col items-center py-3 px-1.5 rounded-2xl" style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)"}}>
-              <span style={{fontSize:20,lineHeight:1}}>{s.icon}</span>
-              <span className="font-black text-base mt-1 leading-none" style={{color:Y}}>{s.stat}</span>
-              <span className="text-center mt-1" style={{fontSize:11,color:"rgba(255,255,255,0.40)",lineHeight:1.3}}>{s.label}</span>
+        {/* Stat + daily quote */}
+        {(()=>{
+          const wq=MOTIVATION_QUOTES[Math.floor(Math.random()*MOTIVATION_QUOTES.length)];
+          const wa=THEME_ACCENT[wq.theme]||"#FFFA66";
+          return(
+            <div className="flex flex-col gap-2 mb-5">
+              <div className="flex items-center gap-3 px-4 py-3 rounded-2xl" style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)"}}>
+                <span style={{fontSize:22}}>🏋️</span>
+                <div>
+                  <span className="font-black text-sm" style={{color:Y}}>10x trained</span>
+                  <span className="text-xs ml-1.5" style={{color:"rgba(255,255,255,0.38)"}}>in nutrition &amp; dietetics</span>
+                </div>
+              </div>
+              <div className="px-4 py-3.5 rounded-2xl" style={{background:"rgba(255,255,255,0.04)",border:`1px solid ${ha(wa,0.22)}`}}>
+                <p className="font-bold text-sm leading-snug" style={{color:"rgba(255,255,255,0.88)"}}>"{wq.text}"</p>
+                {wq.author&&<p className="text-xs mt-1.5 font-semibold" style={{color:ha(wa,0.65)}}>— {wq.author}</p>}
+              </div>
             </div>
-          ))}
-        </div>
+          );
+        })()}
 
         {/* CTAs */}
         <div className="space-y-3">
