@@ -27,8 +27,15 @@ First message introduction: "Namaste! I'm Veer, your personal lifestyle coach on
 
 const MAX_PROMPTS = 10;
 
+async function getTrackingId(req: VercelRequest): Promise<string> {
+  const authHeader = req.headers.authorization;
+  const userId = authHeader ? await verifyToken(authHeader) : null;
+  const ip = ((req.headers["x-forwarded-for"] as string) || req.socket?.remoteAddress || "unknown")
+    .split(",")[0].trim();
+  return userId ?? `guest:${ip}`;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   await ensureDb();
 
   await sql`
@@ -39,17 +46,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     )
   `;
 
+  const trackingId = await getTrackingId(req);
+
+  /* GET — return current prompt count (for multi-device sync) */
+  if (req.method === "GET") {
+    const rows = await sql`SELECT count FROM veer_usage WHERE user_id = ${trackingId}`;
+    const count = (rows[0] as { count: number } | undefined)?.count ?? 0;
+    return res.status(200).json({ promptsLeft: Math.max(0, MAX_PROMPTS - count) });
+  }
+
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+
   const { messages, isFirst } = req.body as {
     messages?: { role: "user" | "assistant"; content: string }[];
     isFirst?: boolean;
   };
-
-  // Determine identity — logged-in user or guest-by-IP
-  const authHeader = req.headers.authorization;
-  const userId = authHeader ? await verifyToken(authHeader) : null;
-  const ip = ((req.headers["x-forwarded-for"] as string) || req.socket?.remoteAddress || "unknown")
-    .split(",")[0].trim();
-  const trackingId = userId ?? `guest:${ip}`;
 
   // Check + increment usage count atomically
   const usage = await sql`
@@ -75,7 +86,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (isFirst) {
     chatMessages.push({ role: "user", content: "Hello" });
   } else {
-    (messages || []).slice(-6).forEach(m => chatMessages.push(m)); // keep last 6 for context
+    (messages || []).slice(-6).forEach(m => chatMessages.push(m));
   }
 
   const apiKey = process.env.OPENAI_API_KEY;

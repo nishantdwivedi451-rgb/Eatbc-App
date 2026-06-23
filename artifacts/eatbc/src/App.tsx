@@ -249,6 +249,9 @@ const Q: Question[] = [
   { k:"activity",  label:"How active is your daily life?",              type:"pick",
     sub:"Think work, commute and chores — not gym or sport.",
     opts:["Mostly desk job","On feet / moderate","Physically active"] },
+  { k:"region",    label:"Where are you from in India?",               type:"pick",
+    sub:"We'll tailor your meals to your regional cuisine.",
+    opts:["North Indian","South Indian","East Indian","West Indian","Pan-India"] },
   { k:"wantWorkout", label:"Want a workout plan with your diet?",        type:"pick",
     sub:"We'll build a weekly training schedule with a tracker.",
     opts:["Yes, build my workout plan","No thanks, just the diet"] },
@@ -394,6 +397,7 @@ const RMAP: Record<string,string> = {
   "North Indian":"n","South Indian":"s","East Indian":"e","West Indian":"w",
   "Punjabi":"n","Gujarati":"w","Rajasthani":"n","Bengali":"e",
   "Goan":"w","Coastal":"s","Continental":"all","East Asian":"all",
+  "Pan-India":"all",
 };
 const LABEL2SLOT: Record<string,string> = {
   "Breakfast":"b","Mid-morning":"ms","Lunch":"l","Evening snack":"es","Dinner":"d","Bedtime":"bt",
@@ -1319,25 +1323,56 @@ function PlanWeek({plan}:{plan:Plan}) {
 /* ─────────────── WeightLog ─────────────── */
 function WeightLog({t,onLog}:{t:Tracking;onLog:(w:number)=>void}) {
   const [w,setW]=useState("");
+  const [wErr,setWErr]=useState("");
   const entries=Object.entries(t.weights||{}).sort() as [string,number][];
   const latest=entries.length?entries[entries.length-1][1]:null;
   const first=entries.length?entries[0][1]:null;
   const diff=latest!=null&&first!=null?(latest-first).toFixed(1):null;
+
+  function validateAndLog() {
+    setWErr("");
+    const n = +w;
+    if (!w.trim() || isNaN(n)) { setWErr("Please enter a number in kg (e.g. 68)."); return; }
+    if (n <= 0)   { setWErr("Weight must be a positive number."); return; }
+    if (n < 25)   {
+      const lbs = Math.round(n * 2.205);
+      setWErr(`${n} kg seems very low. If this is in pounds, ${lbs} lbs ≈ ${Math.round(n/0.453592)} kg. Enter in kg only.`);
+      return;
+    }
+    if (n > 250)  { setWErr(`${n} kg is outside the supported range. Please confirm you're entering in kg, not pounds or grams.`); return; }
+    if (entries.length) {
+      const prev = entries[entries.length-1][1];
+      if (Math.abs(n - prev) > 20) {
+        setWErr(`That's a ${Math.abs(n-prev).toFixed(1)} kg change since your last entry (${prev} kg). Confirm this is correct and log again if so.`);
+        return;
+      }
+    }
+    onLog(n);
+    setW("");
+  }
+
   return (
     <Card className="p-5">
       <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-3">
         <TrendingDown size={18} style={{color:GREEN}}/> Weight log
       </h3>
-      <div className="flex gap-2 mb-3">
-        <input type="number" value={w} onChange={e=>setW(e.target.value)}
+      <div className="flex gap-2 mb-1">
+        <input type="number" value={w}
+          onChange={e=>{setW(e.target.value);setWErr("");}}
+          onKeyDown={e=>e.key==="Enter"&&validateAndLog()}
           placeholder="Today's weight (kg)"
-          className="flex-1 px-4 py-3 rounded-2xl border-2 border-gray-200 outline-none focus:border-green-500"/>
-        <button onClick={()=>{if(w){onLog(+w);setW("");}}}
+          className={`flex-1 px-4 py-3 rounded-2xl border-2 outline-none transition ${wErr?"border-red-400 focus:border-red-500":"border-gray-200 focus:border-green-500"}`}/>
+        <button onClick={validateAndLog}
           className="px-6 rounded-2xl text-white font-semibold"
           style={{background:GREEN}}>Log</button>
       </div>
-      {entries.length>0&&(
-        <div className="text-sm text-gray-500">
+      {wErr&&(
+        <div className="flex items-start gap-2 text-red-500 text-xs mt-2 mb-1">
+          <AlertCircle size={13} className="mt-0.5 shrink-0"/><span>{wErr}</span>
+        </div>
+      )}
+      {entries.length>0&&!wErr&&(
+        <div className="text-sm text-gray-500 mt-2">
           Latest: <b className="text-gray-700">{latest} kg</b>
           {diff!=null&&(
             <span style={{color:+diff<=0?GREEN:"#EA580C"}}>
@@ -2749,7 +2784,7 @@ function WeeklyReviewCard({history,weights,onClose}:{history:Record<string,HistE
 
 function AdaptiveRecalcBanner({weights, lastRecalcDate, lastRecalcWeight, goal, onRecalc}:{
   weights:Record<string,number>; lastRecalcDate?:string; lastRecalcWeight?:number;
-  goal:string; onRecalc:(activity?:string)=>void;
+  goal:string; onRecalc:(activity?:string,overrideWeight?:number)=>void;
 }) {
   const wEntries = Object.entries(weights).sort();
   if (wEntries.length < 1) return null;
@@ -2928,9 +2963,18 @@ function VeerBot({session,planCondition}:{session:Session|null;planCondition:str
   const phaseRef=useRef(phase);
   phaseRef.current=phase;
 
-  /* Auto-introduce on first open */
+  /* Sync prompt count from server on first open (fixes multi-device desync) */
   useEffect(()=>{
-    if(open&&!hasIntroduced.current){
+    if(!open) return;
+    fetch("/api/veer",{method:"GET",headers:{...(session?.token?{Authorization:`Bearer ${session.token}`}:{})}})
+      .then(r=>r.ok?r.json():null)
+      .then((d:{promptsLeft?:number}|null)=>{
+        if(d?.promptsLeft!=null){
+          setPromptsLeft(d.promptsLeft);
+          sset("eatbc:veerUsed",10-d.promptsLeft);
+        }
+      }).catch(()=>{});
+    if(!hasIntroduced.current){
       hasIntroduced.current=true;
       handleVeer(null,true);
     }
@@ -3143,7 +3187,7 @@ function VeerBot({session,planCondition}:{session:Session|null;planCondition:str
 
 /* ─────────────── GoogleFitCard ─────────────── */
 function GoogleFitCard({session,tracking,onUpdate,onRecalc}:{
-  session:Session;tracking:Tracking;onUpdate:(t:Tracking)=>void;onRecalc:(activity?:string)=>void;
+  session:Session;tracking:Tracking;onUpdate:(t:Tracking)=>void;onRecalc:(activity?:string,overrideWeight?:number)=>void;
 }) {
   const [syncing,setSyncing]=useState(false);
   const [err,setErr]=useState("");
@@ -3255,7 +3299,7 @@ function GoogleFitCard({session,tracking,onUpdate,onRecalc}:{
 
 function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccount,onRecalc}:{
   session:Session;plan:Plan|null;tracking:Tracking;lang:Lang;
-  onUpdate:(t:Tracking)=>void;onSwap:(day:DayName,mealIdx:number)=>void;onLogout:()=>void;onDeleteAccount:()=>void;onRecalc:(activity?:string)=>void;
+  onUpdate:(t:Tracking)=>void;onSwap:(day:DayName,mealIdx:number)=>void;onLogout:()=>void;onDeleteAccount:()=>void;onRecalc:(activity?:string,overrideWeight?:number)=>void;
 }) {
   const t=makeT(lang);
   const today=WEEK[(new Date().getDay()+6)%7];
@@ -3276,7 +3320,7 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccou
   const logW=(w:number)=>{
     const newTracking={...tracking,weights:{...(tracking.weights||{}),[isoDate()]:w}} as Tracking;
     onUpdate(newTracking);
-    onRecalc();
+    onRecalc(undefined, w);  // pass weight directly — avoids React stale-closure bug
   };
   const planConsumed=dp?dp.meals.reduce((a,m,i)=>a+(dd.meals[i]?m.cal:0),0):0;
   const diaryTotal=(dd.log||[]).reduce((s,x)=>s+x.cal,0);
@@ -3617,8 +3661,8 @@ export default function App() {
       ]).then(([pd,td])=>{
         if(pd.plan) setPlan(pd.plan);
         const tr:Tracking=td.tracking||{};
+        setTracking(tr);  // always load existing tracking first — no data loss
         if(fitJustConnected) {
-          // Kick off first sync in background
           apiPost("/api/sync/googlefit",{},s.token).then((syncData:{todaySteps?:number;avgSteps?:number;palTier?:string;todayCalories?:number})=>{
             setTracking(prev=>({
               ...prev,
@@ -3632,8 +3676,6 @@ export default function App() {
           }).catch(()=>{
             setTracking(prev=>({...prev,fitConnected:true}));
           });
-        } else {
-          setTracking(tr);
         }
         setScreen("dash");
       }).catch(()=>{
@@ -3647,7 +3689,12 @@ export default function App() {
   const activeQ=Q.filter(q=>!q.showIf||q.showIf(profile));
   const stepClamped=Math.min(step,activeQ.length-1);
   const cur=activeQ[stepClamped];
-  const setVal=(v:string|string[])=>{setQErr("");setProfile(p=>({...p,[cur.k]:v}));};
+  const setVal=(v:string|string[])=>{
+    setQErr("");
+    // region is stored as string[] but the quiz uses type:"pick" (returns string)
+    const val = cur.k==="region" && typeof v==="string" ? [v] : v;
+    setProfile(p=>({...p,[cur.k]:val}));
+  };
   const toggleMulti=(o:string)=>setProfile(p=>{
     const a=(p[cur.k] as string[])||[];
     return {...p,[cur.k]:a.includes(o)?a.filter(x=>x!==o):[...a,o]};
@@ -3658,23 +3705,45 @@ export default function App() {
     :cur.k==="avoid"?true
     :(profile[cur.k]||"")!=="";
 
-  /* Validate current quiz step before advancing — catches impossible values
-     like age=9999 or weight=0.001 that break the calorie engine.            */
   function nextStep() {
     setQErr("");
     const v = profile[cur.k];
     if (cur.type === "number") {
       const n = Number(v);
-      if (!v || isNaN(n)) { setQErr("Please enter a valid number."); return; }
-      if (cur.k === "age")    { if (n < 10 || n > 100)  { setQErr("Age must be between 10 and 100."); return; } }
-      if (cur.k === "weight") { if (n < 25 || n > 300)  { setQErr("Weight must be between 25 and 300 kg."); return; } }
-      if (cur.k === "target") { if (n < 25 || n > 300)  { setQErr("Target weight must be between 25 and 300 kg."); return; } }
+      if (!v || isNaN(n) || String(v).trim()==="") { setQErr("Please enter a valid number."); return; }
+      if (cur.k === "age") {
+        if (n < 10)  { setQErr("EatBC is designed for ages 10 and above. Please enter your real age."); return; }
+        if (n > 100) { setQErr("Please double-check — did you enter the right age? Max supported is 100."); return; }
+      }
+      if (cur.k === "weight") {
+        if (n <= 0)  { setQErr("Weight must be a positive number in kg (e.g. 68)."); return; }
+        if (n < 25)  {
+          const lbsGuess = Math.round(n * 2.205);
+          const kgGuess  = Math.round(n / 0.453592);
+          setQErr(`${n} kg seems very low. If you meant ${lbsGuess} lbs, that's ${Math.round(n / 0.453592)} kg — but more likely you meant ${n} kg as ${lbsGuess} lbs. Enter in kg (e.g. ${kgGuess > 25 ? kgGuess : 65}).`);
+          return;
+        }
+        if (n > 250) { setQErr(`${n} kg is higher than our supported range (max 250 kg). Please double-check — enter in kg, not pounds or grams.`); return; }
+      }
+      if (cur.k === "target") {
+        if (n <= 0)  { setQErr("Target weight must be a positive number in kg."); return; }
+        if (n < 30)  { setQErr("A healthy target weight is at least 30 kg. Please adjust your goal."); return; }
+        if (n > 250) { setQErr("Target weight above 250 kg is not supported. Please enter a realistic goal."); return; }
+        const cw = Number(profile.weight || 0);
+        if (cw > 0 && Math.abs(n - cw) > 80) {
+          const dir = n < cw ? "lose" : "gain";
+          setQErr(`A ${Math.round(Math.abs(n-cw))} kg ${dir} target is very ambitious. Consider a closer milestone first — you can always update it later.`);
+          return;
+        }
+      }
     }
     if (cur.type === "height") {
-      const ft = Number(profile.heightFt);
+      const ft  = Number(profile.heightFt);
       const ins = Number(profile.heightIn ?? 0);
-      if (!profile.heightFt || isNaN(ft) || ft < 3 || ft > 8) { setQErr("Height (feet) must be between 3 and 8."); return; }
-      if (isNaN(ins) || ins < 0 || ins > 11)                   { setQErr("Height (inches) must be 0–11."); return; }
+      if (!profile.heightFt || isNaN(ft)) { setQErr("Please enter your height in feet (e.g. 5)."); return; }
+      if (ft < 4) { setQErr(`${ft} feet seems too short. Enter feet only — e.g. type "5" for 5 feet, not your height in cm.`); return; }
+      if (ft > 7 || (ft === 7 && ins > 6)) { setQErr("Heights above 7'6\" are unusual. Please double-check your entry."); return; }
+      if (isNaN(ins) || ins < 0 || ins > 11) { setQErr("Inches must be between 0 and 11."); return; }
     }
     setStep(stepClamped + 1);
   }
@@ -3771,11 +3840,16 @@ export default function App() {
     quoteRef.current=pickQuote();
   }
 
-  function recalcPlan(activity?: string) {
+  function recalcPlan(activity?: string, overrideWeight?: number) {
     if (!plan) return;
-    const wEntries = Object.entries(tracking.weights||{}).sort();
-    if (!wEntries.length) return;
-    const newWeight = wEntries[wEntries.length-1][1];
+    let newWeight: number;
+    if (overrideWeight !== undefined) {
+      newWeight = overrideWeight;
+    } else {
+      const wEntries = Object.entries(tracking.weights||{}).sort();
+      if (!wEntries.length) return;
+      newWeight = wEntries[wEntries.length-1][1];
+    }
     const effectiveActivity = activity || tracking.fitPalTier || profile.activity;
     const newProfile = {...profile, weight: String(newWeight), ...(effectiveActivity ? {activity: effectiveActivity} : {})};
     try {
@@ -4000,7 +4074,7 @@ export default function App() {
       onSwap={swapMeal}
       onLogout={logout}
       onDeleteAccount={deleteAccount}
-      onRecalc={(activity?:string)=>recalcPlan(activity)}/>
+      onRecalc={(activity?:string,w?:number)=>recalcPlan(activity,w)}/>
   );
 
   return <Shell><Card className="p-10 text-center text-gray-400">Loading…</Card></Shell>;
