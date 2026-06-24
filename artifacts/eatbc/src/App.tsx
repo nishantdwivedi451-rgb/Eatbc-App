@@ -2832,7 +2832,7 @@ function FloatingFoods() {
   }))).current;
   return(
     <>
-    <div className="absolute inset-0 overflow-hidden" style={{zIndex:15,pointerEvents:"none"}}>
+    <div className="absolute inset-0 overflow-hidden" style={{zIndex:2,pointerEvents:"none"}}>
       {items.map((f,i)=>(
         <button key={i} className="absolute select-none cursor-pointer"
           style={{left:f.left,bottom:"-10%",fontSize:f.size,pointerEvents:"auto",background:"none",border:"none",padding:0,
@@ -3415,12 +3415,14 @@ function Login({onDone,onBack}:{onDone:(sess:Session,plan?:Plan|null,tracking?:T
 }
 
 /* ─────────────── Signup ─────────────── */
-function Signup({profile,plan,onDone,onBack}:{profile:Profile;plan:Plan|null;onDone:(sess:Session)=>void;onBack:()=>void}) {
+function Signup({profile,plan,onDone,onBack,onLogin}:{profile:Profile;plan:Plan|null;onDone:(sess:Session)=>void;onBack:()=>void;onLogin:()=>void}) {
   const [id,setId]=useState(""); const [pw,setPw]=useState(""); const [pw2,setPw2]=useState("");
   const [consent,setConsent]=useState(false);
   const [err,setErr]=useState(""); const [busy,setBusy]=useState(false);
+  const [alreadyExists,setAlreadyExists]=useState(false);
   async function submit() {
-    setErr(""); if (!id.trim()||!pw){setErr("Enter both fields");return;}
+    setErr(""); setAlreadyExists(false);
+    if (!id.trim()||!pw){setErr("Enter both fields");return;}
     if (pw!==pw2){setErr("Passwords don't match");return;}
     if (pw.length<6){setErr("Password must be at least 6 characters");return;}
     if (!consent){setErr("Please accept the consent & disclaimer to continue");return;}
@@ -3431,7 +3433,8 @@ function Signup({profile,plan,onDone,onBack}:{profile:Profile;plan:Plan|null;onD
       onDone({id:data.user.id,name:data.user.name,token:data.token});
     } catch(e:unknown) {
       const msg=(e as {error?:string})?.error;
-      setErr(msg||(navigator.onLine?"Registration is temporarily unavailable. Please try again shortly.":"No internet connection."));
+      if (msg==="Username already taken") { setAlreadyExists(true); setErr(msg); }
+      else setErr(msg||(navigator.onLine?"Registration is temporarily unavailable. Please try again shortly.":"No internet connection."));
     } finally { setBusy(false); }
   }
   return (
@@ -3463,7 +3466,18 @@ function Signup({profile,plan,onDone,onBack}:{profile:Profile;plan:Plan|null;onD
             I'll consult a doctor for any medical condition.
           </span>
         </label>
-        {err&&<div className="mb-3 flex items-center gap-2 text-red-500 text-sm"><AlertCircle size={16}/>{err}</div>}
+        {err&&(
+          <div className="mb-3 rounded-2xl px-4 py-3" style={{background:"#FEF2F2",border:"1px solid #FECACA"}}>
+            <div className="flex items-center gap-2 text-red-600 text-sm font-semibold"><AlertCircle size={16}/>{err}</div>
+            {alreadyExists&&(
+              <button onClick={onLogin}
+                className="mt-2 w-full py-2.5 rounded-xl text-white font-bold text-sm"
+                style={{background:"#1D1D1F"}}>
+                Already have an account? Log in →
+              </button>
+            )}
+          </div>
+        )}
         <button disabled={busy} onClick={submit}
           className="w-full py-3.5 rounded-2xl text-white font-black text-base disabled:opacity-60 shadow-md"
           style={{background:GREEN}}>
@@ -5400,10 +5414,15 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccou
 
 /* ─────────────── Root App ─────────────── */
 export default function App() {
-  const [screen,setScreen]=useState<Screen>(()=>sget<boolean>("eatbc:onboarded")?"welcome":"onboarding");
-  const [step,setStep]=useState(0);
-  const [profile,setProfile]=useState<Profile>({region:[]});
-  const [plan,setPlan]=useState<Plan|null>(null);
+  const [screen,setScreen]=useState<Screen>(()=>{
+    if(!sget<boolean>("eatbc:onboarded")) return "onboarding";
+    const saved=sget<Screen>("eatbc:screen");
+    const safe:Screen[]=["welcome","quiz","plan","signup","login"];
+    return (saved&&safe.includes(saved))?saved:"welcome";
+  });
+  const [step,setStep]=useState(()=>sget<number>("eatbc:quiz:step")||0);
+  const [profile,setProfile]=useState<Profile>(()=>sget<Profile>("eatbc:quiz:profile")||{region:[]});
+  const [plan,setPlan]=useState<Plan|null>(()=>sget<Plan>("eatbc:plan"));
   const [loading,setLoading]=useState(false);
   const [err,setErr]=useState("");
   const [session,setSession]=useState<Session|null>(null);
@@ -5414,6 +5433,11 @@ export default function App() {
   const quoteRef=useRef(pickQuote());
 
   function changeLang(l:Lang){ setLang(l); sset("eatbc:lang",l); }
+
+  useEffect(()=>{ sset("eatbc:screen",screen); },[screen]);
+  useEffect(()=>{ sset("eatbc:quiz:step",step); },[step]);
+  useEffect(()=>{ sset("eatbc:quiz:profile",profile); },[profile]);
+  useEffect(()=>{ if(plan) sset("eatbc:plan",plan); else sdel("eatbc:plan"); },[plan]);
 
   useEffect(()=>{
     const s=sget<Session>("eatbc:session");
@@ -5827,7 +5851,7 @@ export default function App() {
     </Shell>
   );
 
-  if (screen==="signup") return <Signup profile={profile} plan={plan} onDone={doSignup} onBack={()=>setScreen("plan")}/>;
+  if (screen==="signup") return <Signup profile={profile} plan={plan} onDone={doSignup} onBack={()=>setScreen("plan")} onLogin={()=>setScreen("login")}/>;
 
   if (screen==="dash"&&session) return (
     <Dash session={session} plan={plan} tracking={tracking} lang={lang}
