@@ -201,7 +201,7 @@ interface Plan {
 }
 interface Session { id: string; name: string; token: string; }
 interface FoodLog { n: string; cal: number; p?: number; qty: string; servings: number; }
-interface ExerciseLog { n: string; sets: number; reps: string; cat: string; ts: string; }
+interface ExerciseLog { n: string; sets: number; reps: string; cat: string; ts: string; weight?: number; weightLabel?: string; cal?: number; }
 interface DayTracking { meals: Record<number, boolean>; water: number; log?: FoodLog[]; cheatLog?: FoodLog[]; }
 /* Date-keyed daily snapshot — powers real streaks, trends and insights. */
 interface HistEntry { onTrack: boolean; cal: number; protein: number; meals: number; total: number; water: number; }
@@ -4142,6 +4142,14 @@ function RecipeSheet({name,onClose}:{name:string;onClose:()=>void}) {
 
 /* ─────────────── Workout Diary ─────────────── */
 const CAT_LABELS:Record<string,string>={All:"All",cardio:"Cardio",push:"Push",pull:"Pull",legs:"Legs",core:"Core",restore:"Yoga / Hold"};
+const WEIGHT_PRESETS=["BW","5","7.5","10","12.5","15","20","25","30","40","50","60","70","80","100"];
+const WEIGHT_CATS=new Set(["push","pull","legs","core"]);
+function parseRepsNum(r:string):number{const m=r.match(/(\d+)/);return m?parseInt(m[1]):10;}
+function calcWorkoutCal(weightKg:number,sets:number,repsStr:string):number{
+  const reps=parseRepsNum(repsStr);
+  if(weightKg===0) return Math.round(sets*reps*0.5);
+  return Math.round(weightKg*sets*reps*0.05);
+}
 const REPS_OPTS=["5 reps","8 reps","10 reps","12 reps","15 reps","20 reps","25 reps","30 reps","30 sec","45 sec","60 sec","2 min","5 min","10 min","5–8 breaths","Each side"];
 
 function WorkoutLogger({log,onUpdate}:{log:ExerciseLog[];onUpdate:(l:ExerciseLog[])=>void}) {
@@ -4149,10 +4157,13 @@ function WorkoutLogger({log,onUpdate}:{log:ExerciseLog[];onUpdate:(l:ExerciseLog
   const [search,setSearch]=useState("");
   const [cat,setCat]=useState("All");
   const [pending,setPending]=useState<string|null>(null);
+  const [pendingCat,setPendingCat]=useState("");
   const [sets,setSets]=useState(3);
   const [reps,setReps]=useState("10 reps");
   const [customReps,setCustomReps]=useState("");
   const [useCustom,setUseCustom]=useState(false);
+  const [weightPreset,setWeightPreset]=useState("BW");
+  const [freeWeight,setFreeWeight]=useState("");
 
   const allEx=useMemo(()=>{
     const seen=new Set<string>();
@@ -4171,16 +4182,23 @@ function WorkoutLogger({log,onUpdate}:{log:ExerciseLog[];onUpdate:(l:ExerciseLog
     (cat==="All"||e.cat===cat)&&(!search||e.n.toLowerCase().includes(search.toLowerCase()))
   );
 
-  const close=()=>{setOpen(false);setPending(null);setSearch("");setCat("All");};
+  const close=()=>{setOpen(false);setPending(null);setSearch("");setCat("All");setWeightPreset("BW");setFreeWeight("");};
+
+  const showWeight=WEIGHT_CATS.has(pendingCat);
+  const effectiveWeight=freeWeight?parseFloat(freeWeight)||(weightPreset==="BW"?0:parseFloat(weightPreset)):weightPreset==="BW"?0:parseFloat(weightPreset);
+  const finalRepsStr=useCustom&&customReps?customReps:reps;
+  const previewCal=showWeight?calcWorkoutCal(effectiveWeight,sets,finalRepsStr):0;
 
   const addLog=()=>{
     if(!pending) return;
-    const finalReps=useCustom&&customReps?customReps:reps;
-    onUpdate([...log,{n:pending,sets,reps:finalReps,cat:allEx.find(e=>e.n===pending)?.cat||"",ts:new Date().toISOString()}]);
-    setPending(null);setSets(3);setReps("10 reps");setUseCustom(false);setCustomReps("");
+    const weightLabel=showWeight?(freeWeight?`${freeWeight}kg`:weightPreset==="BW"?"BW":`${weightPreset}kg`):undefined;
+    const cal=showWeight?calcWorkoutCal(effectiveWeight,sets,finalRepsStr):undefined;
+    onUpdate([...log,{n:pending,sets,reps:finalRepsStr,cat:pendingCat,ts:new Date().toISOString(),weight:showWeight?effectiveWeight:undefined,weightLabel,cal}]);
+    setPending(null);setSets(3);setReps("10 reps");setUseCustom(false);setCustomReps("");setWeightPreset("BW");setFreeWeight("");
   };
 
   const remove=(i:number)=>onUpdate(log.filter((_,j)=>j!==i));
+  const totalCal=log.reduce((s,e)=>s+(e.cal||0),0);
   const PUR="#7C3AED";const PURLT="#F5F3FF";const PURBG="#EDE9FE";
 
   return (
@@ -4206,13 +4224,18 @@ function WorkoutLogger({log,onUpdate}:{log:ExerciseLog[];onUpdate:(l:ExerciseLog
               <span className="text-xl shrink-0">{EXERCISE_GUIDE[e.n]?.emoji||"💪"}</span>
               <div className="flex-1 min-w-0">
                 <div className="font-semibold text-sm text-purple-900 leading-tight">{e.n}</div>
-                <div className="text-xs font-medium" style={{color:"rgba(109,40,217,0.65)"}}>{e.sets} set{e.sets!==1?"s":""} × {e.reps}</div>
+                <div className="text-xs font-medium" style={{color:"rgba(109,40,217,0.65)"}}>
+                  {e.sets} set{e.sets!==1?"s":""} × {e.reps}
+                  {e.weightLabel&&<> · {e.weightLabel}</>}
+                  {e.cal&&<span className="ml-1 inline-flex items-center gap-0.5" style={{color:"#D97706"}}>· ~{e.cal} kcal</span>}
+                </div>
               </div>
               <button onClick={()=>remove(i)} className="p-1 rounded-lg text-gray-400 hover:text-red-400"><X size={14}/></button>
             </div>
           ))}
-          <div className="pt-2 border-t border-gray-100 text-xs font-semibold text-gray-400 text-right">
-            {log.length} exercise{log.length!==1?"s":""} logged today
+          <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-xs font-semibold text-gray-400">
+            <span>{log.length} exercise{log.length!==1?"s":""} logged</span>
+            {totalCal>0&&<span style={{color:PUR}} className="flex items-center gap-1"><Flame size={11}/>~{totalCal} kcal burned</span>}
           </div>
         </div>
       )}
@@ -4271,6 +4294,31 @@ function WorkoutLogger({log,onUpdate}:{log:ExerciseLog[];onUpdate:(l:ExerciseLog
                     style={{borderColor:useCustom?"#7C3AED":"#E5E7EB"}}/>
                 </div>
 
+                {/* Weight picker — only for strength categories */}
+                {showWeight&&(
+                  <div className="mb-5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-gray-500">Weight lifted</label>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {WEIGHT_PRESETS.map(w=>(
+                        <button key={w} onClick={()=>{setWeightPreset(w);setFreeWeight("");}}
+                          className="px-3 py-1.5 rounded-xl font-semibold text-xs transition"
+                          style={!freeWeight&&weightPreset===w?{background:PUR,color:"#fff"}:{background:"#F3F4F6",color:"#374151"}}>
+                          {w==="BW"?"Bodyweight":`${w} kg`}
+                        </button>
+                      ))}
+                    </div>
+                    <input type="number" placeholder="Or type custom kg e.g. 22.5"
+                      value={freeWeight} onChange={e=>setFreeWeight(e.target.value)}
+                      className="w-full mt-3 px-4 py-2.5 rounded-2xl border-2 text-sm outline-none"
+                      style={{borderColor:freeWeight?"#7C3AED":"#E5E7EB"}}/>
+                    {previewCal>0&&(
+                      <div className="mt-2 flex items-center gap-1.5 text-xs font-semibold" style={{color:"#D97706"}}>
+                        <Flame size={13}/> ~{previewCal} kcal estimated burn
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <button onClick={addLog}
                   className="w-full py-3.5 rounded-2xl font-black text-white"
                   style={{background:PUR}}>
@@ -4305,7 +4353,7 @@ function WorkoutLogger({log,onUpdate}:{log:ExerciseLog[];onUpdate:(l:ExerciseLog
                 {/* exercise list */}
                 <div className="overflow-y-auto flex-1 p-4 pt-2 space-y-1.5">
                   {filtered.map((e,i)=>(
-                    <button key={i} onClick={()=>setPending(e.n)}
+                    <button key={i} onClick={()=>{setPending(e.n);setPendingCat(e.cat);}}
                       className="w-full flex items-center gap-3 p-3 rounded-2xl border border-gray-100 text-left transition"
                       style={{}}>
                       <span className="text-2xl shrink-0 leading-none">{EXERCISE_GUIDE[e.n]?.emoji||"💪"}</span>
@@ -5075,6 +5123,8 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccou
   const diaryTotal=(dd.log||[]).reduce((s,x)=>s+x.cal,0);
   const cheatTotal=(dd.cheatLog||[]).reduce((s,x)=>s+x.cal,0);
   const consumed=planConsumed+diaryTotal+cheatTotal;
+  const workoutBurned=((tracking.workoutLog||{})[sel]||[]).reduce((s,e)=>s+(e.cal||0),0);
+  const netConsumed=consumed-workoutBurned;
   const proteinFromPlan=dp?dp.meals.reduce((a,m,i)=>a+(dd.meals[i]?(m.p||0):0),0):0;
   const proteinFromDiary=(dd.log||[]).reduce((s,x)=>s+(x.p||0),0);
   const proteinConsumed=proteinFromPlan+proteinFromDiary;
@@ -5179,6 +5229,7 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccou
                 <div><div className="text-2xl font-bold flex items-center gap-1"><Flame size={20}/>{streak}</div><div className="text-white/70 text-xs">{t("perfectDays")}</div></div>
                 <div><div className="text-2xl font-bold">{doneCount}/{dp?.meals.length||0}</div><div className="text-white/70 text-xs">{t("todaysMeals")}</div></div>
                 {proteinTargetVal>0&&<div><div className="text-2xl font-bold">{proteinConsumed}<span className="text-base font-normal text-white/60">/{proteinTargetVal}g</span></div><div className="text-white/70 text-xs">{t("protein")}</div></div>}
+                {workoutBurned>0&&<div><div className="text-2xl font-bold flex items-center gap-1"><Dumbbell size={18}/>{workoutBurned}</div><div className="text-white/70 text-xs">kcal burned</div></div>}
               </div>
               {proteinTargetVal>0&&(
                 <div className="mt-3">
@@ -5286,25 +5337,36 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccou
                   </div>
                 </Card>
                 {cal>0&&(
-                  <div className="rounded-2xl px-4 py-3 mb-3 flex items-center justify-between"
+                  <div className="rounded-2xl px-4 py-3 mb-3"
                     style={{
-                      background:consumed>=cal?"#FEF2F2":consumed/cal>0.85?"#FFFBEB":"#F0FDF4",
-                      border:`1px solid ${consumed>=cal?"#FECACA":consumed/cal>0.85?"#FDE68A":"#BBF7D0"}`,
+                      background:netConsumed>=cal?"#FEF2F2":netConsumed/cal>0.85?"#FFFBEB":"#F0FDF4",
+                      border:`1px solid ${netConsumed>=cal?"#FECACA":netConsumed/cal>0.85?"#FDE68A":"#BBF7D0"}`,
                     }}>
-                    <div>
-                      <div className="text-sm font-semibold"
-                        style={{color:consumed>=cal?"#DC2626":consumed/cal>0.85?"#D97706":"#16A34A"}}>
-                        {consumed>=cal?`${consumed-cal} kcal over target`:`${cal-consumed} kcal remaining`}
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <div className="text-sm font-semibold"
+                          style={{color:netConsumed>=cal?"#DC2626":netConsumed/cal>0.85?"#D97706":"#16A34A"}}>
+                          {netConsumed>=cal?`${netConsumed-cal} kcal surplus`:`${cal-netConsumed} kcal deficit`}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          {workoutBurned>0?`${consumed} eaten · ${workoutBurned} burned · ${cal} target`:`${consumed} / ${cal} kcal for ${sel}`}
+                        </div>
                       </div>
-                      <div className="text-xs text-gray-400">{consumed} / {cal} kcal for {sel}</div>
+                      <div className="w-20 h-2 rounded-full overflow-hidden" style={{background:"#E5E7EB"}}>
+                        <div className="h-2 rounded-full transition-all duration-500"
+                          style={{
+                            width:`${Math.min(netConsumed/cal,1)*100}%`,
+                            background:netConsumed>=cal?"#EF4444":netConsumed/cal>0.85?"#F59E0B":"#22C55E",
+                          }}/>
+                      </div>
                     </div>
-                    <div className="w-20 h-2 rounded-full overflow-hidden" style={{background:"#E5E7EB"}}>
-                      <div className="h-2 rounded-full transition-all duration-500"
-                        style={{
-                          width:`${Math.min(consumed/cal,1)*100}%`,
-                          background:consumed>=cal?"#EF4444":consumed/cal>0.85?"#F59E0B":"#22C55E",
-                        }}/>
-                    </div>
+                    {workoutBurned>0&&(
+                      <div className="flex items-center gap-3 pt-2 border-t" style={{borderColor:"rgba(0,0,0,0.06)"}}>
+                        <div className="flex items-center gap-1.5 text-xs text-gray-500"><Utensils size={11}/><span>{consumed} eaten</span></div>
+                        <div className="flex items-center gap-1.5 text-xs font-semibold" style={{color:"#7C3AED"}}><Dumbbell size={11}/><span>−{workoutBurned} burned</span></div>
+                        <div className="ml-auto text-xs font-bold" style={{color:netConsumed>=cal?"#DC2626":"#16A34A"}}>{netConsumed} net</div>
+                      </div>
+                    )}
                   </div>
                 )}
                 <FoodLogger
