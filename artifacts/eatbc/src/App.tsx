@@ -1225,10 +1225,17 @@ function calcStats(d: Profile) {
   const age = Math.max(15, Math.min(80, +(d.age || 25)));
   const isFemale = d.sex === "Female" || d.sex === "Other";
 
-  /* Mifflin-St Jeor BMR — most validated for Indian adults */
+  /* Adjusted Body Weight for obesity (ASPEN clinical guidelines):
+     Adipose tissue has ~40% of lean metabolic activity. IBW uses BMI-22
+     target for South Asian adults per WHO Asia-Pacific 2004.            */
+  const bmiRaw = cm > 0 ? w / ((cm / 100) ** 2) : 22;
+  const ibwKg   = 22 * (cm / 100) ** 2;
+  const calcW    = bmiRaw > 30 ? ibwKg + 0.4 * (w - ibwKg) : w;
+
+  /* Mifflin-St Jeor BMR (1990) — most validated formula for general adults */
   const bmr = isFemale
-    ? 10 * w + 6.25 * cm - 5 * age - 161
-    : 10 * w + 6.25 * cm - 5 * age + 5;
+    ? 10 * calcW + 6.25 * cm - 5 * age - 161
+    : 10 * calcW + 6.25 * cm - 5 * age + 5;
 
   /* Activity × Exercise PAL matrix (WHO/FAO 2001) */
   const PAL: Record<string, Record<string, number>> = {
@@ -1748,13 +1755,24 @@ function buildPlan(profile: Profile): Plan {
     ?`~${st.weeklyKg} kg / week ${st.direction}`:"";
 
   const w=+(profile.weight||70);
+  const _cm2=((+(profile.heightFt||5))*12+(+(profile.heightIn||5)))*2.54;
+  const _bmi2=_cm2>0?w/((_cm2/100)**2):22;
+  const _ibw2=22*(_cm2/100)**2;
+  /* ASPEN: for obese patients dose protein on Adjusted Body Weight, not actual */
+  const proteinW=_bmi2>30?_ibw2+0.4*(w-_ibw2):w;
+  const _age2=+(profile.age||25);
+
+  /* ISSN Position Stand (2017) + ESPEN elderly guidelines (Bauer et al. 2013):
+     Weight loss 2.0 g/kg preserves LBM; muscle gain 2.2 g/kg is the evidence ceiling;
+     elderly 65+ need +20% to offset anabolic resistance.                              */
   const proteinMultiplier: Record<string,number>={
-    "Weight loss":1.8,"Muscle gain":2.2,"Maintain weight":1.4,"General fitness":1.4,
+    "Weight loss":2.0,"Muscle gain":2.2,"Maintain weight":1.4,"General fitness":1.6,
     "Breastfeeding":1.4,"Pregnant":1.4,
   };
-  // Add extra 25g for breastfeeding/pregnancy as per ICMR guidelines
+  const elderlyBoost=_age2>=65?0.20:0;
+  // ICMR: +25 g/day for breastfeeding/pregnancy
   const proteinExtra=["Breastfeeding","Pregnant"].includes(cond)?25:0;
-  const proteinBase=(proteinMultiplier[st.effectiveGoal]??1.4)*w;
+  const proteinBase=(proteinMultiplier[st.effectiveGoal]??1.4)*(1+elderlyBoost)*proteinW;
   const proteinTarget=Math.round((proteinBase+proteinExtra)/5)*5;
 
   /* ── Summary string construction ── */
@@ -2278,7 +2296,7 @@ function OnbSlide4({anim,accent}:{anim:number;accent:string}) {
           transform:anim>=2?"scale(1)":"scale(0.4)",
           transition:"opacity 0.7s ease,transform 0.7s cubic-bezier(0.34,1.56,0.64,1)",
         }}>
-        <Logo size={88}/>
+        <Logo size={70}/>
         <h1 className="text-white font-black leading-none mt-3"
           style={{fontSize:76,letterSpacing:"-3px",
             textShadow:anim>=3?`0 0 40px ${ha(accent,0.6)},0 0 80px ${ha(accent,0.3)}`:"none",
@@ -2569,7 +2587,7 @@ function LIFinal({anim,accent}:{anim:number;accent:string}) {
         transform:anim>=3?"scale(1) rotateY(0deg)":"scale(0.22) rotateY(90deg)",
         transition:"opacity 0.78s ease,transform 0.92s cubic-bezier(0.34,1.56,0.64,1)",
       }}>
-        <Logo size={84}/>
+        <Logo size={64}/>
         <h1 className="text-white font-black leading-none mt-3" style={{
           fontSize:72,letterSpacing:"-3px",
           textShadow:anim>=4?`0 0 48px ${ha(accent,0.7)},0 0 96px ${ha(accent,0.3)}`:"none",
@@ -2666,9 +2684,11 @@ function QuizTeaser({profile}:{profile:Profile}) {
   const cm = ((+(profile.heightFt||5))*12+(+(profile.heightIn||5)))*2.54;
   const bmi = cm>0 ? w/((cm/100)**2) : 0;
   const bmiCat = bmi<18.5?"Underweight":bmi<23?"Normal":bmi<27.5?"Overweight":"Obese";
+  const tIbw=22*(cm/100)**2;
+  const tCalcW=bmi>30?tIbw+0.4*(w-tIbw):w;
   const bmr = (profile.sex!=="Male"
-    ? 10*w+6.25*cm-5*(+(profile.age||25))-161
-    : 10*w+6.25*cm-5*(+(profile.age||25))+5);
+    ? 10*tCalcW+6.25*cm-5*(+(profile.age||25))-161
+    : 10*tCalcW+6.25*cm-5*(+(profile.age||25))+5);
   const teaserPalMatrix: Record<string,Record<string,number>> = {
     "Mostly desk job":    {"None":1.2,"Walks / light":1.375,"Gym 3x week":1.55,"Gym 5x+ / sports":1.65},
     "On feet / moderate": {"None":1.375,"Walks / light":1.475,"Gym 3x week":1.60,"Gym 5x+ / sports":1.75},
@@ -3125,11 +3145,10 @@ function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;on
       </div>
       <div className={`relative z-10 w-full max-w-sm transition-all duration-700 ${visible?"opacity-100 translate-y-0":"opacity-0 translate-y-8"}`}>
         {/* Hero */}
-        <div className="flex flex-col items-center mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div style={{filter:`drop-shadow(0 0 18px rgba(255,250,102,0.60))`,animation:"bobFloat 3.5s ease-in-out infinite"}}>
-              <Logo size={42}/>
-            </div>
+        <div className="flex flex-col items-center mb-10">
+          <div className="flex items-center gap-3 mb-3"
+            style={{animation:"bobFloat 3.5s ease-in-out infinite",filter:`drop-shadow(0 0 18px rgba(255,250,102,0.60))`}}>
+            <Logo size={38}/>
             <h1 className="font-black text-white leading-none" style={{fontSize:54,letterSpacing:"-2.8px"}}>EatBC</h1>
           </div>
           <p className="text-center font-semibold" style={{color:"rgba(255,255,255,0.42)",fontSize:14,letterSpacing:"0.04em"}}>
@@ -3142,15 +3161,15 @@ function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;on
           const wq=MOTIVATION_QUOTES[Math.floor(Math.random()*MOTIVATION_QUOTES.length)];
           const wa=THEME_ACCENT[wq.theme]||"#FFFA66";
           return(
-            <div className="px-5 py-4 rounded-2xl mb-6" style={{background:"rgba(255,255,255,0.05)",border:`1px solid ${ha(wa,0.25)}`}}>
+            <div className="px-5 py-5 rounded-2xl mb-8" style={{background:"rgba(255,255,255,0.05)",border:`1px solid ${ha(wa,0.25)}`}}>
               <p className="font-semibold leading-snug" style={{color:"rgba(255,255,255,0.85)",fontSize:14}}>"{wq.text}"</p>
-              {wq.author&&<p className="mt-2 font-bold text-xs" style={{color:ha(wa,0.7)}}>— {wq.author}</p>}
+              {wq.author&&<p className="mt-2.5 font-bold text-xs" style={{color:ha(wa,0.7)}}>— {wq.author}</p>}
             </div>
           );
         })()}
 
         {/* CTAs */}
-        <div className="space-y-3">
+        <div className="space-y-4">
           <button onClick={onNew}
             className="group relative w-full py-4 px-5 rounded-2xl font-black text-[1.05rem] transition-all duration-150 active:scale-[0.97]"
             style={{background:Y,color:"#0A0A0A",boxShadow:"0 8px 32px rgba(255,250,102,0.25)"}}>
@@ -3197,7 +3216,7 @@ function FoodGame({name,onDone}:{name?:string;onDone:(picks:string[])=>void}) {
       <div className="absolute pointer-events-none rounded-full" style={{width:260,height:260,bottom:"10%",left:"-90px",background:"radial-gradient(circle,rgba(0,255,157,0.16),transparent 70%)",filter:"blur(34px)"}}/>
 
       <div className="relative z-10 max-w-md w-full mx-auto">
-        <div className="flex items-center gap-2 mb-6"><Logo size={28}/><span className="font-black text-white tracking-tight">EatBC</span></div>
+        <div className="flex items-center gap-2 mb-6"><Logo size={18}/><span className="font-black text-white tracking-tight">EatBC</span></div>
         <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 mb-3"
           style={{background:"rgba(0,255,157,0.14)",border:"1px solid rgba(0,255,157,0.3)"}}>
           <Sparkles size={12} style={{color:"#00FF9D"}}/>
@@ -3280,7 +3299,7 @@ function Login({onDone,onBack}:{onDone:(sess:Session,plan?:Plan|null,tracking?:T
   return (
     <Shell>
       <Card className="p-6 md:p-8">
-        <div className="flex items-center gap-2 mb-2"><Logo size={28}/><span className="font-bold text-gray-700">EatBC</span></div>
+        <div className="flex items-center gap-2 mb-2"><Logo size={16}/><span className="font-bold text-gray-700">EatBC</span></div>
         <h2 className="text-2xl font-black text-gray-800 mt-4">Welcome back,<br/><span style={{color:GREEN}}>warrior!</span></h2>
         <p className="text-gray-400 text-sm mt-1 mb-6">Sign in to track your progress</p>
         <label className="text-sm font-semibold text-gray-600">Phone, Email or Username</label>
@@ -3328,7 +3347,7 @@ function Signup({profile,plan,onDone,onBack}:{profile:Profile;plan:Plan|null;onD
   return (
     <Shell>
       <Card className="p-6 md:p-8">
-        <div className="flex items-center gap-2 mb-2"><Logo size={28}/><span className="font-bold text-gray-700">EatBC</span></div>
+        <div className="flex items-center gap-2 mb-2"><Logo size={16}/><span className="font-bold text-gray-700">EatBC</span></div>
         <div className="rounded-2xl px-4 py-3 mb-5 mt-4" style={{background:"#EAF7F0"}}>
           <p className="text-sm font-bold" style={{color:GREEN}}>Challenge accepted, {profile?.name||"champ"}!</p>
           <p className="text-xs text-gray-500 mt-0.5">Create your account to unlock your personal tracker.</p>
@@ -4388,6 +4407,7 @@ function VeerBot({session,planCondition}:{session:Session|null;planCondition:str
   const [interim,setInterim]=useState("");
   const [promptsLeft,setPromptsLeft]=useState<number>(()=>10-Math.min(10,sget<number>("eatbc:veerUsed")||0));
   const [error,setError]=useState("");
+  const [textInput,setTextInput]=useState("");
   const hasIntroduced=useRef(false);
   const recogRef=useRef<any>(null);
   const audioRef=useRef<HTMLAudioElement|null>(null);
@@ -4669,23 +4689,46 @@ function VeerBot({session,planCondition}:{session:Session|null;planCondition:str
               </p>
             )}
 
-            {/* Mic button */}
-            <div className="flex justify-center mt-1 mb-2">
+            {/* Text input + mic row */}
+            <div className="flex items-center gap-2 px-4 mt-1 mb-2">
+              <form className="flex-1 flex items-center rounded-2xl overflow-hidden"
+                style={{background:"rgba(255,255,255,0.055)",border:"1px solid rgba(255,255,255,0.10)"}}
+                onSubmit={e=>{
+                  e.preventDefault();
+                  const q=textInput.trim();
+                  if(!q||phase==="thinking"||phase==="speaking"||promptsLeft<=0)return;
+                  handleVeer(q);setTextInput("");
+                }}>
+                <input
+                  value={textInput}
+                  onChange={e=>setTextInput(e.target.value)}
+                  placeholder="Type a question…"
+                  disabled={phase==="thinking"||phase==="speaking"||promptsLeft<=0}
+                  className="flex-1 bg-transparent outline-none px-3 py-2.5"
+                  style={{fontSize:13.5,color:"rgba(255,255,255,0.9)"}}
+                />
+                <button type="submit"
+                  disabled={!textInput.trim()||phase==="thinking"||phase==="speaking"||promptsLeft<=0}
+                  className="px-3 py-2.5 transition-opacity disabled:opacity-25 flex-shrink-0"
+                  style={{color:Y}}>
+                  <ArrowRight size={18}/>
+                </button>
+              </form>
               {phase==="listening"?(
                 <button onClick={stopListening}
-                  className="flex items-center justify-center rounded-full active:scale-95 transition-transform"
-                  style={{width:68,height:68,background:"linear-gradient(135deg,#EF4444,#DC2626)",
-                    boxShadow:"0 6px 28px rgba(239,68,68,.48)"}}>
-                  <MicOff size={26} className="text-white"/>
+                  className="flex-shrink-0 flex items-center justify-center rounded-full active:scale-95 transition-transform"
+                  style={{width:48,height:48,background:"linear-gradient(135deg,#EF4444,#DC2626)",
+                    boxShadow:"0 4px 20px rgba(239,68,68,.40)"}}>
+                  <MicOff size={20} className="text-white"/>
                 </button>
               ):(
                 <button onClick={startListening}
                   disabled={phase==="thinking"||phase==="speaking"||promptsLeft<=0}
-                  className="flex items-center justify-center rounded-full active:scale-95 transition-all disabled:opacity-25"
-                  style={{width:68,height:68,
+                  className="flex-shrink-0 flex items-center justify-center rounded-full active:scale-95 transition-all disabled:opacity-25"
+                  style={{width:48,height:48,
                     background:promptsLeft<=0?"rgba(255,255,255,0.05)":"linear-gradient(135deg,#1DAA61,#0B6E40)",
-                    boxShadow:promptsLeft>0?"0 6px 28px rgba(29,170,97,.42)":"none"}}>
-                  <Mic size={26} className="text-white"/>
+                    boxShadow:promptsLeft>0?"0 4px 20px rgba(29,170,97,.40)":"none"}}>
+                  <Mic size={20} className="text-white"/>
                 </button>
               )}
             </div>
@@ -4831,7 +4874,7 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccou
           style={{background:"linear-gradient(135deg,#1DAA61 0%,#0E8A4D 60%,#0B6E40 100%)"}}>
           <div className="flex justify-between items-start">
             <div>
-              <div className="flex items-center gap-2 mb-3"><Logo size={26}/><span className="font-bold text-sm">EatBC</span></div>
+              <div className="flex items-center gap-2 mb-3"><Logo size={15}/><span className="font-bold text-sm">EatBC</span></div>
               <h2 className="text-2xl font-black">Hi {session.name}</h2>
               <p className="text-white/70 text-sm">{session.id}</p>
               <div className="flex gap-4 mt-4">
@@ -5296,7 +5339,7 @@ export default function App() {
   if (screen==="quiz") return (
     <Shell>
       <Card className="p-6 md:p-8">
-        <div className="flex items-center gap-2 mb-6"><Logo size={28}/><span className="font-bold text-gray-700">EatBC</span></div>
+        <div className="flex items-center gap-2 mb-6"><Logo size={16}/><span className="font-bold text-gray-700">EatBC</span></div>
         <div className="mb-6">
           <div className="flex justify-between text-xs text-gray-400 mb-2">
             <span>{t("question")} {stepClamped+1} {t("of")} {activeQ.length}</span><span>{Math.round(((stepClamped+1)/activeQ.length)*100)}%</span>
@@ -5384,7 +5427,7 @@ export default function App() {
       <div style={{animation:"eFade .5s ease both"}}>
         <div className="rounded-3xl p-6 md:p-7 text-white shadow-lg mb-4"
           style={{background:"linear-gradient(135deg,#1DAA61 0%,#0E8A4D 55%,#0B6E40 100%)"}}>
-          <div className="flex items-center gap-2 mb-4"><Logo size={30}/><span className="font-bold">EatBC</span></div>
+          <div className="flex items-center gap-2 mb-4"><Logo size={18}/><span className="font-bold">EatBC</span></div>
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="min-w-0">
               <p className="text-white/70 text-sm">Weekly plan for</p>
