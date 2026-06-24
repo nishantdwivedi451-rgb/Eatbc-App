@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   ChevronRight, Utensils, Share2, Mail,
   CheckCircle2, Droplet, LogOut, TrendingDown, Loader2,
@@ -7,6 +7,7 @@ import {
   Flame, BarChart3, Trophy, Users, Bell, Plus, RefreshCw,
   Lightbulb, Globe, X, Check, Target, Dumbbell, CalendarDays, Clock, BookOpen, ChefHat,
   Mic, MicOff, Volume2, Camera, Lock, Zap, Star,
+  Search, ClipboardList, ChevronLeft,
 } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -200,6 +201,7 @@ interface Plan {
 }
 interface Session { id: string; name: string; token: string; }
 interface FoodLog { n: string; cal: number; p?: number; qty: string; servings: number; }
+interface ExerciseLog { n: string; sets: number; reps: string; cat: string; ts: string; }
 interface DayTracking { meals: Record<number, boolean>; water: number; log?: FoodLog[]; cheatLog?: FoodLog[]; }
 /* Date-keyed daily snapshot — powers real streaks, trends and insights. */
 interface HistEntry { onTrack: boolean; cal: number; protein: number; meals: number; total: number; water: number; }
@@ -211,6 +213,7 @@ interface Tracking {
   joinedChallenges?: string[]; // challenge ids the user opted into
   workouts?: Record<string, boolean>;   // date → workout session completed
   workoutSets?: Record<string, number[]>; // date → completed exercise indices
+  workoutLog?: Record<string, ExerciseLog[]>; // date → manually logged exercises
   lang?: string;
   swapCounts?: Record<string, number>;  // food name → times swapped out
   lastRetired?: string;                 // last food name retired from plan
@@ -4139,6 +4142,199 @@ function RecipeSheet({name,onClose}:{name:string;onClose:()=>void}) {
   );
 }
 
+/* ─────────────── Workout Diary ─────────────── */
+const CAT_LABELS:Record<string,string>={All:"All",cardio:"Cardio",push:"Push",pull:"Pull",legs:"Legs",core:"Core",restore:"Yoga / Hold"};
+const REPS_OPTS=["5 reps","8 reps","10 reps","12 reps","15 reps","20 reps","25 reps","30 reps","30 sec","45 sec","60 sec","2 min","5 min","10 min","5–8 breaths","Each side"];
+
+function WorkoutLogger({log,onUpdate}:{log:ExerciseLog[];onUpdate:(l:ExerciseLog[])=>void}) {
+  const [open,setOpen]=useState(false);
+  const [search,setSearch]=useState("");
+  const [cat,setCat]=useState("All");
+  const [pending,setPending]=useState<string|null>(null);
+  const [sets,setSets]=useState(3);
+  const [reps,setReps]=useState("10 reps");
+  const [customReps,setCustomReps]=useState("");
+  const [useCustom,setUseCustom]=useState(false);
+
+  const allEx=useMemo(()=>{
+    const seen=new Set<string>();
+    const res:{n:string;cat:string}[]=[];
+    Object.values(EX).forEach(pool=>{
+      Object.entries(pool).forEach(([c,items])=>{
+        (items as ExDef[]).forEach(e=>{if(!seen.has(e.n)){seen.add(e.n);res.push({n:e.n,cat:c});}});
+      });
+    });
+    return res;
+  },[]);
+
+  const CATS=["All","cardio","push","pull","legs","core","restore"];
+
+  const filtered=allEx.filter(e=>
+    (cat==="All"||e.cat===cat)&&(!search||e.n.toLowerCase().includes(search.toLowerCase()))
+  );
+
+  const close=()=>{setOpen(false);setPending(null);setSearch("");setCat("All");};
+
+  const addLog=()=>{
+    if(!pending) return;
+    const finalReps=useCustom&&customReps?customReps:reps;
+    onUpdate([...log,{n:pending,sets,reps:finalReps,cat:allEx.find(e=>e.n===pending)?.cat||"",ts:new Date().toISOString()}]);
+    setPending(null);setSets(3);setReps("10 reps");setUseCustom(false);setCustomReps("");
+  };
+
+  const remove=(i:number)=>onUpdate(log.filter((_,j)=>j!==i));
+  const PUR="#7C3AED";const PURLT="#F5F3FF";const PURBG="#EDE9FE";
+
+  return (
+    <div className="bg-white rounded-3xl border border-gray-100 p-5 mb-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <ClipboardList size={16} style={{color:PUR}}/>
+          <h3 className="font-black text-gray-800">Workout Diary</h3>
+        </div>
+        <button onClick={()=>setOpen(true)}
+          className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold text-white"
+          style={{background:PUR}}>
+          <Plus size={13}/> Log exercise
+        </button>
+      </div>
+
+      {log.length===0?(
+        <p className="text-sm text-gray-400 text-center py-4">Nothing logged yet.<br/>Tap "Log exercise" to record what you actually did.</p>
+      ):(
+        <div className="space-y-2">
+          {log.map((e,i)=>(
+            <div key={i} className="flex items-center gap-2 p-3 rounded-2xl" style={{background:PURLT}}>
+              <span className="text-xl shrink-0">{EXERCISE_GUIDE[e.n]?.emoji||"💪"}</span>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-sm text-purple-900 leading-tight">{e.n}</div>
+                <div className="text-xs font-medium" style={{color:"rgba(109,40,217,0.65)"}}>{e.sets} set{e.sets!==1?"s":""} × {e.reps}</div>
+              </div>
+              <button onClick={()=>remove(i)} className="p-1 rounded-lg text-gray-400 hover:text-red-400"><X size={14}/></button>
+            </div>
+          ))}
+          <div className="pt-2 border-t border-gray-100 text-xs font-semibold text-gray-400 text-right">
+            {log.length} exercise{log.length!==1?"s":""} logged today
+          </div>
+        </div>
+      )}
+
+      {open&&(
+        <div className="fixed inset-0 z-50 flex flex-col justify-end"
+          style={{background:"rgba(0,0,0,0.5)",backdropFilter:"blur(4px)"}}
+          onClick={close}>
+          <div className="bg-white rounded-t-3xl max-h-[88vh] flex flex-col"
+            style={{animation:"eFade .22s ease both"}}
+            onClick={e=>e.stopPropagation()}>
+
+            {pending?(
+              <div className="p-5 overflow-y-auto">
+                {/* back + exercise title */}
+                <div className="flex items-start gap-3 mb-5">
+                  <button onClick={()=>setPending(null)} className="mt-0.5 p-2 rounded-xl shrink-0" style={{background:"#F3F4F6"}}>
+                    <ChevronLeft size={16}/>
+                  </button>
+                  <div>
+                    <div className="text-xs font-bold uppercase tracking-wider text-gray-400">{EXERCISE_GUIDE[pending]?.emoji||"💪"} Logging</div>
+                    <h3 className="font-black text-gray-800 text-xl leading-tight">{pending}</h3>
+                    {EXERCISE_GUIDE[pending]?.muscles&&<p className="text-xs text-gray-400 mt-0.5">{EXERCISE_GUIDE[pending].muscles.join(" · ")}</p>}
+                  </div>
+                </div>
+
+                {/* Sets */}
+                <div className="mb-5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-gray-500">Sets</label>
+                  <div className="flex gap-2 mt-2">
+                    {[1,2,3,4,5,6].map(n=>(
+                      <button key={n} onClick={()=>setSets(n)}
+                        className="w-11 h-11 rounded-xl font-bold text-sm transition"
+                        style={sets===n?{background:PUR,color:"#fff"}:{background:"#F3F4F6",color:"#374151"}}>
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Reps */}
+                <div className="mb-5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-gray-500">Reps / Duration</label>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {REPS_OPTS.map(r=>(
+                      <button key={r} onClick={()=>{setReps(r);setUseCustom(false);}}
+                        className="px-3 py-1.5 rounded-xl font-semibold text-xs transition"
+                        style={!useCustom&&reps===r?{background:PUR,color:"#fff"}:{background:"#F3F4F6",color:"#374151"}}>
+                        {r}
+                      </button>
+                    ))}
+                  </div>
+                  <input type="text" placeholder="Custom e.g. 400m run, 1 km walk…"
+                    value={customReps} onChange={e=>{setCustomReps(e.target.value);setUseCustom(!!e.target.value);}}
+                    className="w-full mt-3 px-4 py-2.5 rounded-2xl border-2 text-sm outline-none"
+                    style={{borderColor:useCustom?"#7C3AED":"#E5E7EB"}}/>
+                </div>
+
+                <button onClick={addLog}
+                  className="w-full py-3.5 rounded-2xl font-black text-white"
+                  style={{background:PUR}}>
+                  Log this exercise ✓
+                </button>
+              </div>
+            ):(
+              <>
+                {/* picker header */}
+                <div className="p-4 pb-0">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-black text-gray-800 text-lg">Log an exercise</h3>
+                    <button onClick={close} className="p-2 rounded-xl" style={{background:"#F3F4F6"}}><X size={16}/></button>
+                  </div>
+                  <div className="relative mb-3">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
+                    <input type="text" placeholder="Search exercise…" value={search}
+                      onChange={e=>setSearch(e.target.value)} autoFocus
+                      className="w-full pl-9 pr-4 py-2.5 rounded-2xl border border-gray-200 text-sm outline-none focus:border-purple-400"/>
+                  </div>
+                  <div className="flex gap-1.5 overflow-x-auto pb-2" style={{scrollbarWidth:"none"}}>
+                    {CATS.map(c=>(
+                      <button key={c} onClick={()=>setCat(c)}
+                        className="px-3 py-1.5 rounded-xl font-bold text-xs whitespace-nowrap transition shrink-0"
+                        style={cat===c?{background:PUR,color:"#fff"}:{background:"#F3F4F6",color:"#374151"}}>
+                        {CAT_LABELS[c]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* exercise list */}
+                <div className="overflow-y-auto flex-1 p-4 pt-2 space-y-1.5">
+                  {filtered.map((e,i)=>(
+                    <button key={i} onClick={()=>setPending(e.n)}
+                      className="w-full flex items-center gap-3 p-3 rounded-2xl border border-gray-100 text-left transition"
+                      style={{}}>
+                      <span className="text-2xl shrink-0 leading-none">{EXERCISE_GUIDE[e.n]?.emoji||"💪"}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-sm text-gray-800 leading-tight">{e.n}</div>
+                        {EXERCISE_GUIDE[e.n]?.muscles&&
+                          <div className="text-xs text-gray-400 truncate">{EXERCISE_GUIDE[e.n].muscles.join(", ")}</div>}
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0"
+                        style={{background:PURBG,color:PUR}}>
+                        {CAT_LABELS[e.cat]||e.cat}
+                      </span>
+                    </button>
+                  ))}
+                  {filtered.length===0&&(
+                    <p className="text-center text-sm text-gray-400 py-8">No exercises found</p>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function WorkoutTab({workout,tracking,onUpdate}:{
   workout:WorkoutPlan;tracking:Tracking;onUpdate:(t:Tracking)=>void;
 }) {
@@ -4282,6 +4478,12 @@ function WorkoutTab({workout,tracking,onUpdate}:{
           ))}
         </div>
       </div>
+
+      {/* workout diary */}
+      <WorkoutLogger
+        log={(tracking.workoutLog||{})[iso]||[]}
+        onUpdate={l=>onUpdate({...tracking,workoutLog:{...(tracking.workoutLog||{}),[iso]:l}})}
+      />
 
       {/* coaching notes */}
       <div className="rounded-3xl p-5 mb-4" style={{background:"#F5F3FF"}}>
@@ -5215,7 +5417,6 @@ export default function App() {
   const [plan,setPlan]=useState<Plan|null>(null);
   const [loading,setLoading]=useState(false);
   const [err,setErr]=useState("");
-  const [showGamePopup,setShowGamePopup]=useState(false);
   const [session,setSession]=useState<Session|null>(null);
   const [tracking,setTracking]=useState<Tracking>({});
   const [lang,setLang]=useState<Lang>(()=>(sget<Lang>("eatbc:lang")||"en"));
@@ -5303,20 +5504,12 @@ export default function App() {
     }
     const nextIdx = stepClamped + 1;
     setStep(nextIdx);
-    /* Pop the food game after the 6th question (index 5) */
-    if (stepClamped === 5) setShowGamePopup(true);
   }
 
-  /* Quiz done → build plan directly (game already played mid-quiz). */
+  /* Quiz done → go to food game first, then build plan. */
   function generate() {
     setErr("");
-    const withPicks={...profile};
-    setLoading(true);
-    setTimeout(()=>{
-      try{setPlan(buildPlan(withPicks));setScreen("plan");}
-      catch{setErr("Something went off — adjust an answer and retry.");}
-      setLoading(false);
-    },500);
+    setScreen("foodgame");
   }
   function finishGame(picks:string[]) {
     const withPicks={...profile,foodPicks:picks};
@@ -5444,14 +5637,6 @@ export default function App() {
   if (screen==="intro")   return <LoginIntro diet={plan?.diet} onDone={()=>setScreen("quote")}/>;
   if (screen==="quote")   return <DailyQuote onDone={()=>setScreen("dash")}/>;
   if (screen==="foodgame") return <FoodGame name={profile.name} onDone={finishGame}/>;
-
-  /* Mid-quiz food game popup — shown after Q6, returns to quiz when done */
-  if (screen==="quiz" && showGamePopup) return (
-    <FoodGame name={profile.name} onDone={(picks)=>{
-      setProfile(p=>({...p,foodPicks:picks}));
-      setShowGamePopup(false);
-    }}/>
-  );
 
   if (screen==="quiz") return (
     <div className="min-h-screen py-8 px-4 relative overflow-hidden" style={{background:"#0A0A0A"}}>
