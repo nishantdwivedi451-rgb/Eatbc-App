@@ -1,0 +1,8 @@
+{
+  "buildCommand": "cd artifacts/eatbc && npm install && npm run build",
+  "outputDirectory": "artifacts/eatbc/dist",
+  "installCommand": "npm install",
+  "rewrites": [
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ]
+}
