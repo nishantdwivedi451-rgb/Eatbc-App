@@ -4482,7 +4482,7 @@ function DietitianCard({condition, t}:{condition:string; t:(k:keyof typeof STR)=
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold text-pink-800">{t("dietitianCTA")}</p>
           <p className="text-xs text-pink-500 mt-0.5">You have {condition} — a dietician can personalise this further.</p>
-          <a href="https://wa.me/919999999999?text=Hi%2C%20I%20want%20a%20free%20diet%20plan%20review"
+          <a href="https://wa.me/917000639366?text=Hi%2C%20I%20want%20a%20free%20diet%20plan%20review"
             target="_blank" rel="noopener noreferrer"
             className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white"
             style={{background:"#EC4899"}}>
