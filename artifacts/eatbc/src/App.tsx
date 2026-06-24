@@ -231,9 +231,9 @@ interface Question {
 const Q: Question[] = [
   { k:"name",      label:"What should we call you?",                    type:"text",   ph:"e.g. Nishant" },
   { k:"age",       label:"Your age",                                    type:"number", ph:"e.g. 32" },
-  { k:"sex",       label:"Sex",                                         type:"pick",   opts:["Male","Female","Other"] },
+  { k:"sex",       label:"Gender",                                      type:"pick",   opts:["Male","Female","Non-binary","Transgender","Gender fluid","Prefer not to say"] },
   { k:"heightFt",  label:"Your height",                                 type:"height" },
-  { k:"goal",      label:"Your primary goal",                           type:"pick",   opts:["Weight loss","Muscle gain","Maintain weight","General fitness"] },
+  { k:"goal",      label:"Your primary goal",                           type:"pick",   opts:["Weight loss","Muscle gain","Weight gain","Maintain weight","General fitness"] },
   { k:"weight",    label:"Current weight (kg)",                         type:"number", ph:"e.g. 78" },
   { k:"target",    label:"Target weight (kg)",                          type:"number", ph:"e.g. 72",
     sub:"Same number as current weight = maintain." },
@@ -1223,7 +1223,9 @@ function calcStats(d: Profile) {
   const w = Math.max(30, +(d.weight || 70));
   const target = Math.max(30, +(d.target || w));
   const age = Math.max(15, Math.min(80, +(d.age || 25)));
-  const isFemale = d.sex === "Female" || d.sex === "Other";
+  /* Use male formula only for "Male"; all other genders use female formula
+     (more conservative estimate, lower calorie floor — medically safer)     */
+  const isFemale = d.sex !== "Male";
 
   /* Adjusted Body Weight for obesity (ASPEN clinical guidelines):
      Adipose tissue has ~40% of lean metabolic activity. IBW uses BMI-22
@@ -1312,7 +1314,7 @@ function calcStats(d: Profile) {
       const appliedDeficit = Math.min(desiredDeficit, condCap, roomToDeficit);
       tdee = maintenanceTdee - appliedDeficit;
     }
-  } else if (effectiveGoal === "Muscle gain") {
+  } else if (effectiveGoal === "Muscle gain" || effectiveGoal === "Weight gain") {
     /* Underweight: add more to get them to healthy range faster */
     const bmiCheck = w && cm ? w / ((cm / 100) ** 2) : 22;
     const surplusBoost = bmiCheck < 18.5 ? 100 : 0;
@@ -1382,7 +1384,7 @@ function pickMeal(slot: string, target: number, di: number, used: Set<string>, c
   if (!list.length) return {n:"Seasonal fruit & nuts",c:target,q:"1 serving",slot:[slot],reg:["all"],t:[]};
   const scored=list.map(f=>{
     let s=-Math.abs(f.c-target)/Math.max(target,1);
-    if (ctx.goal==="Muscle gain"&&f.t.includes("protein")) s+=0.45;
+    if ((ctx.goal==="Muscle gain"||ctx.goal==="Weight gain")&&f.t.includes("protein")) s+=0.45;
     if ((ctx.goal==="Weight loss"||ctx.cond==="Diabetes / pre-diabetes"||ctx.cond==="PCOS / PCOD")&&(f.t.includes("lowgi")||f.t.includes("fiber"))) s+=0.3;
     if (ctx.cond==="PCOS / PCOD"&&f.t.includes("protein")) s+=0.3;   // protein steadies insulin response
     if (ctx.cond==="High cholesterol"&&f.t.includes("fiber")) s+=0.2;
@@ -1400,6 +1402,7 @@ function makeTips(p: Profile, _cal: number): string[] {
   const goalTips: Record<string,string[]>={
     "Weight loss":    ["Put protein in every meal — it keeps you full and protects muscle.","Finish dinner 2-3 hours before bed."],
     "Muscle gain":    ["Hit protein at every single meal — aim for a palm-sized source.","Eat your post-workout meal within 45 minutes of training."],
+    "Weight gain":    ["Eat 4-5 meals/day — more frequent eating helps you hit your calorie surplus naturally.","Go for calorie-dense whole foods: nuts, banana, ghee, whole milk, avocado, peanut butter.","Pair every meal with a protein source so the weight you gain includes lean mass."],
     "Maintain weight":["Consistency beats perfection — follow the 80/20 rule.","Keep portion sizes steady day to day."],
     "General fitness":["Build the habit first; the body follows.","Move daily, even a 20-min walk counts."],
   };
@@ -1589,6 +1592,7 @@ const EXERCISE_TO_PLACE: Record<string,string> = {
 const GOAL_TO_FOCUS: Record<string,string> = {
   "Weight loss":    "Burn fat",
   "Muscle gain":    "Build muscle",
+  "Weight gain":    "Build mass",
   "Maintain weight":"Stay fit & mobile",
   "General fitness":"Stay fit & mobile",
 };
@@ -1766,7 +1770,7 @@ function buildPlan(profile: Profile): Plan {
      Weight loss 2.0 g/kg preserves LBM; muscle gain 2.2 g/kg is the evidence ceiling;
      elderly 65+ need +20% to offset anabolic resistance.                              */
   const proteinMultiplier: Record<string,number>={
-    "Weight loss":2.0,"Muscle gain":2.2,"Maintain weight":1.4,"General fitness":1.6,
+    "Weight loss":2.0,"Muscle gain":2.2,"Weight gain":1.8,"Maintain weight":1.4,"General fitness":1.6,
     "Breastfeeding":1.4,"Pregnant":1.4,
   };
   const elderlyBoost=_age2>=65?0.20:0;
@@ -2423,6 +2427,9 @@ function Onboarding({onDone}:{onDone:()=>void}) {
         </div>
       </div>
 
+      {/* Floating food emojis on every slide */}
+      <FloatingFoods/>
+
       {/* Tap hint + dot nav */}
       <div className="pb-9 flex flex-col items-center gap-3 relative z-10">
         <span className="text-[11px] tracking-widest uppercase font-semibold" style={{color:"rgba(255,255,255,0.4)"}}>Tap to continue</span>
@@ -2434,6 +2441,11 @@ function Onboarding({onDone}:{onDone:()=>void}) {
                 boxShadow:i===slide?`0 0 10px ${ACCENT[slide]}`:"none"}}/>
           ))}
         </div>
+        {slide===0&&(
+          <p className="text-[10px] font-medium tracking-wide" style={{color:"rgba(255,250,102,0.45)"}}>
+            ✦ tap any floating food to discover its nutrition secrets
+          </p>
+        )}
       </div>
     </div>
   );
@@ -3147,7 +3159,7 @@ function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;on
         {/* Hero */}
         <div className="flex flex-col items-center mb-10">
           <div className="flex items-center gap-3 mb-3"
-            style={{animation:"bobFloat 3.5s ease-in-out infinite",filter:`drop-shadow(0 0 18px rgba(255,250,102,0.60))`}}>
+            style={{filter:`drop-shadow(0 0 18px rgba(255,250,102,0.55))`}}>
             <Logo size={38}/>
             <h1 className="font-black text-white leading-none" style={{fontSize:54,letterSpacing:"-2.8px"}}>EatBC</h1>
           </div>
@@ -3220,12 +3232,12 @@ function FoodGame({name,onDone}:{name?:string;onDone:(picks:string[])=>void}) {
         <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 mb-3"
           style={{background:"rgba(0,255,157,0.14)",border:"1px solid rgba(0,255,157,0.3)"}}>
           <Sparkles size={12} style={{color:"#00FF9D"}}/>
-          <span className="text-[11px] font-bold tracking-widest uppercase" style={{color:"#00FF9D"}}>Quick game</span>
+          <span className="text-[11px] font-bold tracking-widest uppercase" style={{color:"#00FF9D"}}>Know your fuel</span>
         </div>
         <h2 className="text-white font-black leading-tight" style={{fontSize:30,letterSpacing:"-1px"}}>
-          {name?`${name}, tap `:"Tap "}<span style={{color:"#7CFFC4"}}>5 foods</span> you love
+          {name?`${name}, pick`:"Pick"} <span style={{color:"#7CFFC4"}}>5 foods</span> that fuel you
         </h2>
-        <p className="text-white/55 text-sm mt-1.5">We'll weave your favourites right into your plan.</p>
+        <p className="text-white/55 text-sm mt-1.5">You've seen what each food does. Now pick your team — your plan gets handcrafted around what actually makes it to your plate.</p>
 
         {/* progress dots */}
         <div className="flex items-center gap-2 mt-5 mb-6">
@@ -3273,7 +3285,7 @@ function FoodGame({name,onDone}:{name?:string;onDone:(picks:string[])=>void}) {
           style={done
             ?{background:"#00FF9D",color:"#052e1b",boxShadow:"0 0 32px rgba(0,255,157,0.6)"}
             :{background:"rgba(255,255,255,0.12)",color:"rgba(255,255,255,0.45)"}}>
-          {done?<>Reveal my plan <Sparkles size={18}/></>:`Pick ${NEED-picks.length} more`}
+          {done?<>Lock in my plan <Sparkles size={18}/></>:`${NEED-picks.length} more to unlock your plan`}
         </button>
       </div>
     </div>
