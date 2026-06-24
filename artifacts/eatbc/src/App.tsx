@@ -2014,21 +2014,6 @@ const STR: Record<string,{en:string;hi:string}> = {
 function makeT(lang: Lang){ return (k: keyof typeof STR)=> STR[k]?.[lang] ?? STR[k]?.en ?? String(k); }
 
 /* ─────────────── UI primitives ─────────────── */
-function Logo({size=40}:{size?:number}) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 36 36" fill="none">
-      <circle cx="18" cy="18" r="18" fill="#111111"/>
-      {/* Fork tines — thicker for readability at small sizes */}
-      <rect x="7.5"  y="4.5" width="5" height="13" rx="2.5" fill="#FFFA66"/>
-      <rect x="15.5" y="4.5" width="5" height="13" rx="2.5" fill="#FFFA66"/>
-      <rect x="23.5" y="4.5" width="5" height="13" rx="2.5" fill="#FFFA66"/>
-      {/* Neck — tapers to handle */}
-      <path d="M7.5 15.5 C7.5 24 28.5 24 28.5 15.5 L23.5 15.5 C23.5 21 13 21 13 15.5 Z" fill="#FFFA66"/>
-      {/* Handle */}
-      <rect x="15.5" y="22" width="5" height="10" rx="2.5" fill="#FFFA66"/>
-    </svg>
-  );
-}
 function CalRing({pct=1,size=110,color="#fff",track="rgba(255,255,255,0.25)",big,small}:{
   pct?:number;size?:number;color?:string;track?:string;big?:number|string;small?:string;
 }) {
@@ -2373,12 +2358,11 @@ function OnbSlide3({accent}:{accent:string}) {
 function OnbSlide4({anim,accent}:{anim:number;accent:string}) {
   return(
     <div className="relative flex flex-col items-center justify-center" style={{height:320}}>
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-1"
-        style={{opacity:anim>=2?0:1,transition:"opacity 0.6s ease",pointerEvents:"none"}}>
+      <div className="flex flex-col items-center justify-center gap-1">
         <div style={{
           fontSize:52,fontWeight:900,color:"#ffffff",lineHeight:1.15,
           opacity:anim>=0?1:0,
-          transform:anim>=1?"scale(0.82) translateY(6px)":"scale(1) translateY(0)",
+          transform:anim>=1?"scale(0.92) translateY(-4px)":"scale(1) translateY(0)",
           transition:"opacity 0.5s ease,transform 0.65s ease",
         }}>Eat Better</div>
         <div style={{
@@ -2388,19 +2372,11 @@ function OnbSlide4({anim,accent}:{anim:number;accent:string}) {
           transition:"opacity 0.5s ease 0.15s,transform 0.6s ease 0.15s",
           textShadow:`0 0 28px ${ha(accent,0.6)}`,
         }}>&amp; Count</div>
-      </div>
-      <div className="flex flex-col items-center"
-        style={{
+        <p className="font-semibold mt-4" style={{
+          fontSize:14,color:"rgba(255,255,255,0.45)",letterSpacing:"0.05em",
           opacity:anim>=2?1:0,
-          transform:anim>=2?"scale(1)":"scale(0.4)",
-          transition:"opacity 0.7s ease,transform 0.7s cubic-bezier(0.34,1.56,0.64,1)",
-        }}>
-        <h1 className="text-white font-black leading-none"
-          style={{fontSize:76,letterSpacing:"-3px",
-            textShadow:anim>=3?`0 0 40px ${ha(accent,0.6)},0 0 80px ${ha(accent,0.3)}`:"none",
-            transition:"text-shadow 0.8s ease",
-          }}>EatBC</h1>
-        <p className="font-bold text-lg mt-2" style={{color:accent}}>Eat Better. Count.</p>
+          transition:"opacity 0.5s ease 0.2s",
+        }}>Eat Better. Count.</p>
       </div>
     </div>
   );
@@ -2661,13 +2637,12 @@ function LIFinal({anim,accent}:{anim:number;accent:string}) {
           color:ha(accent,0.32),letterSpacing:"0.3px",pointerEvents:"none",
           animation:`liFloat 3.8s ease-out ${f.d}s infinite`}}>{f.t}</div>
       ))}
-      {/* "Eat Better & Count" text phase */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-1"
-        style={{opacity:anim>=3?0:1,transition:"opacity 0.65s ease",pointerEvents:"none"}}>
+      {/* "Eat Better & Count" text — stays throughout */}
+      <div className="flex flex-col items-center justify-center gap-1">
         <div style={{
           fontSize:54,fontWeight:900,color:"#fff",lineHeight:1.1,letterSpacing:"-2px",
           opacity:1,
-          transform:anim===0?"scale(1.22) translateZ(-80px) rotateX(14deg)":anim>=2?"scale(0.84) translateY(5px)":"scale(1) translateZ(0) rotateX(0deg)",
+          transform:anim===0?"scale(1.22) translateZ(-80px) rotateX(14deg)":anim>=2?"scale(0.92) translateY(-4px)":"scale(1) translateZ(0) rotateX(0deg)",
           transition:"transform 0.88s cubic-bezier(0.22,1,0.36,1)",
           textShadow:"0 2px 24px rgba(255,255,255,0.14)",
         }}>Eat Better</div>
@@ -2678,19 +2653,11 @@ function LIFinal({anim,accent}:{anim:number;accent:string}) {
           transition:"opacity 0.6s ease 0.08s,transform 0.78s cubic-bezier(0.34,1.56,0.64,1) 0.08s",
           textShadow:`0 0 28px ${ha(accent,0.6)}`,
         }}>&amp; Count</div>
-      </div>
-      {/* Logo phase */}
-      <div className="flex flex-col items-center" style={{
-        opacity:anim>=3?1:0,
-        transform:anim>=3?"scale(1) rotateY(0deg)":"scale(0.22) rotateY(90deg)",
-        transition:"opacity 0.78s ease,transform 0.92s cubic-bezier(0.34,1.56,0.64,1)",
-      }}>
-        <h1 className="text-white font-black leading-none" style={{
-          fontSize:72,letterSpacing:"-3px",
-          textShadow:anim>=4?`0 0 48px ${ha(accent,0.7)},0 0 96px ${ha(accent,0.3)}`:"none",
-          transition:"text-shadow 0.9s ease",
-        }}>EatBC</h1>
-        <p className="font-semibold mt-2" style={{fontSize:15,color:accent}}>Eat Better. Count Smarter.</p>
+        <p className="font-semibold mt-3" style={{
+          fontSize:14,color:"rgba(255,255,255,0.40)",letterSpacing:"0.05em",
+          opacity:anim>=3?1:0,
+          transition:"opacity 0.5s ease 0.2s",
+        }}>Eat Better. Count Smarter.</p>
       </div>
     </div>
   );
