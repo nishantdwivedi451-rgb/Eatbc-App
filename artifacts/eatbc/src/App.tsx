@@ -5454,7 +5454,8 @@ export default function App() {
   );
 
   if (screen==="quiz") return (
-    <div className="min-h-screen py-8 px-4 relative overflow-hidden" style={{background:"linear-gradient(180deg,#F3FBF6 0%,#F7F8FA 40%)"}}>
+    <div className="min-h-screen py-8 px-4 relative overflow-hidden" style={{background:"#0A0A0A"}}>
+      <div className="absolute inset-0 pointer-events-none" style={{backgroundImage:"radial-gradient(rgba(255,255,255,0.04) 1px,transparent 1px)",backgroundSize:"28px 28px"}}/>
       <FloatingFoods/>
       <div className="mx-auto max-w-md relative z-10">
       <Card className="p-6 md:p-8">
@@ -5540,7 +5541,7 @@ export default function App() {
       </Card>
       {stepClamped>=5&&(
         <p className="text-center text-xs mt-4 flex items-center justify-center gap-1.5"
-          style={{color:"rgba(0,0,0,0.38)",animation:"eFade 0.5s ease both"}}>
+          style={{color:"rgba(255,255,255,0.45)",animation:"eFade 0.5s ease both"}}>
           ✦ tap any floating food to discover its nutrition secrets
         </p>
       )}
