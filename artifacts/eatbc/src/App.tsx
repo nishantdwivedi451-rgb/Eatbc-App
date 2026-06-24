@@ -3967,7 +3967,7 @@ function scheduleNextNudge() {
   sset("eatbc:nextNudge", Date.now() + 3 * 60 * 60 * 1000);
 }
 
-function fireNudge() {
+async function fireNudge() {
   if (typeof window === "undefined" || !("Notification" in window)) return;
   if (Notification.permission !== "granted") return;
   if (!sget<boolean>("eatbc:reminders")) return;
@@ -3982,7 +3982,24 @@ function fireNudge() {
   else             cats = ["meal","cheat"];
   const pool = NUDGE_MSGS.filter(m=>cats.includes(m.cat));
   const pick = pool[Math.floor(Math.random()*pool.length)];
-  try { new Notification(pick.title, {body:pick.body, icon:"/icon.svg"}); } catch {}
+  const opts = {body:pick.body, icon:"/icon.svg"};
+  /* Prefer SW-owned notification so notificationclick fires in the service worker */
+  if ("serviceWorker" in navigator) {
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      await reg.showNotification(pick.title, opts);
+      scheduleNextNudge();
+      return;
+    } catch {}
+  }
+  /* Fallback: page-context notification with manual click handler */
+  try {
+    const n = new Notification(pick.title, opts);
+    n.onclick = () => {
+      window.focus();
+      window.dispatchEvent(new CustomEvent("eatbc:goto-dash"));
+    };
+  } catch {}
   scheduleNextNudge();
 }
 
@@ -5499,6 +5516,31 @@ export default function App() {
       if (!next || Date.now()>=next) fireNudge();
     }, 60_000);
     return ()=>clearInterval(id);
+  },[]);
+
+  /* Notification click → dash: SW postMessage (app open) */
+  useEffect(()=>{
+    if (!("serviceWorker" in navigator)) return;
+    const handler=(e:MessageEvent)=>{
+      if (e.data?.type==="EATBC_NOTIF_CLICK" && sget<Session>("eatbc:session")?.token) {
+        setScreen("dash");
+      }
+    };
+    navigator.serviceWorker.addEventListener("message",handler);
+    return ()=>navigator.serviceWorker.removeEventListener("message",handler);
+  },[]);
+
+  /* Notification click → dash: URL param (app was closed) */
+  useEffect(()=>{
+    const params=new URLSearchParams(window.location.search);
+    if (params.get("from")==="notif" && sget<Session>("eatbc:session")?.token) {
+      window.history.replaceState({},"","/");
+      setScreen("dash");
+    }
+    /* Custom event fallback for page-context notifications */
+    const handler=()=>{ if (sget<Session>("eatbc:session")?.token) setScreen("dash"); };
+    window.addEventListener("eatbc:goto-dash",handler);
+    return ()=>window.removeEventListener("eatbc:goto-dash",handler);
   },[]);
 
   useEffect(()=>{

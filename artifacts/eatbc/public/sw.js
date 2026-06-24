@@ -1,6 +1,24 @@
-/* EatBC service worker — offline shell + safe caching */
+/* EatBC service worker — offline shell + safe caching + notification routing */
 const CACHE = "eatbc-v1";
 const SHELL = ["/", "/index.html", "/manifest.webmanifest", "/icon.svg", "/favicon.svg"];
+
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  e.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+      /* If app is already open in a tab, focus it and tell it to go to dash */
+      for (const client of list) {
+        if (new URL(client.url).origin === self.location.origin) {
+          client.focus();
+          client.postMessage({ type: "EATBC_NOTIF_CLICK" });
+          return;
+        }
+      }
+      /* App is closed — open it with a flag so it navigates to dash on load */
+      return clients.openWindow("/?from=notif");
+    })
+  );
+});
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
