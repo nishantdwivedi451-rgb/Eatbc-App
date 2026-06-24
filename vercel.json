@@ -2,6 +2,7 @@
   "buildCommand": "cd artifacts/eatbc && npm install && npm run build",
   "outputDirectory": "artifacts/eatbc/dist",
   "installCommand": "npm install",
+  "ignoreCommand": "exit 1",
   "rewrites": [
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
