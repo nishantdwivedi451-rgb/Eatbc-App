@@ -3219,7 +3219,7 @@ function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;on
   useEffect(()=>{const tm=setTimeout(()=>setVisible(true),80);return()=>clearTimeout(tm);},[]);
   const Y="#FFFA66";
   return (
-    <div className="min-h-screen flex flex-col items-center px-5 pt-20 pb-10 relative overflow-hidden"
+    <div className="min-h-screen flex flex-col items-center justify-center px-5 py-16 relative overflow-hidden"
       style={{background:"#0A0A0A"}}>
       {/* Background atmosphere */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -3242,11 +3242,8 @@ function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;on
       <div className={`relative z-10 w-full max-w-sm transition-all duration-700 ${visible?"opacity-100 translate-y-0":"opacity-0 translate-y-8"}`}>
         {/* Hero */}
         <div className="flex flex-col items-center mb-10">
-          <div className="flex items-center gap-3 mb-3"
-            style={{filter:`drop-shadow(0 0 18px rgba(255,250,102,0.55))`}}>
-            <Logo size={38}/>
-            <h1 className="font-black text-white leading-none" style={{fontSize:54,letterSpacing:"-2.8px"}}>EatBC</h1>
-          </div>
+          <h1 className="font-black text-white leading-none mb-3 text-center"
+            style={{fontSize:54,letterSpacing:"-2.8px",filter:`drop-shadow(0 0 18px rgba(255,250,102,0.55))`}}>EatBC</h1>
           <p className="text-center font-semibold" style={{color:"rgba(255,255,255,0.42)",fontSize:14,letterSpacing:"0.04em"}}>
             Eat Better &amp; Count
           </p>
