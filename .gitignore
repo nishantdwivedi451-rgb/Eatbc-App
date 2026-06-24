@@ -50,3 +50,10 @@ Thumbs.db
 
 # Claude Code session files
 .claude/
+
+# Capacitor native build outputs (keep project structure, skip build caches)
+artifacts/eatbc/ios/App/Pods/
+artifacts/eatbc/ios/App/.build/
+artifacts/eatbc/android/.gradle/
+artifacts/eatbc/android/app/build/
+artifacts/eatbc/android/build/
