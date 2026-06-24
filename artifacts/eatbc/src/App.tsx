@@ -2395,8 +2395,7 @@ function OnbSlide4({anim,accent}:{anim:number;accent:string}) {
           transform:anim>=2?"scale(1)":"scale(0.4)",
           transition:"opacity 0.7s ease,transform 0.7s cubic-bezier(0.34,1.56,0.64,1)",
         }}>
-        <Logo size={70}/>
-        <h1 className="text-white font-black leading-none mt-3"
+        <h1 className="text-white font-black leading-none"
           style={{fontSize:76,letterSpacing:"-3px",
             textShadow:anim>=3?`0 0 40px ${ha(accent,0.6)},0 0 80px ${ha(accent,0.3)}`:"none",
             transition:"text-shadow 0.8s ease",
@@ -2686,8 +2685,7 @@ function LIFinal({anim,accent}:{anim:number;accent:string}) {
         transform:anim>=3?"scale(1) rotateY(0deg)":"scale(0.22) rotateY(90deg)",
         transition:"opacity 0.78s ease,transform 0.92s cubic-bezier(0.34,1.56,0.64,1)",
       }}>
-        <Logo size={64}/>
-        <h1 className="text-white font-black leading-none mt-3" style={{
+        <h1 className="text-white font-black leading-none" style={{
           fontSize:72,letterSpacing:"-3px",
           textShadow:anim>=4?`0 0 48px ${ha(accent,0.7)},0 0 96px ${ha(accent,0.3)}`:"none",
           transition:"text-shadow 0.9s ease",
@@ -3306,7 +3304,7 @@ function FoodGame({name,onDone}:{name?:string;onDone:(picks:string[])=>void}) {
       <div className="absolute pointer-events-none rounded-full" style={{width:260,height:260,bottom:"10%",left:"-90px",background:"radial-gradient(circle,rgba(0,255,157,0.16),transparent 70%)",filter:"blur(34px)"}}/>
 
       <div className="relative z-10 max-w-md w-full mx-auto">
-        <div className="flex items-center gap-2 mb-6"><Logo size={18}/><span className="font-black text-white tracking-tight">EatBC</span></div>
+        <span className="font-black text-white tracking-tight mb-6 block">EatBC</span>
         <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 mb-3"
           style={{background:"rgba(0,255,157,0.14)",border:"1px solid rgba(0,255,157,0.3)"}}>
           <Sparkles size={12} style={{color:"#00FF9D"}}/>
@@ -3389,7 +3387,7 @@ function Login({onDone,onBack}:{onDone:(sess:Session,plan?:Plan|null,tracking?:T
   return (
     <Shell>
       <Card className="p-6 md:p-8">
-        <div className="flex items-center gap-2 mb-2"><Logo size={16}/><span className="font-bold text-gray-700">EatBC</span></div>
+        <span className="font-bold text-gray-700 mb-2 block">EatBC</span>
         <h2 className="text-2xl font-black text-gray-800 mt-4">Welcome back,<br/><span style={{color:GREEN}}>warrior!</span></h2>
         <p className="text-gray-400 text-sm mt-1 mb-6">Sign in to track your progress</p>
         <label className="text-sm font-semibold text-gray-600">Phone, Email or Username</label>
@@ -3440,7 +3438,7 @@ function Signup({profile,plan,onDone,onBack,onLogin}:{profile:Profile;plan:Plan|
   return (
     <Shell>
       <Card className="p-6 md:p-8">
-        <div className="flex items-center gap-2 mb-2"><Logo size={16}/><span className="font-bold text-gray-700">EatBC</span></div>
+        <span className="font-bold text-gray-700 mb-2 block">EatBC</span>
         <div className="rounded-2xl px-4 py-3 mb-5 mt-4" style={{background:"#EAF7F0"}}>
           <p className="text-sm font-bold" style={{color:GREEN}}>Challenge accepted, {profile?.name||"champ"}!</p>
           <p className="text-xs text-gray-500 mt-0.5">Create your account to unlock your personal tracker.</p>
@@ -5177,7 +5175,7 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccou
           style={{background:"linear-gradient(135deg,#1DAA61 0%,#0E8A4D 60%,#0B6E40 100%)"}}>
           <div className="flex justify-between items-start">
             <div>
-              <div className="flex items-center gap-2 mb-3"><Logo size={15}/><span className="font-bold text-sm">EatBC</span></div>
+              <span className="font-bold text-sm mb-3 block">EatBC</span>
               <h2 className="text-2xl font-black">Hi {session.name}</h2>
               <p className="text-white/70 text-sm">{session.id}</p>
               <div className="flex gap-4 mt-4">
@@ -5657,7 +5655,7 @@ export default function App() {
       <FloatingFoods/>
       <div className="mx-auto max-w-md relative z-10">
       <Card className="p-6 md:p-8">
-        <div className="flex items-center gap-2 mb-6"><Logo size={16}/><span className="font-bold text-gray-700">EatBC</span></div>
+        <span className="font-bold text-gray-700 mb-6 block">EatBC</span>
         <div className="mb-6">
           <div className="flex justify-between text-xs text-gray-400 mb-2">
             <span>{t("question")} {stepClamped+1} {t("of")} {activeQ.length}</span><span>{Math.round(((stepClamped+1)/activeQ.length)*100)}%</span>
@@ -5752,7 +5750,7 @@ export default function App() {
       <div style={{animation:"eFade .5s ease both"}}>
         <div className="rounded-3xl p-6 md:p-7 text-white shadow-lg mb-4"
           style={{background:"linear-gradient(135deg,#1DAA61 0%,#0E8A4D 55%,#0B6E40 100%)"}}>
-          <div className="flex items-center gap-2 mb-4"><Logo size={18}/><span className="font-bold">EatBC</span></div>
+          <span className="font-bold mb-4 block">EatBC</span>
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="min-w-0">
               <p className="text-white/70 text-sm">Weekly plan for</p>
