@@ -2279,11 +2279,11 @@ function OnbSlide2({accent}:{accent:string}) {
       <div className="mb-5" style={{fontSize:72,animation:"onbPulse 2.5s ease-in-out infinite",filter:`drop-shadow(0 0 28px ${ha(accent,0.5)})`}}>🔐</div>
       <div className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 mb-5"
         style={{background:ha(accent,0.14),border:`1px solid ${ha(accent,0.28)}`}}>
-        <span style={{color:accent,fontSize:11,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase"}}>Military-Grade Security</span>
+        <span style={{color:accent,fontSize:11,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase"}}>No spam calls guaranteed</span>
       </div>
-      <h2 className="font-black text-white mb-4" style={{fontSize:62,lineHeight:0.92,letterSpacing:"-2.5px"}}>AES‑256<br/>Encrypted</h2>
-      <p style={{color:"rgba(255,255,255,0.48)",fontSize:14,maxWidth:250,lineHeight:1.7}}>
-        Your health data encrypted at rest. Not even we can read it in plain text.
+      <h2 className="font-black text-white mb-4" style={{fontSize:52,lineHeight:0.95,letterSpacing:"-2px"}}>We don't sell<br/>your data.</h2>
+      <p style={{color:"rgba(255,255,255,0.48)",fontSize:14,maxWidth:260,lineHeight:1.7}}>
+        We do not sell your data to Bajaj Finance or anyone else. Your health information stays yours — always.
       </p>
     </div>
   );
@@ -2519,9 +2519,6 @@ function Onboarding({onDone}:{onDone:()=>void}) {
         </div>
       </div>
 
-      {/* Floating food emojis on every slide */}
-      <FloatingFoods/>
-
       {/* Tap hint + dot nav */}
       <div className="pb-9 flex flex-col items-center gap-3 relative z-10">
         <span className="text-[11px] tracking-widest uppercase font-semibold" style={{color:"rgba(255,255,255,0.4)"}}>Tap to continue</span>
@@ -2533,11 +2530,6 @@ function Onboarding({onDone}:{onDone:()=>void}) {
                 boxShadow:i===slide?`0 0 10px ${ACCENT[slide]}`:"none"}}/>
           ))}
         </div>
-        {slide===0&&(
-          <p className="text-[10px] font-medium tracking-wide" style={{color:"rgba(255,250,102,0.45)"}}>
-            ✦ tap any floating food to discover its nutrition secrets
-          </p>
-        )}
       </div>
     </div>
   );
@@ -2596,7 +2588,7 @@ function LISlide1({accent}:{accent:string}) {
       <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 mb-5"
         style={{background:ha(accent,0.14),border:`1px solid ${ha(accent,0.30)}`}}>
         <Lock size={11} color={accent}/>
-        <span style={{color:accent,fontSize:11,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase"}}>AES-256 Military Grade</span>
+        <span style={{color:accent,fontSize:11,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase"}}>No spam calls guaranteed</span>
       </div>
       <div className="w-full flex flex-col gap-2.5 mb-5">
         {rows>=1&&(
@@ -2604,7 +2596,7 @@ function LISlide1({accent}:{accent:string}) {
             <span style={{fontSize:22}}>❌</span>
             <div className="text-left">
               <div className="font-bold text-sm" style={{color:"rgba(255,255,255,0.60)"}}>Other apps</div>
-              <div style={{fontSize:12,color:"rgba(248,113,113,0.9)"}}>Harvest &amp; sell your health data</div>
+              <div style={{fontSize:12,color:"rgba(248,113,113,0.9)"}}>Sell your data to Bajaj Finance &amp; co.</div>
             </div>
           </div>
         )}
@@ -2613,13 +2605,13 @@ function LISlide1({accent}:{accent:string}) {
             <span style={{fontSize:22}}>✅</span>
             <div className="text-left">
               <div className="font-bold text-sm text-white">EatBC</div>
-              <div style={{fontSize:12,color:accent}}>Community app. Your data stays yours.</div>
+              <div style={{fontSize:12,color:accent}}>Zero spam. We never sell your data.</div>
             </div>
           </div>
         )}
       </div>
       <p style={{color:"rgba(255,255,255,0.42)",fontSize:13,maxWidth:250,lineHeight:1.75}}>
-        No selling. No mining. Even we can't read your encrypted health data.
+        No spam calls. No data selling. Your health information is yours alone.
       </p>
     </div>
   );
@@ -5226,6 +5218,7 @@ export default function App() {
   const [plan,setPlan]=useState<Plan|null>(null);
   const [loading,setLoading]=useState(false);
   const [err,setErr]=useState("");
+  const [showGamePopup,setShowGamePopup]=useState(false);
   const [session,setSession]=useState<Session|null>(null);
   const [tracking,setTracking]=useState<Tracking>({});
   const [lang,setLang]=useState<Lang>(()=>(sget<Lang>("eatbc:lang")||"en"));
@@ -5311,12 +5304,22 @@ export default function App() {
       if (ft > 7 || (ft === 7 && ins > 6)) { setQErr("Heights above 7'6\" are unusual. Please double-check your entry."); return; }
       if (isNaN(ins) || ins < 0 || ins > 11) { setQErr("Inches must be between 0 and 11."); return; }
     }
-    setStep(stepClamped + 1);
+    const nextIdx = stepClamped + 1;
+    setStep(nextIdx);
+    /* Pop the food game after the 6th question (index 5) */
+    if (stepClamped === 5) setShowGamePopup(true);
   }
 
-  /* Quiz done → play the food-picking game first, then build the plan. */
+  /* Quiz done → build plan directly (game already played mid-quiz). */
   function generate() {
-    setErr(""); setScreen("foodgame");
+    setErr("");
+    const withPicks={...profile};
+    setLoading(true);
+    setTimeout(()=>{
+      try{setPlan(buildPlan(withPicks));setScreen("plan");}
+      catch{setErr("Something went off — adjust an answer and retry.");}
+      setLoading(false);
+    },500);
   }
   function finishGame(picks:string[]) {
     const withPicks={...profile,foodPicks:picks};
@@ -5446,6 +5449,15 @@ export default function App() {
   if (screen==="foodgame") return <FoodGame name={profile.name} onDone={finishGame}/>;
 
   if (screen==="quiz") return (
+    <>
+    {showGamePopup&&(
+      <div className="fixed inset-0 z-[999]">
+        <FoodGame name={profile.name} onDone={(picks)=>{
+          setProfile(p=>({...p,foodPicks:picks}));
+          setShowGamePopup(false);
+        }}/>
+      </div>
+    )}
     <Shell>
       <Card className="p-6 md:p-8">
         <div className="flex items-center gap-2 mb-6"><Logo size={16}/><span className="font-bold text-gray-700">EatBC</span></div>
@@ -5529,6 +5541,7 @@ export default function App() {
         </div>
       </Card>
     </Shell>
+    </>
   );
 
   if (screen==="plan"&&plan) return (
