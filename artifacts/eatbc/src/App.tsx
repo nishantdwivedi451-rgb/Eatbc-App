@@ -3933,6 +3933,266 @@ function Leaderboard({session,points,streak,t}:{
   );
 }
 
+/* ─────────────── Month Performance Calendar ─────────────── */
+const FULL_MONTH_NAMES=["January","February","March","April","May","June","July","August","September","October","November","December"];
+const SHORT_MONTH_NAMES=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const CAL_DAY_HDRS=["S","M","T","W","T","F","S"];
+
+function calScoreColor(score:number, hasData:boolean):string {
+  if (!hasData) return "#F3F4F6";
+  if (score>=85) return "#1DAA61";
+  if (score>=65) return "#4ADE80";
+  if (score>=40) return "#FBBF24";
+  if (score>=15) return "#FCA5A5";
+  return "#FEE2E2";
+}
+function calScoreLabel(score:number, hasData:boolean):string {
+  if (!hasData) return "No data";
+  if (score>=85) return "Crushed it";
+  if (score>=65) return "Good day";
+  if (score>=40) return "Partial";
+  return "Rough one";
+}
+
+function MonthCalendar({
+  history, workoutLog, lastRecalcWeight, onClose
+}: {
+  history: Record<string,HistEntry>;
+  workoutLog: Record<string,ExerciseLog[]>;
+  lastRecalcWeight?: number;
+  onClose: ()=>void;
+}) {
+  const now=new Date();
+  const [view,setView]=useState({y:now.getFullYear(),m:now.getMonth()});
+  const [picked,setPicked]=useState<string|null>(null);
+
+  const todayISO=isoDate();
+  const daysInMonth=new Date(view.y,view.m+1,0).getDate();
+  const startDOW=new Date(view.y,view.m,1).getDay();
+  const isCurrentMonth=view.y===now.getFullYear()&&view.m===now.getMonth();
+
+  function toISO(day:number):string {
+    return `${view.y}-${String(view.m+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+  }
+
+  function getDayScore(iso:string):{score:number;hasData:boolean;mealFrac:number;waterFrac:number;workout:boolean} {
+    const e=history[iso];
+    const workout=(workoutLog[iso]||[]).length>0;
+    if (!e) return {score:0,hasData:false,mealFrac:0,waterFrac:0,workout};
+    const wt=waterTarget(lastRecalcWeight);
+    const mealFrac=e.total>0?e.meals/e.total:0;
+    const waterFrac=wt>0?Math.min(e.water/wt,1):0;
+    const score=Math.round(mealFrac*65+waterFrac*20+(workout?15:0));
+    return {score,hasData:true,mealFrac,waterFrac,workout};
+  }
+
+  // Grid cells: nulls for offset, then 1..daysInMonth
+  const cells:(number|null)[]=[
+    ...Array(startDOW).fill(null),
+    ...Array.from({length:daysInMonth},(_,i)=>i+1),
+  ];
+  while(cells.length%7!==0) cells.push(null);
+
+  // Monthly totals
+  let perfectCount=0, goodCount=0, workoutCount=0;
+  for(let d=1;d<=daysInMonth;d++){
+    const iso=toISO(d);
+    if(iso>todayISO) continue;
+    const {score,hasData,workout}=getDayScore(iso);
+    if(hasData&&score>=85) perfectCount++;
+    else if(hasData&&score>=65) goodCount++;
+    if(workout) workoutCount++;
+  }
+
+  const pickedScore=picked?getDayScore(picked):null;
+  const pickedEntry=picked?history[picked]:null;
+  const pickedWorkouts=picked?(workoutLog[picked]||[]):[];
+  const pickedDay=picked?parseInt(picked.split("-")[2]):0;
+
+  function prevMonth(){
+    const d=new Date(view.y,view.m-1,1);
+    setView({y:d.getFullYear(),m:d.getMonth()});
+    setPicked(null);
+  }
+  function nextMonth(){
+    const d=new Date(view.y,view.m+1,1);
+    setView({y:d.getFullYear(),m:d.getMonth()});
+    setPicked(null);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col" style={{background:"rgba(0,0,0,0.55)"}}>
+      <div className="flex-1" onClick={onClose}/>
+      <div className="bg-white rounded-t-3xl overflow-y-auto" style={{maxHeight:"90vh"}}>
+        {/* drag handle */}
+        <div className="flex justify-center pt-3 pb-0.5">
+          <div className="w-10 h-1 rounded-full bg-gray-200"/>
+        </div>
+
+        {/* month navigation */}
+        <div className="flex items-center justify-between px-5 pt-4 pb-3">
+          <button onClick={prevMonth}
+            className="w-9 h-9 flex items-center justify-center rounded-full"
+            style={{background:"#F3F4F6"}}>
+            <ChevronLeft size={18} className="text-gray-600"/>
+          </button>
+          <div className="text-center">
+            <h2 className="font-black text-gray-900 text-base leading-tight">{FULL_MONTH_NAMES[view.m]} {view.y}</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Tap a day to inspect</p>
+          </div>
+          <button onClick={nextMonth} disabled={isCurrentMonth}
+            className="w-9 h-9 flex items-center justify-center rounded-full transition"
+            style={{background:"#F3F4F6",opacity:isCurrentMonth?0.25:1}}>
+            <ChevronRight size={18} className="text-gray-600"/>
+          </button>
+        </div>
+
+        {/* day-of-week headers */}
+        <div className="grid grid-cols-7 px-4 mb-1">
+          {CAL_DAY_HDRS.map((h,i)=>(
+            <div key={i} className="text-center text-[11px] font-bold text-gray-400 py-1">{h}</div>
+          ))}
+        </div>
+
+        {/* heatmap grid */}
+        <div className="grid grid-cols-7 gap-1.5 px-4">
+          {cells.map((day,i)=>{
+            if(!day) return <div key={`x${i}`}/>;
+            const iso=toISO(day);
+            const isFuture=iso>todayISO;
+            const isToday=iso===todayISO;
+            const isPicked=picked===iso;
+            const {score,hasData,mealFrac,waterFrac,workout}=getDayScore(iso);
+            const bg=isFuture?"transparent":calScoreColor(score,hasData);
+            const textCol=(!isFuture&&hasData&&score>=40)?"#fff":isToday?"#1DAA61":"#9CA3AF";
+
+            return (
+              <button key={iso} disabled={isFuture}
+                onClick={()=>setPicked(isPicked?null:iso)}
+                className="relative flex flex-col items-center justify-center rounded-[14px] transition-all duration-150"
+                style={{
+                  aspectRatio:"1",background:bg,opacity:isFuture?0.22:1,
+                  border:isToday?"2.5px solid #1DAA61":isPicked?"2px solid #6366F1":"1.5px solid transparent",
+                  boxShadow:isToday?"0 0 0 3px rgba(29,170,97,0.15)":isPicked?"0 0 0 3px rgba(99,102,241,0.12)":"none",
+                  transform:isPicked?"scale(1.1)":"scale(1)",
+                }}>
+                <span style={{fontSize:12,fontWeight:700,lineHeight:1,color:textCol}}>{day}</span>
+                {!isFuture&&hasData&&(
+                  <div className="flex gap-[3px] mt-[3px]">
+                    <div style={{width:4,height:4,borderRadius:"50%",background:mealFrac>=0.6?"rgba(255,255,255,0.92)":"rgba(255,255,255,0.28)"}}/>
+                    <div style={{width:4,height:4,borderRadius:"50%",background:waterFrac>=0.6?"rgba(255,255,255,0.92)":"rgba(255,255,255,0.28)"}}/>
+                    <div style={{width:4,height:4,borderRadius:"50%",background:workout?"rgba(255,255,255,0.92)":"rgba(255,255,255,0.28)"}}/>
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* dot legend */}
+        <div className="flex items-center justify-center gap-5 px-4 mt-3">
+          {[["Meals","#1DAA61"],["Water","#38BDF8"],["Workout","#A78BFA"]].map(([label,col])=>(
+            <div key={label} className="flex items-center gap-1.5">
+              <div style={{width:7,height:7,borderRadius:"50%",background:col}}/>
+              <span style={{fontSize:10,color:"#9CA3AF",fontWeight:600}}>{label}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* color scale legend */}
+        <div className="flex items-center justify-center gap-3 mt-2 mb-4 flex-wrap px-4">
+          {[["#1DAA61","Crushed it"],["#4ADE80","Good"],["#FBBF24","Partial"],["#FCA5A5","Rough"],["#F3F4F6","No data"]].map(([col,label])=>(
+            <div key={label} className="flex items-center gap-1">
+              <div style={{width:12,height:12,borderRadius:3,background:col,border:col==="#F3F4F6"?"1px solid #E5E7EB":"none"}}/>
+              <span style={{fontSize:10,color:"#6B7280"}}>{label}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* selected day detail */}
+        {picked&&pickedScore&&(
+          <div className="mx-4 mb-4 rounded-2xl overflow-hidden" style={{border:"1.5px solid #E5E7EB"}}>
+            {/* header bar */}
+            <div className="px-4 py-3 flex items-center justify-between"
+              style={{background:calScoreColor(pickedScore.score,pickedScore.hasData)}}>
+              <div>
+                <div style={{fontWeight:900,color:"#fff",fontSize:14}}>
+                  {FULL_MONTH_NAMES[view.m]} {pickedDay}{picked===todayISO?" · Today":""}
+                </div>
+                <div style={{color:"rgba(255,255,255,0.80)",fontSize:12,marginTop:2}}>
+                  {calScoreLabel(pickedScore.score,pickedScore.hasData)}
+                  {pickedScore.hasData?` · ${pickedScore.score}/100`:""}
+                </div>
+              </div>
+              <div className="w-11 h-11 rounded-full flex items-center justify-center"
+                style={{background:"rgba(255,255,255,0.22)"}}>
+                <span style={{fontWeight:900,color:"#fff",fontSize:17}}>{pickedScore.score}</span>
+              </div>
+            </div>
+            {/* stats row */}
+            {pickedEntry?(
+              <div className="px-4 py-3 bg-white grid grid-cols-3 gap-3">
+                <div className="text-center">
+                  <div style={{fontSize:18,fontWeight:900,color:"#1F2937"}}>{pickedEntry.meals}/{pickedEntry.total}</div>
+                  <div style={{fontSize:11,color:"#9CA3AF",fontWeight:600}}>Meals</div>
+                </div>
+                <div className="text-center" style={{borderLeft:"1px solid #F3F4F6",borderRight:"1px solid #F3F4F6"}}>
+                  <div style={{fontSize:18,fontWeight:900,color:"#1F2937"}}>{pickedEntry.water}</div>
+                  <div style={{fontSize:11,color:"#9CA3AF",fontWeight:600}}>Glasses</div>
+                </div>
+                <div className="text-center">
+                  <div style={{fontSize:18,fontWeight:900,color:"#1F2937"}}>{pickedEntry.cal}</div>
+                  <div style={{fontSize:11,color:"#9CA3AF",fontWeight:600}}>kcal</div>
+                </div>
+              </div>
+            ):(
+              <div className="px-4 py-4 bg-white text-center" style={{color:"#9CA3AF",fontSize:13}}>
+                No activity recorded for this day.
+              </div>
+            )}
+            {/* workout tags */}
+            {pickedWorkouts.length>0&&(
+              <div className="px-4 pb-3 pt-1 bg-white border-t border-gray-50">
+                <div style={{fontSize:11,color:"#9CA3AF",fontWeight:600,marginBottom:6}}>Exercises</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {pickedWorkouts.map((ex,idx)=>(
+                    <span key={idx} style={{
+                      fontSize:11,fontWeight:700,
+                      padding:"3px 10px",borderRadius:999,
+                      background:"#EDE9FE",color:"#7C3AED",
+                    }}>{ex.n}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* monthly summary */}
+        <div className="px-4 pb-8">
+          <p style={{fontSize:13,fontWeight:700,color:"#374151",marginBottom:12}}>
+            {isCurrentMonth?"This month so far":`${SHORT_MONTH_NAMES[view.m]} ${view.y} summary`}
+          </p>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-2xl p-3.5 text-center" style={{background:"#F0FDF4"}}>
+              <div style={{fontSize:26,fontWeight:900,color:"#16A34A",lineHeight:1}}>{perfectCount}</div>
+              <div style={{fontSize:11,fontWeight:600,color:"#4ADE80",marginTop:4}}>Perfect</div>
+            </div>
+            <div className="rounded-2xl p-3.5 text-center" style={{background:"#FEFCE8"}}>
+              <div style={{fontSize:26,fontWeight:900,color:"#CA8A04",lineHeight:1}}>{goodCount}</div>
+              <div style={{fontSize:11,fontWeight:600,color:"#FBBF24",marginTop:4}}>Good days</div>
+            </div>
+            <div className="rounded-2xl p-3.5 text-center" style={{background:"#F5F3FF"}}>
+              <div style={{fontSize:26,fontWeight:900,color:"#7C3AED",lineHeight:1}}>{workoutCount}</div>
+              <div style={{fontSize:11,fontWeight:600,color:"#A78BFA",marginTop:4}}>Workouts</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─────────────── Reminders / nudge system ─────────────── */
 const NUDGE_MSGS: {cat:string; title:string; body:string}[] = [
   // water
@@ -5215,6 +5475,7 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccou
   const [deleteLoading,setDeleteLoading]=useState(false);
 
   const [tab,setTab]=useState<"today"|"train"|"progress"|"community">("today");
+  const [showCalendar,setShowCalendar]=useState(false);
   const hasWorkout=!!plan?.workout;
   const TABS:[typeof tab,string,React.ElementType][]=[
     ["today","Today",Utensils],
@@ -5230,7 +5491,15 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccou
           style={{background:"linear-gradient(135deg,#1DAA61 0%,#0E8A4D 60%,#0B6E40 100%)"}}>
           <div className="flex justify-between items-start">
             <div>
-              <span className="font-bold text-sm mb-3 block">EatBC</span>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="font-bold text-sm">EatBC</span>
+                <button onClick={()=>setShowCalendar(true)}
+                  className="flex items-center gap-1 px-2 py-0.5 rounded-full transition active:scale-95"
+                  style={{background:"rgba(255,255,255,0.15)",border:"1px solid rgba(255,255,255,0.25)"}}>
+                  <CalendarDays size={12} style={{color:"rgba(255,255,255,0.85)"}}/>
+                  <span style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.85)"}}>Month</span>
+                </button>
+              </div>
               <h2 className="text-2xl font-black">Hi {session.name}</h2>
               <p className="text-white/70 text-sm">{session.id}</p>
               <div className="flex gap-4 mt-4">
@@ -5474,6 +5743,14 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccou
             </div>
           </div>
         </div>
+      )}
+      {showCalendar&&(
+        <MonthCalendar
+          history={history}
+          workoutLog={tracking.workoutLog||{}}
+          lastRecalcWeight={tracking.lastRecalcWeight as number|undefined}
+          onClose={()=>setShowCalendar(false)}
+        />
       )}
     </Shell>
     <VeerBot session={session} planCondition={plan?.condition||""}/>
