@@ -3268,9 +3268,6 @@ function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;on
             <span className="absolute right-5 top-1/2 -translate-y-1/2 opacity-40 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all"><ArrowRight size={19}/></span>
           </button>
         </div>
-        <p className="text-center text-xs mt-6 flex items-center justify-center gap-1.5" style={{color:"rgba(255,255,255,0.28)"}}>
-          <Stethoscope size={12}/> {t("notMedical")}
-        </p>
       </div>
     </div>
   );
@@ -5842,9 +5839,6 @@ export default function App() {
           </button>
           <p className="text-xs text-gray-400 mt-3">Account creation happens next — just one last step!</p>
         </Card>
-        <p className="text-center text-xs text-gray-400 mt-4">
-          EatBC gives general guidance, not medical advice. Consult a doctor or dietician for any health condition.
-        </p>
       </div>
     </Shell>
   );
