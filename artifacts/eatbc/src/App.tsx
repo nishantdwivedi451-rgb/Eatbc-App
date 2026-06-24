@@ -3231,17 +3231,6 @@ function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;on
         <div className="absolute inset-0" style={{backgroundImage:"radial-gradient(rgba(255,255,255,0.05) 1px,transparent 1px)",backgroundSize:"28px 28px"}}/>
       </div>
       <FloatingFoods/>
-      {/* Language toggle */}
-      <div className="absolute z-20 flex items-center gap-1 rounded-full p-1" style={{top:20,right:20,background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.11)",backdropFilter:"blur(8px)"}}>
-        <Globe size={13} style={{color:"rgba(255,255,255,0.45)",marginLeft:6}}/>
-        {(["en","hi"] as Lang[]).map(l=>(
-          <button key={l} onClick={()=>onLang(l)}
-            className="text-xs font-bold px-2.5 py-1 rounded-full transition"
-            style={lang===l?{background:Y,color:"#0A0A0A"}:{color:"rgba(255,255,255,0.5)"}}>
-            {l==="en"?"EN":"हिं"}
-          </button>
-        ))}
-      </div>
       <div className={`relative z-10 w-full max-w-sm transition-all duration-700 ${visible?"opacity-100 translate-y-0":"opacity-0 translate-y-8"}`}>
         {/* Hero */}
         <div className="flex flex-col items-center mb-10">
