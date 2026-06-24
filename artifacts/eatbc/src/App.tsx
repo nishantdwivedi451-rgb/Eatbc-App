@@ -5454,7 +5454,9 @@ export default function App() {
   );
 
   if (screen==="quiz") return (
-    <Shell>
+    <div className="min-h-screen py-8 px-4 relative overflow-hidden" style={{background:"linear-gradient(180deg,#F3FBF6 0%,#F7F8FA 40%)"}}>
+      <FloatingFoods/>
+      <div className="mx-auto max-w-md relative z-10">
       <Card className="p-6 md:p-8">
         <div className="flex items-center gap-2 mb-6"><Logo size={16}/><span className="font-bold text-gray-700">EatBC</span></div>
         <div className="mb-6">
@@ -5536,7 +5538,14 @@ export default function App() {
           )}
         </div>
       </Card>
-    </Shell>
+      {stepClamped>=5&&(
+        <p className="text-center text-xs mt-4 flex items-center justify-center gap-1.5"
+          style={{color:"rgba(0,0,0,0.38)",animation:"eFade 0.5s ease both"}}>
+          ✦ tap any floating food to discover its nutrition secrets
+        </p>
+      )}
+      </div>
+    </div>
   );
 
   if (screen==="plan"&&plan) return (
