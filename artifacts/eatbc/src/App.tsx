@@ -2278,24 +2278,7 @@ function OnbSlide2({accent}:{accent:string}) {
 }
 function OnbSlide3({accent}:{accent:string}) {
   const [showChat,setShowChat]=useState(false);
-  const [playing,setPlaying]=useState(false);
-  const [audioErr,setAudioErr]=useState(false);
   useEffect(()=>{const t=setTimeout(()=>setShowChat(true),1350);return()=>clearTimeout(t);},[]);
-  async function playVeer(e:React.MouseEvent){
-    e.stopPropagation();
-    if(playing)return;
-    setPlaying(true);setAudioErr(false);
-    try{
-      const res=await fetch("/api/veer-tts",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:"Hello, I am Veer, your lifestyle coach."})});
-      if(!res.ok)throw new Error();
-      const blob=await res.blob();
-      const url=URL.createObjectURL(blob);
-      const audio=new Audio(url);
-      audio.onended=()=>{setPlaying(false);URL.revokeObjectURL(url);};
-      audio.onerror=()=>{setPlaying(false);setAudioErr(true);URL.revokeObjectURL(url);};
-      audio.play();
-    }catch{setPlaying(false);setAudioErr(true);}
-  }
   return(
     <div className="flex flex-col items-center text-center">
       <div className="relative flex items-center justify-center mb-4" style={{width:114,height:114}}>
@@ -2321,37 +2304,6 @@ function OnbSlide3({accent}:{accent:string}) {
       <p style={{color:"rgba(255,255,255,0.42)",fontSize:13,maxWidth:250,lineHeight:1.75}}>
         Diet, workouts &amp; motivation in Hindi &amp; English. 24/7, always free.
       </p>
-      <div className="mt-5 flex items-center gap-3">
-        <button onClick={playVeer} disabled={playing}
-          className="relative flex items-center justify-center rounded-full flex-shrink-0 transition-all active:scale-95"
-          style={{width:56,height:56,
-            background:`linear-gradient(135deg,${ha(accent,playing?0.30:0.22)},${ha(accent,0.10)})`,
-            border:`2px solid ${ha(accent,playing?0.85:0.55)}`,
-            boxShadow:playing?`0 0 18px ${ha(accent,0.35)}`:`0 4px 16px ${ha(accent,0.18)}`,
-          }}>
-          {playing&&<span className="absolute inset-0 rounded-full pointer-events-none" style={{border:`2px solid ${ha(accent,0.55)}`,animation:"liVeerRing 1.3s ease-out infinite"}}/>}
-          {playing?(
-            <span className="flex items-end gap-px" style={{height:20}}>
-              {[11,20,14,18,10].map((h,i)=>(
-                <span key={i} style={{width:3,borderRadius:3,background:accent,height:h,animation:`veerBar 0.65s ease-in-out ${i*0.1}s infinite alternate`}}/>
-              ))}
-            </span>
-          ):(
-            <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-              <polygon points="8,4 19,11 8,18" fill={accent} strokeLinejoin="round"/>
-            </svg>
-          )}
-        </button>
-        <div>
-          <p style={{color:accent,fontWeight:800,fontSize:15,letterSpacing:"-0.2px",lineHeight:1.2}}>
-            {playing?"Playing…":"Hear Veer"}
-          </p>
-          <p style={{color:"rgba(255,255,255,0.40)",fontSize:11.5,marginTop:3}}>
-            {playing?"Your AI coach is speaking":"Tap to hear your AI coach"}
-          </p>
-        </div>
-      </div>
-      {audioErr&&<p style={{color:"rgba(255,100,100,0.7)",fontSize:11,marginTop:8}}>TTS unavailable — check API key</p>}
     </div>
   );
 }
@@ -3197,13 +3149,23 @@ function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;on
       </div>
       <FloatingFoods/>
       <div className={`relative z-10 w-full max-w-sm transition-all duration-700 ${visible?"opacity-100 translate-y-0":"opacity-0 translate-y-8"}`}>
-        {/* Hero */}
+        {/* Hero highlight */}
         <div className="flex flex-col items-center mb-10">
-          <h1 className="font-black text-white leading-none mb-3 text-center"
-            style={{fontSize:54,letterSpacing:"-2.8px",filter:`drop-shadow(0 0 18px rgba(255,250,102,0.55))`}}>EatBC</h1>
-          <p className="text-center font-semibold" style={{color:"rgba(255,255,255,0.42)",fontSize:14,letterSpacing:"0.04em"}}>
-            Eat Better &amp; Count
-          </p>
+          <div className="relative flex flex-col items-center px-10 py-7 rounded-3xl mb-1"
+            style={{
+              background:"linear-gradient(135deg,rgba(255,250,102,0.13) 0%,rgba(255,250,102,0.05) 100%)",
+              border:"1.5px solid rgba(255,250,102,0.28)",
+              boxShadow:"0 0 48px rgba(255,250,102,0.18), inset 0 1px 0 rgba(255,255,255,0.08)",
+            }}>
+            <div className="absolute -top-px left-1/2 -translate-x-1/2 h-px rounded-full"
+              style={{width:"60%",background:"linear-gradient(90deg,transparent,rgba(255,250,102,0.7),transparent)"}}/>
+            <h1 className="font-black text-white leading-none mb-2 text-center"
+              style={{fontSize:58,letterSpacing:"-3px",filter:`drop-shadow(0 0 24px rgba(255,250,102,0.7))`}}>EatBC</h1>
+            <p className="font-bold text-center tracking-widest uppercase"
+              style={{color:Y,fontSize:11,letterSpacing:"0.18em",opacity:0.85}}>
+              Eat Better &amp; Count
+            </p>
+          </div>
         </div>
 
         {/* Stat + daily quote */}
@@ -3971,8 +3933,60 @@ function Leaderboard({session,points,streak,t}:{
   );
 }
 
-/* ─────────────── Reminders ─────────────── */
-function ReminderToggle({t}:{t:(k:keyof typeof STR)=>string}) {
+/* ─────────────── Reminders / nudge system ─────────────── */
+const NUDGE_MSGS: {cat:string; title:string; body:string}[] = [
+  // water
+  {cat:"water", title:"Hydration check", body:"Your cells are screaming for water. They're tiny but very loud."},
+  {cat:"water", title:"Plot twist", body:"You're 60% water. Time to top up the story."},
+  {cat:"water", title:"H₂O o'clock", body:"Not optional. Well, technically it is. But also — it really isn't."},
+  {cat:"water", title:"The plant on your desk is judging you", body:"Water. Now. Both of you need it."},
+  {cat:"water", title:"Friendly reminder", body:"Water before that next snack? Your kidneys would give you a standing ovation."},
+  {cat:"water", title:"Gentle hydration guilt", body:"You haven't had water in a while. Your skin has noticed."},
+  // meal
+  {cat:"meal", title:"Food diary's feeling lonely", body:"Log something. It doesn't have to be impressive."},
+  {cat:"meal", title:"Calories don't log themselves", body:"You ate. Probably. Open the diary and confirm."},
+  {cat:"meal", title:"Identity check", body:"Your dinner looks suspicious from here. Log it before evidence disappears."},
+  {cat:"meal", title:"Just checking", body:"Did you eat? Great. Did you log it? Those are different questions."},
+  {cat:"meal", title:"The food wants to be counted", body:"It came all this way. Give it a line in the diary."},
+  {cat:"meal", title:"Meal tracker waving at you", body:"One tap. Thirty seconds. Tomorrow-you will be grateful."},
+  // workout
+  {cat:"workout", title:"Workout log time", body:"Your body did something today. Even staying upright counts. Log it."},
+  {cat:"workout", title:"Streak is nervous", body:"Workout logged = streak thriving. Workout unlogged = streak sweating nervously."},
+  {cat:"workout", title:"Your muscles have feelings", body:"They made an effort. Acknowledge them. They're sensitive."},
+  {cat:"workout", title:"Steps don't count themselves", body:"10,000 steps want to exist on record. Open the tracker."},
+  {cat:"workout", title:"Rest day? Totally valid.", body:"Log it anyway. Even rest is data. The streak respects honesty."},
+  {cat:"workout", title:"Post-workout window is open", body:"While the endorphins are still vibing — log that session."},
+  // cheat
+  {cat:"cheat", title:"No judgment zone", body:"If you enjoyed that samosa, it probably counts. Log it — zero drama."},
+  {cat:"cheat", title:"Cheat meal happened?", body:"Noted, not judged. Log it so tomorrow-you has context."},
+  {cat:"cheat", title:"That 'one bite' situation", body:"Totally fine. Just an FYI for the diary. It won't tell anyone."},
+  {cat:"cheat", title:"Keeping it real", body:"Good food choices AND cheat meals are both data. Log both."},
+];
+
+function scheduleNextNudge() {
+  sset("eatbc:nextNudge", Date.now() + 3 * 60 * 60 * 1000);
+}
+
+function fireNudge() {
+  if (typeof window === "undefined" || !("Notification" in window)) return;
+  if (Notification.permission !== "granted") return;
+  if (!sget<boolean>("eatbc:reminders")) return;
+  const h = new Date().getHours();
+  if (h < 8 || h >= 22) { scheduleNextNudge(); return; }
+  let cats: string[];
+  if (h < 10)      cats = ["water","meal"];
+  else if (h < 12) cats = ["water","workout"];
+  else if (h < 14) cats = ["meal","water"];
+  else if (h < 17) cats = ["water","workout"];
+  else if (h < 20) cats = ["meal","water"];
+  else             cats = ["meal","cheat"];
+  const pool = NUDGE_MSGS.filter(m=>cats.includes(m.cat));
+  const pick = pool[Math.floor(Math.random()*pool.length)];
+  try { new Notification(pick.title, {body:pick.body, icon:"/icon.svg"}); } catch {}
+  scheduleNextNudge();
+}
+
+function ReminderToggle({t, compact}:{t:(k:keyof typeof STR)=>string; compact?:boolean}) {
   const [on,setOn]=useState<boolean>(()=>!!sget<boolean>("eatbc:reminders"));
   const supported=typeof window!=="undefined"&&"Notification"in window;
   async function enable(){
@@ -3980,11 +3994,21 @@ function ReminderToggle({t}:{t:(k:keyof typeof STR)=>string}) {
     const perm=await Notification.requestPermission();
     if (perm==="granted"){
       sset("eatbc:reminders",true); setOn(true);
-      new Notification("EatBC reminders on",{body:"We'll gently nudge you to log your meals.",icon:"/icon.svg"});
+      scheduleNextNudge();
+      try { new Notification("EatBC nudges are on",{body:"Every 3 hours: water, meals & workout reminders. 8am–10pm only.",icon:"/icon.svg"}); } catch {}
     }
   }
   function disable(){ sset("eatbc:reminders",false); setOn(false); }
   if (!supported) return null;
+  if (compact) return (
+    <button onClick={on?disable:enable}
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0"
+      style={on
+        ?{background:"#F0FDF4",color:"#16A34A",border:"1.5px solid #BBF7D0"}
+        :{background:"#FFFBEB",color:"#92400E",border:"1.5px solid #FDE68A"}}>
+      <Bell size={12}/>{on?"Nudges on":"Enable nudges"}
+    </button>
+  );
   return (
     <Card className="p-5 mb-4">
       <div className="flex items-center gap-3">
@@ -3992,8 +4016,8 @@ function ReminderToggle({t}:{t:(k:keyof typeof STR)=>string}) {
           <Bell size={18} style={{color:"#F59E0B"}}/>
         </div>
         <div className="flex-1 min-w-0">
-          <div className="font-bold text-gray-800 text-sm">Daily reminders</div>
-          <div className="text-xs text-gray-400">Get a nudge to log your meals each day.</div>
+          <div className="font-bold text-gray-800 text-sm">Smart nudges</div>
+          <div className="text-xs text-gray-400">Water, meals &amp; workouts — every 3 hours, 8am–10pm.</div>
         </div>
         <button onClick={on?disable:enable}
           className="text-xs font-bold px-4 py-2 rounded-xl shrink-0 transition"
@@ -5196,7 +5220,7 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccou
                 <div><div className="text-2xl font-bold flex items-center gap-1"><Flame size={20}/>{streak}</div><div className="text-white/70 text-xs">{t("perfectDays")}</div></div>
                 <div><div className="text-2xl font-bold">{doneCount}/{dp?.meals.length||0}</div><div className="text-white/70 text-xs">{t("todaysMeals")}</div></div>
                 {proteinTargetVal>0&&<div><div className="text-2xl font-bold">{proteinConsumed}<span className="text-base font-normal text-white/60">/{proteinTargetVal}g</span></div><div className="text-white/70 text-xs">{t("protein")}</div></div>}
-                {workoutBurned>0&&<div><div className="text-2xl font-bold flex items-center gap-1"><Dumbbell size={18}/>{workoutBurned}</div><div className="text-white/70 text-xs">kcal burned</div></div>}
+                <div><div className="text-2xl font-bold flex items-center gap-1"><Dumbbell size={18}/>{workoutBurned}</div><div className="text-white/70 text-xs">kcal burned</div></div>
               </div>
               {proteinTargetVal>0&&(
                 <div className="mt-3">
@@ -5350,6 +5374,10 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccou
                   dayCalTarget={cal}
                   onUpdate={updated=>onUpdate({...tracking,[sel]:updated})}
                 />
+                <div className="flex items-center justify-between mb-2 mt-1 px-1">
+                  <span className="text-xs text-gray-400">Stay on track with reminders</span>
+                  <ReminderToggle t={t} compact/>
+                </div>
                 <Card className="p-5 mb-4">
                   {(()=>{const wt=waterTarget(tracking.lastRecalcWeight);return(<>
                   <div className="flex items-center justify-between mb-3">
@@ -5462,6 +5490,16 @@ export default function App() {
   useEffect(()=>{ sset("eatbc:quiz:step",step); },[step]);
   useEffect(()=>{ sset("eatbc:quiz:profile",profile); },[profile]);
   useEffect(()=>{ if(plan) sset("eatbc:plan",plan); else sdel("eatbc:plan"); },[plan]);
+
+  /* Nudge scheduler — checks every minute whether it's time to fire */
+  useEffect(()=>{
+    const id=setInterval(()=>{
+      if (!sget<boolean>("eatbc:reminders")) return;
+      const next=sget<number>("eatbc:nextNudge");
+      if (!next || Date.now()>=next) fireNudge();
+    }, 60_000);
+    return ()=>clearInterval(id);
+  },[]);
 
   useEffect(()=>{
     const s=sget<Session>("eatbc:session");
