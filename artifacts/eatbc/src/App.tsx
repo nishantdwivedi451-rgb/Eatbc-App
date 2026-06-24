@@ -1900,15 +1900,15 @@ function makeT(lang: Lang){ return (k: keyof typeof STR)=> STR[k]?.[lang] ?? STR
 function Logo({size=40}:{size?:number}) {
   return (
     <svg width={size} height={size} viewBox="0 0 36 36" fill="none">
-      <rect width="36" height="36" rx="8" fill="#111111"/>
-      {/* Fork tines */}
-      <rect x="9"  y="5" width="4" height="13" rx="2" fill="#FFFA66"/>
-      <rect x="16" y="5" width="4" height="13" rx="2" fill="#FFFA66"/>
-      <rect x="23" y="5" width="4" height="13" rx="2" fill="#FFFA66"/>
-      {/* Neck — tapers from full tine span to handle width */}
-      <path d="M9 15 L27 15 C27 22 20 24 20 25 L16 25 C16 24 9 22 9 15 Z" fill="#FFFA66"/>
+      <circle cx="18" cy="18" r="18" fill="#111111"/>
+      {/* Fork tines — thicker for readability at small sizes */}
+      <rect x="7.5"  y="4.5" width="5" height="13" rx="2.5" fill="#FFFA66"/>
+      <rect x="15.5" y="4.5" width="5" height="13" rx="2.5" fill="#FFFA66"/>
+      <rect x="23.5" y="4.5" width="5" height="13" rx="2.5" fill="#FFFA66"/>
+      {/* Neck — tapers to handle */}
+      <path d="M7.5 15.5 C7.5 24 28.5 24 28.5 15.5 L23.5 15.5 C23.5 21 13 21 13 15.5 Z" fill="#FFFA66"/>
       {/* Handle */}
-      <rect x="16" y="23" width="4" height="9" rx="2" fill="#FFFA66"/>
+      <rect x="15.5" y="22" width="5" height="10" rx="2.5" fill="#FFFA66"/>
     </svg>
   );
 }
@@ -2184,7 +2184,7 @@ function OnbSlide3({accent}:{accent:string}) {
     if(playing)return;
     setPlaying(true);setAudioErr(false);
     try{
-      const res=await fetch("/api/veer-tts",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:"Hi, I am Veer, your AI powered lifestyle coach. I am here to help you eat better, move smarter, and hit your goals — every single day."})});
+      const res=await fetch("/api/veer-tts",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:"Hello, I am Veer, your lifestyle coach."})});
       if(!res.ok)throw new Error();
       const blob=await res.blob();
       const url=URL.createObjectURL(blob);
@@ -3103,7 +3103,7 @@ function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;on
   useEffect(()=>{const tm=setTimeout(()=>setVisible(true),80);return()=>clearTimeout(tm);},[]);
   const Y="#FFFA66";
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-5 py-10 relative overflow-hidden"
+    <div className="min-h-screen flex flex-col items-center px-5 pt-20 pb-10 relative overflow-hidden"
       style={{background:"#0A0A0A"}}>
       {/* Background atmosphere */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -3125,14 +3125,14 @@ function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;on
       </div>
       <div className={`relative z-10 w-full max-w-sm transition-all duration-700 ${visible?"opacity-100 translate-y-0":"opacity-0 translate-y-8"}`}>
         {/* Hero */}
-        <div className="flex flex-col items-center mb-6">
-          <div className="flex items-center gap-3">
-            <div style={{filter:`drop-shadow(0 0 16px rgba(255,250,102,0.55))`,animation:"bobFloat 3.5s ease-in-out infinite"}}>
-              <Logo size={39}/>
+        <div className="flex flex-col items-center mb-8">
+          <div className="flex items-center gap-3 mb-2">
+            <div style={{filter:`drop-shadow(0 0 18px rgba(255,250,102,0.60))`,animation:"bobFloat 3.5s ease-in-out infinite"}}>
+              <Logo size={42}/>
             </div>
-            <h1 className="font-black text-white leading-none" style={{fontSize:53,letterSpacing:"-2.5px"}}>EatBC</h1>
+            <h1 className="font-black text-white leading-none" style={{fontSize:54,letterSpacing:"-2.8px"}}>EatBC</h1>
           </div>
-          <p className="mt-3 text-center font-bold" style={{color:"rgba(255,255,255,0.50)",fontSize:14.5,letterSpacing:"-0.2px"}}>
+          <p className="text-center font-semibold" style={{color:"rgba(255,255,255,0.42)",fontSize:14,letterSpacing:"0.04em"}}>
             Eat Better &amp; Count
           </p>
         </div>
@@ -3142,9 +3142,9 @@ function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;on
           const wq=MOTIVATION_QUOTES[Math.floor(Math.random()*MOTIVATION_QUOTES.length)];
           const wa=THEME_ACCENT[wq.theme]||"#FFFA66";
           return(
-            <div className="px-4 py-3.5 rounded-2xl mb-5" style={{background:"rgba(255,255,255,0.04)",border:`1px solid ${ha(wa,0.22)}`}}>
-              <p className="font-bold text-sm leading-snug" style={{color:"rgba(255,255,255,0.88)"}}>"{wq.text}"</p>
-              {wq.author&&<p className="text-xs mt-1.5 font-semibold" style={{color:ha(wa,0.65)}}>— {wq.author}</p>}
+            <div className="px-5 py-4 rounded-2xl mb-6" style={{background:"rgba(255,255,255,0.05)",border:`1px solid ${ha(wa,0.25)}`}}>
+              <p className="font-semibold leading-snug" style={{color:"rgba(255,255,255,0.85)",fontSize:14}}>"{wq.text}"</p>
+              {wq.author&&<p className="mt-2 font-bold text-xs" style={{color:ha(wa,0.7)}}>— {wq.author}</p>}
             </div>
           );
         })()}
@@ -4401,7 +4401,13 @@ function VeerBot({session,planCondition}:{session:Session|null;planCondition:str
       .then((d:{promptsLeft?:number}|null)=>{
         if(d?.promptsLeft!=null){setPromptsLeft(d.promptsLeft);sset("eatbc:veerUsed",10-d.promptsLeft);}
       }).catch(()=>{});
-    if(!hasIntroduced.current){hasIntroduced.current=true;handleVeer(null,true);}
+    if(!hasIntroduced.current){
+      hasIntroduced.current=true;
+      const intro="Hello, I am Veer, your lifestyle coach.";
+      setMessages([{role:"assistant",content:intro}]);
+      setPhase("speaking");
+      playTTS(intro).then(()=>setPhase("idle"));
+    }
     // eslint-disable-next-line
   },[open]);
 

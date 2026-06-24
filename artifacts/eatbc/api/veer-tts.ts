@@ -38,7 +38,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       },
       body: JSON.stringify({
         text: clean,
-        model_id: "eleven_flash_v2_5",
+        model_id: "eleven_turbo_v2_5",
         voice_settings: {
           stability: 0.62,
           similarity_boost: 0.78,
