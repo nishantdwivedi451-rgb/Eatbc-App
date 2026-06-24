@@ -3255,8 +3255,8 @@ function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;on
           const wa=THEME_ACCENT[wq.theme]||"#FFFA66";
           return(
             <div className="px-5 py-5 rounded-2xl mb-8" style={{background:"rgba(255,255,255,0.05)",border:`1px solid ${ha(wa,0.25)}`}}>
-              <p className="font-semibold leading-snug text-center" style={{color:"rgba(255,255,255,0.85)",fontSize:14}}>"{wq.text}"</p>
-              {wq.author&&<p className="mt-2.5 font-bold text-xs text-center" style={{color:ha(wa,0.7)}}>— {wq.author}</p>}
+              <p className="font-semibold leading-snug" style={{color:"rgba(255,255,255,0.85)",fontSize:14,textAlign:"center"}}>"{wq.text}"</p>
+              {wq.author&&<p className="mt-2.5 font-bold text-xs" style={{color:ha(wa,0.7),textAlign:"center"}}>— {wq.author}</p>}
             </div>
           );
         })()}
