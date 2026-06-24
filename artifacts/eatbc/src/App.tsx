@@ -262,7 +262,7 @@ const Q: Question[] = [
     opts:["Yes, build my workout plan","No thanks, just the diet"] },
   { k:"exercise",  label:"How do you like to exercise?",                type:"pick",
     sub:"Pick whatever fits your lifestyle — we'll build around it.",
-    opts:["Running / jogging","Cycling","Swimming","Yoga / Pilates","Home workouts","Gym (weights)","Sports / games","HIIT / CrossFit","HYROX"],
+    opts:["Running / jogging","HYROX","Gym (weights)","Home workouts","Yoga","Pilates","Cycling","Swimming","Sports / games","HIIT / CrossFit"],
     showIf:(p)=>!!p.wantWorkout && p.wantWorkout.startsWith("Yes") },
   { k:"workoutDays", label:"How many days a week can you train?",       type:"pick",
     opts:["2 days","3 days","4 days","5 days","6 days"],
@@ -1208,6 +1208,8 @@ function normExercise(ex: string | undefined): string {
     "Running / jogging":         "Gym 3x week",
     "Cycling":                   "Gym 3x week",
     "Swimming":                  "Gym 3x week",
+    "Yoga":                      "Walks / light",
+    "Pilates":                   "Walks / light",
     "Yoga / Pilates":            "Walks / light",
     "Home workouts":             "Gym 3x week",
     "Gym (weights)":             "Gym 3x week",
@@ -1378,7 +1380,7 @@ function cands(slot: string, ctx: MealCtx, relax: number): FoodItem[] {
   });
 }
 
-function pickMeal(slot: string, target: number, di: number, used: Set<string>, ctx: MealCtx): FoodItem {
+function pickMeal(slot: string, target: number, di: number, used: Set<string>, dayUsed: Set<string>, ctx: MealCtx): FoodItem {
   let list: FoodItem[]=[];
   for (let r=0;r<3&&!list.length;r++) list=cands(slot,ctx,r);
   if (!list.length) return {n:"Seasonal fruit & nuts",c:target,q:"1 serving",slot:[slot],reg:["all"],t:[]};
@@ -1386,12 +1388,13 @@ function pickMeal(slot: string, target: number, di: number, used: Set<string>, c
     let s=-Math.abs(f.c-target)/Math.max(target,1);
     if ((ctx.goal==="Muscle gain"||ctx.goal==="Weight gain")&&f.t.includes("protein")) s+=0.45;
     if ((ctx.goal==="Weight loss"||ctx.cond==="Diabetes / pre-diabetes"||ctx.cond==="PCOS / PCOD")&&(f.t.includes("lowgi")||f.t.includes("fiber"))) s+=0.3;
-    if (ctx.cond==="PCOS / PCOD"&&f.t.includes("protein")) s+=0.3;   // protein steadies insulin response
+    if (ctx.cond==="PCOS / PCOD"&&f.t.includes("protein")) s+=0.3;
     if (ctx.cond==="High cholesterol"&&f.t.includes("fiber")) s+=0.2;
     if (["Pregnant","Breastfeeding"].includes(ctx.cond)&&f.t.includes("protein")) s+=0.35;
     if (ctx.simplePref&&f.simple) s+=0.25;
-    if (picksMatch(f,ctx.picks)) s+=0.6;   // foods the user picked in the game
-    if (used.has(f.n)) s-=1.6;
+    if (picksMatch(f,ctx.picks)) s+=0.6;
+    if (dayUsed.has(f.n)) s-=100;  // hard ban: never same dish twice in one day
+    else if (used.has(f.n)) s-=4.0;  // strong cross-day penalty
     s+=(hashNum(f.n+di)%100)/900;
     return {f,s};
   }).sort((a,b)=>b.s-a.s);
@@ -1470,6 +1473,65 @@ const EXERCISE_GUIDE: Record<string, ExGuide> = {
   "Farmers carry":{muscles:["Grip","Trapezius","Core","Glutes","Legs"],steps:["Pick up two heavy dumbbells or kettlebells at your sides — hip hinge, neutral back","Stand tall, shoulders back and down, core braced tight","Walk with purpose — short, controlled steps; don't let the weights sway","Keep your gaze forward and breathe steadily throughout","Set weights down under control and pick back up for the next rep"],tip:"If your grip fails before your legs and core, use chalk. But let grip be your training signal — it's the first thing to give out in a race.",emoji:"🧺",burnType:"compound"},
   "Sandbag lunges":{muscles:["Quads","Glutes","Core","Balance","Shoulders"],steps:["Hoist a sandbag onto one shoulder or hold it in a bear hug at chest height","Step forward with one foot; lower the back knee toward the floor","Keep torso upright — the sandbag will try to pull you forward; resist","Push through the front heel to return to standing","Alternate legs each step, covering the required distance"],tip:"Shoulder carry is harder than bear hug but better training for race day. Keep the bag high and tight — a drooping bag kills your balance.",emoji:"💼",burnType:"compound"},
   "Wall balls":{muscles:["Quads","Glutes","Shoulders","Core","Cardio"],steps:["Hold a 6–9 kg medicine ball at your chest; stand 30 cm from the wall","Squat down to at least parallel, keeping the ball at chest and chest up","Drive up explosively and press the ball at the wall target (3 m up)","Catch the ball as it falls, absorbing into a squat immediately","Cycle continuously — squat, throw, catch forms one fluid movement"],tip:"The catch drives you into the next squat — don't fight it. Let gravity load the next rep. Rhythm beats power every time.",emoji:"🏐",burnType:"compound"},
+  /* ── Dumbbell extras ── */
+  "DB shrug":{muscles:["Upper trapezius","Neck"],steps:["Hold dumbbells at sides, arms straight","Shrug shoulders straight up toward your ears as high as possible","Hold the peak contraction for 1 second","Lower slowly — don't roll your shoulders, just straight up and down","Keep your neck neutral throughout"],tip:"Think of trying to touch your ears with your shoulders — no rolling, just pure elevation.",emoji:"🤷",burnType:"isolation"},
+  "DB step-ups":{muscles:["Quads","Glutes","Hamstrings","Balance"],steps:["Hold dumbbells at sides; stand facing a bench or box (40–50 cm)","Step one foot fully onto the bench; drive through that heel to stand on top","Bring the other foot up to meet it","Step back down with the leading foot, then the other","Complete all reps on one side before switching"],tip:"Drive through the heel of the elevated foot — this activates your glute, not just your quad.",emoji:"🪜",burnType:"compound"},
+  "DB Russian twist":{muscles:["Obliques","Core","Hip flexors"],steps:["Sit on the floor, knees bent, feet flat (or raised for harder)","Lean back to ~45°, holding one dumbbell with both hands at your chest","Rotate your torso to the right, bringing the dumbbell beside your hip","Return to centre, then rotate to the left — that's one rep","Keep your lower back rounded slightly — this is core work, not a back exercise"],tip:"Move slowly and breathe — fast twisting with a weight builds momentum, not muscle.",emoji:"🌀",burnType:"isolation"},
+  "DB thrusters":{muscles:["Full body","Quads","Glutes","Shoulders","Triceps"],steps:["Hold dumbbells at shoulder height, feet shoulder-width apart","Drop into a full squat — thighs at least parallel to the floor","As you stand, use the momentum to press both dumbbells overhead","Arms fully extended at the top; lower weights back to shoulders as you descend","Each rep is a continuous squat-to-press in one fluid movement"],tip:"The power comes from your legs — think of your arms catching the bar, not pressing it. The squat drives the press.",emoji:"🚀",burnType:"compound"},
+  /* ── Gym push ── */
+  "Barbell bench press":{muscles:["Chest","Triceps","Front shoulders"],steps:["Lie on the bench, eyes under the bar; grip slightly wider than shoulder-width","Unrack the bar and hold it directly over your lower chest","Lower the bar with control, touching your chest lightly","Drive your feet into the floor and press the bar back up to the start","Keep shoulder blades retracted and lower back slightly arched throughout"],tip:"The bar path isn't straight up — it travels in a slight arc toward your head at the top. Follow that arc.",emoji:"🏋️",burnType:"compound"},
+  "Incline DB press":{muscles:["Upper chest","Front shoulders","Triceps"],steps:["Set bench to 30–45°; hold dumbbells at chest level, elbows flared 45°","Press both weights up and slightly inward — they nearly touch at the top","Lower under control until upper arms are slightly below bench level","Keep wrists straight and core braced throughout","Breathe in on the way down, forcefully out on the press"],tip:"30° incline targets upper chest better than 45° — the higher the angle, the more it becomes a shoulder press.",emoji:"📐",burnType:"compound"},
+  "Seated shoulder press":{muscles:["Front deltoids","Side deltoids","Triceps"],steps:["Sit upright on a bench, dumbbells at shoulder height, palms forward","Press both weights straight overhead until arms are nearly locked","Don't let the weights drift forward — keep them over your shoulders","Lower slowly back to shoulder height","Keep your core tight and lower back against the pad"],tip:"Seated reduces cheating with leg drive — harder than standing, better shoulder isolation.",emoji:"🏆",burnType:"compound"},
+  "Cable fly":{muscles:["Chest","Front shoulders"],steps:["Set cables to shoulder height; hold one handle in each hand, step forward","Start with arms wide, slight bend in elbows — feel the chest stretch","Bring hands together in an arc in front of your chest, squeezing pecs hard","Hold the contracted position for 1 second","Return slowly and controlled — feel the stretch on the way back"],tip:"The peak contraction at the centre is everything — don't rush through it. Slow the movement down.",emoji:"🦋",burnType:"isolation"},
+  "Triceps pushdown":{muscles:["Triceps"],steps:["Attach a rope or bar to the high cable; stand facing the machine","Grip the handle with both hands, elbows pinned to your sides at 90°","Push the handle down until arms are fully extended — elbows stay fixed","Squeeze the triceps hard at the bottom","Let the cable raise your hands back to 90° — feel the stretch"],tip:"Keep elbows locked at your sides throughout. If they flare out, you're using chest and shoulders, not triceps.",emoji:"💪",burnType:"isolation"},
+  /* ── Gym pull ── */
+  "Lat pulldown":{muscles:["Latissimus dorsi","Biceps","Rear shoulders"],steps:["Sit facing the machine; grip the bar slightly wider than shoulder-width, palms forward","Lean back 5–10° and pull the bar down to your upper chest","Squeeze your lats at the bottom — imagine bending the bar into an arc","Return the bar slowly under control — full extension at the top","Don't shrug your shoulders; keep them down and back throughout"],tip:"Think of driving your elbows down to your back pockets — this fires the lats instead of the biceps.",emoji:"🏋️",burnType:"compound"},
+  "Seated cable row":{muscles:["Middle back","Lats","Biceps","Rear shoulders"],steps:["Sit at the cable row machine, feet on the foot rests, slight knee bend","Hold the V-bar handle with both hands, arms extended, back upright","Pull the handle to your lower chest/upper stomach, driving elbows back","Squeeze your shoulder blades together at the end of the row","Extend arms slowly — don't round your back as you return"],tip:"Keep your torso upright throughout — lean forward on the extension, not on the pull.",emoji:"🚣",burnType:"compound"},
+  "Barbell / machine row":{muscles:["Back (thickness)","Biceps","Rear shoulders","Core"],steps:["For barbell: hinge at hips to 45°, grip bar slightly wider than shoulder-width","Let the bar hang at arm's length","Pull bar to your lower stomach, keeping elbows close to your body","Squeeze shoulder blades at the top; hold briefly","Lower with control — full extension each rep"],tip:"Imagine pinching a pencil between your shoulder blades at the top of every rep — that's how you know you're hitting the mid-back.",emoji:"🏋️",burnType:"compound"},
+  "Face pulls":{muscles:["Rear deltoids","External rotators","Trapezius"],steps:["Set cable to head height with a rope attachment","Grab the rope with both hands, step back until there's tension","Pull the rope toward your face, spreading the ends apart (hands go to your ears)","Keep elbows high — parallel to the floor — at all times","Return slowly under control"],tip:"High elbows are non-negotiable here. If your elbows drop, you've turned it into a row — keep them level with your head.",emoji:"😤",burnType:"isolation"},
+  "Barbell / DB curl":{muscles:["Biceps","Forearms"],steps:["Stand holding a barbell or dumbbells, arms extended, palms up","Keep elbows pinned to your sides — they don't move","Curl the weight up toward your shoulders by bending your elbows","Squeeze biceps hard at the top for 1 second","Lower slowly — 3 seconds — to full extension"],tip:"Full extension at the bottom is crucial — many people cut the range short, missing the stretch that drives growth.",emoji:"💪",burnType:"isolation"},
+  /* ── Gym legs ── */
+  "Barbell squat":{muscles:["Quads","Glutes","Hamstrings","Core","Back"],steps:["Position bar on your upper traps (not your neck); step back from the rack","Feet shoulder-width apart, toes out 15–30°","Brace core and break at the hips and knees simultaneously","Squat until thighs are at least parallel — lower is better if your mobility allows","Drive through your heels and mid-foot to stand, knees tracking over toes"],tip:"Before you unrack, take a huge breath and brace like you're about to take a punch — that intra-abdominal pressure protects your spine.",emoji:"🏋️",burnType:"compound"},
+  "Leg press":{muscles:["Quads","Glutes","Hamstrings"],steps:["Sit in the machine, feet on the platform hip-width, toes slightly out","Lower the platform by bending knees to 90° or deeper","Push through your full foot to extend legs — don't lock knees hard","Keep your lower back flat against the seat throughout","Control the descent — don't let the weight drop"],tip:"Foot placement changes emphasis: high = more hamstrings/glutes; low = more quads. Start mid-platform and experiment.",emoji:"🦵",burnType:"compound"},
+  "Romanian deadlift":{muscles:["Hamstrings","Glutes","Lower back"],steps:["Hold a barbell or dumbbells at hip height, feet hip-width apart","Push your hips back and hinge forward, keeping the bar close to your legs","Maintain a flat back — don't round — and feel a deep hamstring stretch","Lower the bar to mid-shin (or wherever your hamstring flexibility stops you)","Drive hips forward to stand, squeezing glutes hard at the top"],tip:"It's a hip hinge, not a squat or a deadlift. If your knees are bending a lot, you're squatting. Think 'push hips back, not knees down'.",emoji:"🏋️",burnType:"compound"},
+  "Leg curl":{muscles:["Hamstrings","Calves"],steps:["Lie face down on the leg curl machine, pad resting just above your heels","Curl your legs toward your glutes in a smooth arc","Squeeze hamstrings hard at the top — hold 1 second","Lower slowly to full extension — don't let the weight slam","Keep hips pressed down into the pad throughout"],tip:"Go slower on the way down — the eccentric (lowering) phase is where hamstring strength is really built.",emoji:"🦵",burnType:"isolation"},
+  "Leg extension":{muscles:["Quadriceps"],steps:["Sit in the machine, pad resting on the front of your lower shin","Extend legs until straight, squeezing quads hard at the top","Hold peak contraction 1 second","Lower slowly — 3 seconds — back to starting position","Keep your back against the seat and don't swing"],tip:"Leg extensions are an isolation exercise — go lighter than you think and feel the quad working, don't just throw the weight up.",emoji:"🦵",burnType:"isolation"},
+  "Standing calf raise":{muscles:["Gastrocnemius","Soleus"],steps:["Stand on the calf raise machine or edge of a step, shoulder pads on","Rise as high onto your toes as possible — full plantar flexion","Hold the peak for 1 full second","Lower slowly until heels are below the step for a full stretch","Repeat — avoid bouncing between reps"],tip:"Slow eccentrics (3-second lower) build far more calf mass than quick bouncing reps. Most people train calves too fast.",emoji:"🦶",burnType:"isolation"},
+  /* ── Gym core ── */
+  "Hanging leg raise":{muscles:["Lower abs","Hip flexors","Core"],steps:["Hang from a pull-up bar with an overhand grip, arms extended","Keep your legs straight (or bent for beginner) and brace your core","Raise legs until they're at least parallel to the floor — higher if you can","Lower slowly under control — don't swing","Use abs to initiate the movement, not momentum"],tip:"If you can't stop swinging, pause at the bottom on every rep before going again. Momentum makes this a hip flexor exercise, not core.",emoji:"🏃",burnType:"isolation"},
+  "Cable crunch":{muscles:["Rectus abdominis","Obliques"],steps:["Attach a rope to the high cable; kneel facing the machine","Hold the rope at your temples or behind your head","Crunch down, driving your elbows toward your knees","Focus on rounding your lumbar spine — your hips should stay relatively still","Slowly return — don't let the cable snap you back up"],tip:"You're crunching your spine, not doing a hip hinge. Most people hinge at the hips — that works hip flexors, not abs.",emoji:"⚡",burnType:"isolation"},
+  "Cable woodchopper":{muscles:["Obliques","Core","Shoulders"],steps:["Set the cable to shoulder height; stand side-on to the machine","Grab the handle with both hands and arms extended","Rotate and pull the cable diagonally downward — like chopping wood","Follow through until hands pass your opposite hip","Return slowly under control, keeping core braced throughout"],tip:"The power comes from rotating your torso, not your arms. Initiate the movement from your core, not your shoulders.",emoji:"🪓",burnType:"compound"},
+  /* ── Gym cardio ── */
+  "Treadmill incline walk":{muscles:["Glutes","Hamstrings","Calves","Cardio"],steps:["Set treadmill to 10–12% incline and 5–6 km/h walking speed","Hold the sides lightly for balance — don't lean on the rails","Walk for 20–30 min at steady pace","Keep your torso upright; don't hunch over the display","Cool down last 3 min by lowering incline gradually"],tip:"No holding the handrails — that eliminates the calorie burn and glute activation. Use them only for balance.",emoji:"⛰️",burnType:"cardio"},
+  "Rowing machine":{muscles:["Back","Legs","Core","Biceps","Cardio"],steps:["Sit on the erg, feet strapped in, shins vertical","Hinge forward, grip the handle and keep arms straight","Drive powerfully through your legs first","As legs straighten, lean back slightly and pull handle to your lower chest","Return: arms out → lean forward → slide in. Stay fluid"],tip:"It's 60% legs, 20% back, 20% arms — the leg drive is everything. If your arms are tired before your legs, you're using the wrong muscles.",emoji:"🚣",burnType:"cardio"},
+  "Cycling intervals":{muscles:["Quads","Glutes","Hamstrings","Calves","Cardio"],steps:["Set up the stationary bike at a comfortable saddle height","Warm up 3 min at easy resistance","Sprint at high resistance for 30 seconds — push hard","Active recovery for 90 seconds at easy resistance","Repeat for 8–12 rounds; cool down 3 min"],tip:"During the sprint, stand on the pedals for the last 10 seconds to recruit glutes and hamstrings on top of quads.",emoji:"🚴",burnType:"cardio"},
+  /* ── Outdoor ── */
+  "Brisk walk / jog":{muscles:["Legs","Cardio","Core"],steps:["Start with a 3–5 min easy walk to warm up","Increase pace to where you can talk but are breathing noticeably","Maintain steady pace for the target duration (25–30 min)","Keep arms bent at 90°, swinging naturally in sync with legs","Cool down last 3 min with a slow walk"],tip:"If you can recite a full paragraph without pausing, speed up. If you can't say a single word, slow down — aim for the middle.",emoji:"🚶",burnType:"cardio"},
+  "Run intervals":{muscles:["Full body","Cardio","Legs","Core"],steps:["Warm up 5 min at easy jog pace","Sprint at 80–90% effort for 1 minute","Jog or walk for 2 minutes to recover","Repeat the hard/easy cycle 6–8 times","Cool down 5 min at easy walk"],tip:"Your sprint pace should feel uncomfortable enough that you're genuinely happy when the minute is up. Easy run pace means you could hold a short conversation.",emoji:"🏃",burnType:"cardio"},
+  "Stair climbs":{muscles:["Glutes","Quads","Calves","Cardio"],steps:["Find a staircase with 3+ flights; stand at the bottom","Climb at a brisk pace, pushing through the full foot","At the top, walk back down — don't skip down the stairs","Continue climbing for 10–15 min total","Rest 1–2 min between rounds if needed"],tip:"Take two steps at a time on alternate rounds — it dramatically increases glute and hamstring activation.",emoji:"🪜",burnType:"cardio"},
+  "Skipping rope":{muscles:["Calves","Shoulders","Core","Cardio"],steps:["Hold rope handles at hip height, elbows close to body","Swing the rope overhead and jump — stay on the balls of your feet","Keep jumps small — just enough to clear the rope","Start with 30 sec on / 30 sec rest; build up","Keep your core tight and posture upright throughout"],tip:"The jump should be tiny — 1–2 cm off the ground. Beginners jump too high and tire out quickly. Light, fast feet beat big jumps.",emoji:"🪃",burnType:"cardio"},
+  "Cycling":{muscles:["Quads","Glutes","Hamstrings","Calves","Cardio"],steps:["Check saddle height — knee should be slightly bent at the lowest pedal position","Start at an easy gear for 3 min to warm up","Build to a pace where you're breathing hard but can still hold form","Maintain a cadence of 70–90 RPM (pedalling rhythm)","Cool down last 5 min in an easy gear"],tip:"High cadence in a lower gear is much easier on your knees than grinding a big gear slowly — spin, don't grind.",emoji:"🚴",burnType:"cardio"},
+  "Walking lunges":{muscles:["Quads","Glutes","Hamstrings","Balance"],steps:["Stand tall, hands at sides or on hips","Step forward with one leg and lower until back knee nearly touches the ground","Front shin should be vertical; front knee over ankle","Push through the front heel and step the back foot forward to lunge on the other side","Continue alternating, covering distance with each lunge"],tip:"Keep your torso completely upright — a forward lean means you're losing the glute activation and putting stress on your knee.",emoji:"🚶",burnType:"compound"},
+  "Bench step-ups":{muscles:["Quads","Glutes","Hamstrings","Balance"],steps:["Stand facing a park bench or low wall (40–50 cm)","Step one foot fully onto the surface","Drive through that heel to bring your full body up","Step back down with the same foot leading","Complete all reps on one side, then switch"],tip:"The key is stepping back down with control — the eccentric (lowering) phase is where most of the glute work happens.",emoji:"🪑",burnType:"compound"},
+  "Park bar rows":{muscles:["Back","Biceps","Rear shoulders","Core"],steps:["Find a horizontal bar at a park (waist to chest height works best)","Grip the bar with both hands and walk your feet forward until you're hanging at an angle","Pull your chest up to the bar, keeping elbows close","Squeeze shoulder blades together at the top","Lower with control — your body is the resistance"],tip:"The more horizontal your body (feet further forward), the harder it gets. Start at 45° and work toward flat.",emoji:"🌳",burnType:"compound"},
+  /* ── Yoga poses ── */
+  "Sun salutation":{muscles:["Full body","Spine","Shoulders","Legs","Core"],steps:["Stand tall at the front of your mat (Tadasana)","Inhale: raise arms overhead (Urdhva Hastasana)","Exhale: fold forward, hands to floor (Uttanasana)","Inhale: step or jump back to plank; exhale: lower to low push-up (Chaturanga)","Inhale: Upward dog; exhale: Downward dog — hold 5 breaths then flow forward"],tip:"Move with your breath — each transition is one breath. When the breath leads, the flow becomes meditation.",emoji:"☀️",burnType:"compound"},
+  "Warrior I":{muscles:["Quads","Glutes","Hip flexors","Shoulders","Core"],steps:["From Downward dog, step one foot between your hands","Back foot flat, angled 45° outward; front knee directly over ankle","Rise up, raising arms overhead and squaring your hips to the front","Hold for 5–8 deep breaths — feel the hip flexor stretch in the back leg","Exhale to Downward dog and switch sides"],tip:"Square your hips fully forward — most people let the back hip flare out. Draw the back hip forward to get the full stretch.",emoji:"⚔️",burnType:"hold"},
+  "Warrior II":{muscles:["Quads","Glutes","Hip abductors","Shoulders","Core"],steps:["Stand with feet wide (about 1 leg's length apart)","Front foot points forward; back foot points out 90°","Bend front knee directly over the front ankle — thigh parallel to floor","Arms extend straight out to the sides at shoulder height","Gaze over the front hand — hold 5–8 breaths, then switch sides"],tip:"Sink deeper into the front leg bend on each exhale. Keep your front knee from collapsing inward — push it out over your pinky toe.",emoji:"⚔️",burnType:"hold"},
+  "Tree pose":{muscles:["Glutes","Core","Ankles","Balance"],steps:["Stand on one foot; place the sole of the other foot on your inner thigh or calf (not knee)","Bring hands to prayer position at your chest","Fix your gaze (drishti) on one unmoving point ahead of you","Hold for 5–8 breaths; grow taller on each inhale","Release and switch sides"],tip:"Press your standing foot into the floor and your raised foot into your thigh — the mutual resistance creates stability.",emoji:"🌳",burnType:"hold"},
+  "Chair pose":{muscles:["Quads","Glutes","Core","Shoulders"],steps:["Stand with feet together or hip-width","Inhale and raise arms overhead, palms facing each other","Exhale and sit back as if sitting in a chair — knees over ankles, not past toes","Keep chest lifted and torso long — don't collapse forward","Hold 5–8 breaths; feel the quad and glute burn"],tip:"Sit back, not down — weight on your heels, not your toes. If you lift your toes off the floor, you're in the right position.",emoji:"🪑",burnType:"hold"},
+  "Cobra pose":{muscles:["Spine extensors","Chest","Shoulders","Glutes"],steps:["Lie face-down, hands under your shoulders, elbows close to your ribs","Press the tops of your feet and thighs into the floor","Inhale: slowly lift your chest using your back muscles — straighten arms only as far as your back allows","Keep your shoulders down and away from your ears","Hold 3–5 breaths; exhale to lower slowly"],tip:"Use your back muscles to lift, not just your arms. If you remove your hands from the floor, your back strength should hold you up.",emoji:"🐍",burnType:"hold"},
+  "Downward dog":{muscles:["Hamstrings","Calves","Shoulders","Spine","Core"],steps:["Start on hands and knees; tuck toes and push hips up and back","Form an inverted V — hands shoulder-width, feet hip-width","Press the floor away with straight arms; drop your heels toward the mat","Draw your belly button toward your spine and breathe deeply","Hold 5–8 breaths; pedal feet alternately to warm calves"],tip:"If your hamstrings are tight, bend your knees generously. A flat back matters more than straight legs.",emoji:"🐕",burnType:"hold"},
+  "Child's pose":{muscles:["Lower back","Hips","Shoulders","Spine"],steps:["Kneel with big toes touching; sit your hips back onto your heels","Walk hands forward and lower your forehead to the mat","Arms can extend forward (active) or rest alongside your body (passive)","Breathe deeply into your lower back — let it expand on each inhale","Hold as long as needed — this is a rest pose"],tip:"This is the recovery pose — use it whenever you need to rest between challenging poses. There's no wrong amount of time to hold it.",emoji:"🧘",burnType:"hold"},
+  "Pigeon pose":{muscles:["Hip flexors","Piriformis","Glutes","IT band"],steps:["From Downward dog, bring one knee forward behind your same-side wrist","Extend the other leg straight behind you; lower hips toward the mat","Walk hands forward and fold over the front shin","Breathe into the deep outer hip stretch","Hold 8–10 breaths; push back to Downward dog and switch sides"],tip:"Place a folded blanket under your hip if your hip doesn't reach the floor — forcing the stretch creates injury, not progress.",emoji:"🕊️",burnType:"hold"},
+  "Supine twist":{muscles:["Spine","Obliques","Glutes","IT band"],steps:["Lie on your back; draw one knee to your chest","Let that knee fall across your body while your arms extend out in a T-shape","Your gaze can go to the opposite side of the knee for a deeper neck release","Keep both shoulders on the floor — let gravity do the work","Hold 5–8 breaths and switch sides"],tip:"Exhale into the twist — each exhale allows you to rotate a little deeper. Never force it; gravity and time do the work.",emoji:"🌀",burnType:"hold"},
+  "Boat pose":{muscles:["Rectus abdominis","Hip flexors","Lower back"],steps:["Sit with knees bent, hands on the floor behind you for support","Lean back slightly until your torso and thighs form a V-shape","Lift your feet off the floor — shins parallel to the floor is the starting point","For harder version: extend legs straight, arms forward parallel to floor","Hold 5–8 breaths; lower and repeat"],tip:"Keep your chest open and lifted — the moment you round your upper back, you lose the core engagement and strain your lower back.",emoji:"⛵",burnType:"hold"},
+  "Warrior flow":{muscles:["Full body","Quads","Shoulders","Core","Balance"],steps:["Start in Warrior I — front knee bent, arms overhead, hips square","Exhale to Warrior II — arms open to the sides, hips open","Inhale to Reverse Warrior — back hand slides down back leg, front arm sweeps up","Exhale to Extended Side Angle — front forearm on front thigh, top arm reaches forward","Flow back through the sequence with each breath for 5 full rounds"],tip:"Flow at breath speed, not at fast speed. Each position should be held for exactly one full breath cycle — no rushing.",emoji:"🌊",burnType:"compound"},
+  "Pranayama":{muscles:["Respiratory muscles","Diaphragm","Core"],steps:["Sit comfortably — cross-legged or in a chair with spine tall","Alternate nostril breathing: block right nostril, inhale left; block left, exhale right; inhale right; block right, exhale left — that's one cycle","Do 5–10 cycles slowly","Or try 4-7-8 breathing: inhale 4 counts, hold 7, exhale 8","Practice for 5–10 minutes before or after your yoga session"],tip:"The exhale is your parasympathetic trigger — making it twice as long as the inhale activates your rest-and-digest system.",emoji:"🌬️",burnType:"hold"},
+  "Upward-facing dog":{muscles:["Chest","Spine extensors","Shoulders","Core"],steps:["Lie face-down; place hands under your shoulders, elbows close in","Press through your hands and the tops of your feet","Lift your chest, hips and thighs completely off the floor","Roll your shoulders back and open your chest wide","Keep legs active — squeeze thighs and push the floor away"],tip:"Unlike Cobra, your hips lift off the floor in Up-Dog. Only the tops of your feet and your hands touch the mat.",emoji:"☀️",burnType:"hold"},
+  "Dolphin pose":{muscles:["Shoulders","Upper back","Core","Hamstrings"],steps:["Start on hands and knees; lower forearms to the floor (like a plank on forearms)","Tuck toes and lift hips up — similar to Downward Dog but on forearms","Press forearms firmly into the floor and push hips high","Drop your head between your arms; gaze toward your feet","Hold 5–8 breaths"],tip:"This is a shoulder-strengthener and inversion preparation — if full inversions feel too intense, Dolphin gives you many of the same benefits.",emoji:"🐬",burnType:"hold"},
+  "Seated forward bend":{muscles:["Hamstrings","Lower back","Calves","Spine"],steps:["Sit with legs extended straight ahead; sit tall on your sit bones","Inhale to lengthen your spine; exhale and hinge forward from your hips","Reach for your feet, ankles or shins — wherever you reach without rounding your lower back badly","On each exhale, fold a little deeper","Hold 8–10 breaths; slowly rise on an inhale"],tip:"Bend your knees if needed to keep your back flat — a flat-backed fold with bent knees is far more effective than a rounded-back 'reach'.",emoji:"🧘",burnType:"hold"},
+  "Bow pose":{muscles:["Spine","Chest","Shoulders","Hip flexors","Quads"],steps:["Lie face-down, arms at sides","Bend your knees and reach back with both hands to grab your ankles","Inhale and kick your feet up and back — this lifts your chest off the floor","Balance on your abdomen; roll your shoulders back and open your chest","Hold 3–5 breaths; release slowly and rest in Child's pose"],tip:"The kicking action of your feet does the work — you don't need to pull hard with your arms. Let your legs drive the backbend.",emoji:"🏹",burnType:"hold"},
 };
 
 /* ─────────────── recipe database ─────────────── */
@@ -1571,16 +1633,26 @@ const EX: Record<string, Record<string, ExDef[]>> = {
     legs:  [{n:"Bodyweight squats"},{n:"Reverse lunges",note:"each leg"},{n:"Glute bridges"},{n:"Bulgarian split squat",note:"each leg"}],
     core:  [{n:"Plank",hold:true},{n:"Dead bug"},{n:"Mountain climbers"},{n:"Leg raises"}],
   },
+  yoga: {
+    cardio:[{n:"Sun salutation",note:"10 rounds"},{n:"Warrior flow",note:"5 breaths each side"}],
+    push:  [{n:"Cobra pose",hold:true},{n:"Upward-facing dog",hold:true},{n:"Dolphin pose",hold:true}],
+    pull:  [{n:"Downward dog",hold:true,note:"30 sec"},{n:"Seated forward bend",hold:true},{n:"Bow pose",hold:true}],
+    legs:  [{n:"Warrior I",hold:true,note:"each side"},{n:"Warrior II",hold:true,note:"each side"},{n:"Chair pose",hold:true},{n:"Tree pose",hold:true,note:"each side"}],
+    core:  [{n:"Boat pose",hold:true},{n:"Plank",hold:true},{n:"Side plank",hold:true,note:"each side"}],
+    restore:[{n:"Child's pose",hold:true,note:"rest pose"},{n:"Pigeon pose",hold:true,note:"each side"},{n:"Supine twist",hold:true,note:"each side"}],
+  },
 };
 const PLACE_KEY: Record<string,string> = {
   "Home — no equipment":"home","Home — dumbbells / bands":"dumbbell",
-  "Full gym":"gym","Outdoor / cardio":"outdoor","HYROX Gym":"hyrox",
+  "Full gym":"gym","Outdoor / cardio":"outdoor","HYROX Gym":"hyrox","Yoga Studio":"yoga",
 };
 /* Infer workout location from exercise type when workoutPlace not asked */
 const EXERCISE_TO_PLACE: Record<string,string> = {
   "Running / jogging":  "Outdoor / cardio",
   "Cycling":            "Outdoor / cardio",
   "Swimming":           "Outdoor / cardio",
+  "Yoga":               "Yoga Studio",
+  "Pilates":            "Home — no equipment",
   "Yoga / Pilates":     "Home — no equipment",
   "Home workouts":      "Home — no equipment",
   "Gym (weights)":      "Full gym",
@@ -1619,6 +1691,7 @@ function buildWorkout(p: Profile): WorkoutPlan | null {
   const burn = focus==="Burn fat";
   const cardioPlace = placeKey==="outdoor";
   const isHyrox = placeKey==="hyrox";
+  const isYoga = placeKey==="yoga";
 
   type Slot = { cat: string; n: number };
   const FB=(label:string):{label:string;focus:string;cats:Slot[]}=>(
@@ -1638,6 +1711,15 @@ function buildWorkout(p: Profile): WorkoutPlan | null {
     {label:"Run & Recovery",focus:"Easy run + mobility",cats:[{cat:"cardio",n:1},{cat:"legs",n:2},{cat:"core",n:1}]},
   ];
 
+  /* Yoga-specific sessions: flow → standing → restore */
+  const yogaTemplates:{label:string;focus:string;cats:Slot[]}[]=[
+    {label:"Sun Flow",focus:"Full body warm-up · strength",cats:[{cat:"cardio",n:1},{cat:"legs",n:2},{cat:"core",n:1}]},
+    {label:"Standing Power",focus:"Warrior series · balance",cats:[{cat:"legs",n:2},{cat:"push",n:1},{cat:"core",n:1}]},
+    {label:"Back & Core",focus:"Backbends · abdominal work",cats:[{cat:"push",n:2},{cat:"pull",n:1},{cat:"core",n:1}]},
+    {label:"Restore & Stretch",focus:"Hip openers · deep stretch",cats:[{cat:"restore",n:2},{cat:"core",n:1}]},
+    {label:"Balance & Breath",focus:"Balance poses · pranayama",cats:[{cat:"legs",n:2},{cat:"cardio",n:1},{cat:"core",n:1}]},
+  ];
+
   let templates:{label:string;focus:string;cats:Slot[]}[];
   if (isHyrox) {
     templates = hyroxTemplates.slice(0, Math.min(days, 5));
@@ -1645,6 +1727,8 @@ function buildWorkout(p: Profile): WorkoutPlan | null {
     templates = Array.from({length:Math.min(days,6)},(_,i)=>(
       {label:`Session ${i+1}`,focus:"Cardio + circuit",
        cats:[{cat:"cardio",n:1},{cat:"legs",n:1},{cat:"core",n:1},{cat:"push",n:1}]}));
+  } else if (isYoga) {
+    templates = yogaTemplates.slice(0, Math.min(days, 5));
   } else if (days<=2) templates=[FB("Full Body A"),FB("Full Body B")];
   else if (days===3) templates=muscle?[push,pull,legs]:[FB("Full Body A"),FB("Full Body B"),FB("Full Body C")];
   else if (days===4) templates=[upper,lower,upper,lower];
@@ -1653,9 +1737,9 @@ function buildWorkout(p: Profile): WorkoutPlan | null {
 
   const mkItem=(e:ExDef,cat:string):WorkoutItem=>{
     const each = !!e.note && e.note.includes("each");
-    const tip = e.note && !each ? e.note : undefined;       // keep only real tips as note
-    if (cat==="cardio") return {name:e.n,sets:1,reps:e.note||"10–12 min"};
-    if (e.hold) return {name:e.n,sets:rep.sets,reps:`30–45 sec${each?" each side":""}`,note:tip};
+    const tip = e.note && !each ? e.note : undefined;
+    if (cat==="cardio"||cat==="restore") return {name:e.n,sets:1,reps:e.note||"10–12 min"};
+    if (e.hold) return {name:e.n,sets:isYoga?1:rep.sets,reps:isYoga?`5–8 breaths${each?" each side":""}`:`30–45 sec${each?" each side":""}`,note:tip};
     return {name:e.n,sets:rep.sets,reps:`${rep.reps}${each?" each side":""}`,note:tip};
   };
 
@@ -1690,6 +1774,12 @@ function buildWorkout(p: Profile): WorkoutPlan | null {
     "In training: prioritise your weakest station — spend 10 extra minutes on it after each session.",
     "Race simulation day: do all stations at 50% volume with 1-min easy jogs between — build the rhythm.",
     "Recovery is critical: HYROX training is very high load. Sleep 8 hrs, eat your protein target, and never skip rest days.",
+  ] : isYoga ? [
+    "Begin each session with 3 rounds of Cat-Cow to warm the spine.",
+    "Hold each pose for 5–8 slow, deep breaths — quality over quantity.",
+    "Never force a stretch; ease to your edge and breathe into it.",
+    "End every session with at least 3 min of Savasana (corpse pose) for nervous system recovery.",
+    restNote,
   ] : [
     "Warm up 5 min (light cardio + dynamic stretches) before every session.",
     intensity,
@@ -1735,10 +1825,12 @@ function buildPlan(profile: Profile): Plan {
   const weekUsed=new Set<string>();
   const days: PlanDay[]=(WEEK as readonly string[]).map((dn,di)=>{
     const dayCal = cal + weekendMod(dn as string, weekendPrefs);
+    const dayUsed=new Set<string>();
     let raw=slots.map(([code,frac,label])=>{
       const slotCap=SLOT_CAL_CAP[code]||700;
       const targetCal=Math.min(Math.round(dayCal*frac),slotCap);
-      const m=pickMeal(code,targetCal,di,weekUsed,ctx);
+      const m=pickMeal(code,targetCal,di,weekUsed,dayUsed,ctx);
+      dayUsed.add(m.n);
       weekUsed.add(m.n);
       return {time:label,food:m.n,cal:m.c,p:m.p||0,qty:m.q};
     });
@@ -3214,6 +3306,11 @@ const FOOD_GAME: {e:string;n:string}[] = [
   {e:"🥚",n:"Egg"},{e:"🍛",n:"Khichdi"},{e:"🌾",n:"Oats"},{e:"🥗",n:"Salad"},
   {e:"🫛",n:"Sprouts"},{e:"🥦",n:"Veggies"},{e:"🍚",n:"Brown Rice"},{e:"🥛",n:"Milk"},
   {e:"🍶",n:"Curd"},{e:"🍵",n:"Green Tea"},{e:"🍎",n:"Fruit"},{e:"🥜",n:"Peanuts"},
+  {e:"🍌",n:"Banana"},{e:"🍠",n:"Sweet Potato"},{e:"🌰",n:"Almonds"},{e:"🥑",n:"Avocado"},
+  {e:"🍄",n:"Mushroom"},{e:"🥬",n:"Spinach"},{e:"🫕",n:"Tofu"},{e:"🐠",n:"Salmon"},
+  {e:"🌱",n:"Soya Chunks"},{e:"🥕",n:"Carrot"},{e:"🥥",n:"Coconut"},{e:"🫙",n:"Flaxseed"},
+  {e:"🌿",n:"Methi"},{e:"🧄",n:"Garlic"},{e:"🌽",n:"Corn"},{e:"🍇",n:"Berries"},
+  {e:"🫐",n:"Amla"},{e:"🥝",n:"Kiwi"},{e:"🍋",n:"Lemon"},{e:"🌻",n:"Sunflower Seeds"},
 ];
 function FoodGame({name,onDone}:{name?:string;onDone:(picks:string[])=>void}) {
   const NEED=5;
