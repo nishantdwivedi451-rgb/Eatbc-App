@@ -5445,16 +5445,15 @@ export default function App() {
   if (screen==="quote")   return <DailyQuote onDone={()=>setScreen("dash")}/>;
   if (screen==="foodgame") return <FoodGame name={profile.name} onDone={finishGame}/>;
 
+  /* Mid-quiz food game popup — shown after Q6, returns to quiz when done */
+  if (screen==="quiz" && showGamePopup) return (
+    <FoodGame name={profile.name} onDone={(picks)=>{
+      setProfile(p=>({...p,foodPicks:picks}));
+      setShowGamePopup(false);
+    }}/>
+  );
+
   if (screen==="quiz") return (
-    <>
-    {showGamePopup&&(
-      <div className="fixed inset-0 z-[999]">
-        <FoodGame name={profile.name} onDone={(picks)=>{
-          setProfile(p=>({...p,foodPicks:picks}));
-          setShowGamePopup(false);
-        }}/>
-      </div>
-    )}
     <Shell>
       <Card className="p-6 md:p-8">
         <div className="flex items-center gap-2 mb-6"><Logo size={16}/><span className="font-bold text-gray-700">EatBC</span></div>
@@ -5538,7 +5537,6 @@ export default function App() {
         </div>
       </Card>
     </Shell>
-    </>
   );
 
   if (screen==="plan"&&plan) return (
