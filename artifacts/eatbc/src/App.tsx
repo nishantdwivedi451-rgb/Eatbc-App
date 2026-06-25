@@ -2459,25 +2459,6 @@ function MacroRingIllus({accent}:{accent:string}) {
             </g>
           );
         })}
-        {/* Center kcal readout */}
-        <motion.text x="65" y="60" textAnchor="middle" fill="white"
-          fontWeight="900" fontSize="21" fontFamily="Space Grotesk,Inter,sans-serif"
-          initial={{opacity:0}} animate={{opacity:1}}
-          transition={{duration:0.4,ease:EASE_OUT,delay:0.55}}>
-          1840
-        </motion.text>
-        <motion.text x="65" y="74" textAnchor="middle" fill={accent}
-          fontWeight="700" fontSize="10.5" fontFamily="Space Grotesk,Inter,sans-serif"
-          initial={{opacity:0}} animate={{opacity:1}} transition={{delay:0.78}}>
-          kcal today
-        </motion.text>
-        {/* Orbiting spark — brighter glow than before */}
-        <motion.circle r="5.5" fill={accent}
-          style={{filter:`drop-shadow(0 0 7px ${accent}) drop-shadow(0 0 14px ${ha(accent,0.55)})`,transformOrigin:"65px 65px"}}
-          initial={{opacity:0}} animate={{opacity:1}} transition={{delay:1.3}}>
-          <animateMotion dur="3.8s" repeatCount="indefinite" begin="1.3s"
-            path={`M ${65+44} 65 A 44 44 0 1 1 ${65+44-0.001} 65`}/>
-        </motion.circle>
         {/* Micro sparks pop at first orbit completion */}
         {([[-30,-30],[30,-30],[30,30],[-30,30]] as [number,number][]).map(([dx,dy],i)=>(
           <motion.circle key={i} cx={65+dx} cy={65+dy} r="3"
