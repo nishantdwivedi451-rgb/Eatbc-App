@@ -4625,25 +4625,21 @@ function ReminderToggle({t, compact, token}:{t:(k:keyof typeof STR)=>string; com
 
   async function enable(){
     if (!supported||loading) return;
+    // requestPermission MUST be the first await — some browsers drop the
+    // user-gesture context if any state update or async op precedes it.
+    let perm: NotificationPermission;
+    try { perm = await Notification.requestPermission(); }
+    catch { return; }
+    if (perm !== "granted") return;
     setLoading(true);
     try {
-      const perm = await Notification.requestPermission();
-      if (perm !== "granted") { setLoading(false); return; }
       sset("eatbc:reminders",true); setOn(true);
       scheduleNextNudge();
-      const pushOk = await subscribePush(token);
-      /* Immediate welcome nudge so user confirms it works */
-      try {
-        const reg = await navigator.serviceWorker.ready;
-        await reg.showNotification("EatBC nudges are on 🎉", {
-          body: pushOk
-            ? "You'll get nudges every 3 hours — even when the app is closed."
-            : "You'll get nudges every 3 hours while the app is open.",
-          icon: "/icon.svg", tag: "eatbc-welcome",
-        });
-      } catch {
-        try { new Notification("EatBC nudges are on 🎉",{body:"Every 3 hours: water, meals & workout reminders.",icon:"/icon.svg"}); } catch {}
-      }
+      subscribePush(token); // fire-and-forget — failure is non-blocking
+      // Welcome notification via new Notification() — avoids serviceWorker.ready hang
+      try { new Notification("EatBC nudges are on 🎉",{
+        body:"You'll get water, meal & workout nudges every 3 hours.",icon:"/icon.svg",
+      }); } catch {}
     } finally { setLoading(false); }
   }
 
