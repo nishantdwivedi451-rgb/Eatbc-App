@@ -9,6 +9,7 @@ import {
   Lightbulb, Globe, X, Check, Target, Dumbbell, CalendarDays, Clock, BookOpen, ChefHat,
   Camera, Lock, Zap, Star,
   Search, ClipboardList, ChevronLeft,
+  Paperclip, Send, FileText,
 } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -5545,23 +5546,40 @@ function VeerBot({session,planCondition,plan,tracking,profile}:{
   session:Session|null;planCondition:string;
   plan:Plan|null;tracking:Tracking;profile:Profile;
 }) {
-  const Y="#FFFA66"; const G="#1DAA61";
+  type Attachment={type:"image"|"doc";name:string;url?:string;size?:string};
+  type ChatMsg={role:"user"|"assistant";content:string;time:string;attachment?:Attachment};
+
+  const G="#1DAA61";
   const [open,setOpen]=useState(false);
-  const [phase,setPhase]=useState<"idle"|"thinking">("idle");
-  const [messages,setMessages]=useState<{role:"user"|"assistant";content:string}[]>([]);
+  const [thinking,setThinking]=useState(false);
+  const [messages,setMessages]=useState<ChatMsg[]>([]);
   const [error,setError]=useState("");
   const [textInput,setTextInput]=useState("");
+  const [pendingAttach,setPendingAttach]=useState<Attachment|null>(null);
+  const [showAttachMenu,setShowAttachMenu]=useState(false);
   const hasIntroduced=useRef(false);
+  const bottomRef=useRef<HTMLDivElement|null>(null);
+  const docRef=useRef<HTMLInputElement|null>(null);
+  const imgRef=useRef<HTMLInputElement|null>(null);
+  const taRef=useRef<HTMLTextAreaElement|null>(null);
+  const objectUrls=useRef<string[]>([]);
+
+  function ts(){return new Date().toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",hour12:true});}
 
   useEffect(()=>{
     if(!open) return;
     if(!hasIntroduced.current){
       hasIntroduced.current=true;
-      const intro="Namaste! I am Veer, your AI lifestyle coach. Kaise help kar sakta hoon aapki?";
-      setMessages([{role:"assistant",content:intro}]);
+      setMessages([{role:"assistant",content:"Namaste! I am Veer, your AI lifestyle coach. Kaise help kar sakta hoon aapki? 😊",time:ts()}]);
     }
-    // eslint-disable-next-line
   },[open]);
+
+  useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:"smooth"});},[messages,thinking]);
+
+  useEffect(()=>{
+    const urls=objectUrls.current;
+    return()=>{ urls.forEach(u=>URL.revokeObjectURL(u)); };
+  },[]);
 
   function buildUserContext():string {
     const lines:string[]=[];
@@ -5571,60 +5589,76 @@ function VeerBot({session,planCondition,plan,tracking,profile}:{
     if(profile.activity) lines.push(`Activity: ${profile.activity}${profile.exercise?` / ${profile.exercise}`:""}`);
     if(profile.diet) lines.push(`Diet: ${profile.diet}`);
     if(profile.condition) lines.push(`Health condition: ${profile.condition}`);
-    if(plan){
-      lines.push(`Daily calories: ${plan.dailyCalories} kcal`);
-      if(plan.weeklyLoss) lines.push(`Target: ${plan.weeklyLoss}`);
+    if(plan){lines.push(`Daily calories: ${plan.dailyCalories} kcal`);if(plan.weeklyLoss)lines.push(`Target: ${plan.weeklyLoss}`);}
+    const wLog=Object.entries(tracking.weights||{}).sort();
+    if(wLog.length){
+      const [ld,lw]=wLog[wLog.length-1];
+      lines.push(`Last logged weight: ${lw}kg (${ld})`);
+      if(wLog.length>1){const fw=wLog[0][1];const d=(lw-fw).toFixed(1);lines.push(`Weight change: ${+d>0?"+":""}${d}kg over ${wLog.length} entries`);}
     }
-    const weightLog=Object.entries(tracking.weights||{}).sort();
-    if(weightLog.length){
-      const [lastDate,lastW]=weightLog[weightLog.length-1];
-      lines.push(`Last logged weight: ${lastW}kg (${lastDate})`);
-      if(weightLog.length>1){
-        const firstW=weightLog[0][1];
-        const diff=(lastW-firstW).toFixed(1);
-        lines.push(`Weight change since start: ${+diff>0?"+":""}${diff}kg over ${weightLog.length} entries`);
-      }
-    }
-    const mealsLogged=Object.values(tracking).filter(v=>typeof v==="object"&&v&&"meals" in v).length;
-    if(mealsLogged) lines.push(`Days with meals logged: ${mealsLogged}`);
+    const ml=Object.values(tracking).filter(v=>typeof v==="object"&&v&&"meals" in v).length;
+    if(ml) lines.push(`Days with meals logged: ${ml}`);
     return lines.join("\n");
   }
 
-  async function handleVeer(userText:string) {
-    setError("");
-    setPhase("thinking");
-    const newMessages=[...messages,{role:"user" as const,content:userText}];
+  async function sendMsg(text:string,att?:Attachment){
+    if(!text.trim()&&!att) return;
+    setError(""); setShowAttachMenu(false);
+    const display=text.trim()||(att?.type==="image"?"📷 Photo":(att?.name||"Attachment"));
+    const userMsg:ChatMsg={role:"user",content:display,time:ts(),...(att?{attachment:att}:{})};
+    const next=[...messages,userMsg];
+    setMessages(next);
+    setThinking(true);
+    const apiMsgs=next.map(m=>({
+      role:m.role,
+      content:m.content+(m.attachment?`\n[Attached: ${m.attachment.name}${m.attachment.size?` (${m.attachment.size})`:""}`+"]":""),
+    }));
     try {
       const r=await fetch("/api/veer",{
         method:"POST",
         headers:{"Content-Type":"application/json",...(session?.token?{Authorization:`Bearer ${session.token}`}:{})},
-        body:JSON.stringify({messages:newMessages,userContext:buildUserContext()}),
+        body:JSON.stringify({messages:apiMsgs,userContext:buildUserContext()}),
       });
       const data=await r.json() as {reply?:string;error?:string};
-      if(!r.ok){setError(data.error||"Something went wrong.");setPhase("idle");return;}
-      const reply=data.reply||"";
-      setMessages([...newMessages,{role:"assistant" as const,content:reply}]);
-    } catch {
-      setError("Couldn't reach Veer — check your connection.");
-    } finally {
-      setPhase("idle");
-    }
+      if(!r.ok){setError(data.error||"Something went wrong.");return;}
+      setMessages([...next,{role:"assistant",content:data.reply||"",time:ts()}]);
+    } catch {setError("Couldn't reach Veer — check your connection.");}
+    finally {setThinking(false);}
   }
 
-  const lastReply=messages.filter(m=>m.role==="assistant").at(-1)?.content;
-  const phaseColor={idle:"rgba(255,255,255,0.28)",thinking:Y}[phase];
-  const ORB=130;
+  function onDocChange(e:React.ChangeEvent<HTMLInputElement>){
+    const f=e.target.files?.[0]; if(!f) return;
+    const sz=f.size>1048576?`${(f.size/1048576).toFixed(1)} MB`:`${Math.round(f.size/1024)} KB`;
+    setPendingAttach({type:"doc",name:f.name,size:sz});
+    e.target.value="";
+  }
+  function onImgChange(e:React.ChangeEvent<HTMLInputElement>){
+    const f=e.target.files?.[0]; if(!f) return;
+    const url=URL.createObjectURL(f);
+    objectUrls.current.push(url);
+    setPendingAttach({type:"image",name:f.name,url});
+    e.target.value="";
+  }
+  function submit(){
+    const q=textInput.trim();
+    if(!q&&!pendingAttach) return;
+    sendMsg(q,pendingAttach||undefined);
+    setTextInput(""); setPendingAttach(null);
+    if(taRef.current){taRef.current.style.height="auto";}
+  }
 
-  return (
+  return(
     <>
       <style>{`
-        @keyframes vBreathe{0%,100%{transform:scale(1);opacity:.85}50%{transform:scale(1.07);opacity:1}}
-        @keyframes vSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-        @keyframes vDot{0%,70%,100%{transform:translateY(0);opacity:.28}35%{transform:translateY(-9px);opacity:1}}
-        @keyframes vSlide{from{transform:translateY(100%)}to{transform:translateY(0)}}
-        @keyframes vGlowBtn{0%,100%{box-shadow:0 4px 20px rgba(255,250,102,.22),0 0 0 0 rgba(255,250,102,.08)}50%{box-shadow:0 6px 34px rgba(255,250,102,.52),0 0 0 6px rgba(255,250,102,.05)}}
-        @keyframes vReply{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+        @keyframes vWaSlide{from{transform:translateX(100%)}to{transform:translateX(0)}}
+        @keyframes vGlowBtn{0%,100%{box-shadow:0 4px 20px rgba(255,250,102,.22)}50%{box-shadow:0 6px 34px rgba(255,250,102,.52)}}
+        @keyframes vBubbleIn{from{opacity:0;transform:translateY(5px) scale(0.97)}to{opacity:1;transform:none}}
+        @keyframes waDot{0%,70%,100%{transform:translateY(0);opacity:.35}35%{transform:translateY(-5px);opacity:1}}
       `}</style>
+
+      {/* Hidden file inputs */}
+      <input ref={docRef} type="file" accept=".pdf,.doc,.docx,.txt" style={{display:"none"}} onChange={onDocChange}/>
+      <input ref={imgRef} type="file" accept="image/*" style={{display:"none"}} onChange={onImgChange}/>
 
       {/* Floating trigger */}
       <button onClick={()=>setOpen(true)} aria-label="Ask Veer"
@@ -5636,130 +5670,225 @@ function VeerBot({session,planCondition,plan,tracking,profile}:{
       </button>
 
       {open&&(
-        <div className="fixed inset-0 z-50 flex flex-col justify-end"
-          style={{background:"rgba(0,0,0,0.72)",backdropFilter:"blur(10px)"}}
-          onClick={()=>setOpen(false)}>
-          <div className="w-full max-w-sm mx-auto rounded-t-3xl pb-10"
-            style={{background:"#09090F",borderTop:"1px solid rgba(255,255,255,0.08)",
-              animation:"vSlide .32s cubic-bezier(.22,1,.36,1) both"}}
-            onClick={e=>e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex flex-col"
+          style={{background:"#0B1418",animation:"vWaSlide .26s cubic-bezier(.22,1,.36,1) both"}}>
 
-            {/* Handle */}
-            <div className="flex justify-center pt-3 pb-1">
-              <div style={{width:34,height:4,borderRadius:2,background:"rgba(255,255,255,0.14)"}}/>
+          {/* Header — WhatsApp dark style */}
+          <div className="flex items-center gap-2.5 px-2 py-2"
+            style={{background:"#1F2C34",paddingTop:"max(env(safe-area-inset-top,0px) + 8px, 12px)"}}>
+            <button onClick={()=>setOpen(false)}
+              className="p-1.5 rounded-full active:bg-white/10 flex-shrink-0">
+              <ChevronLeft size={24} color="rgba(255,255,255,0.85)"/>
+            </button>
+            <div style={{width:42,height:42,borderRadius:"50%",flexShrink:0,
+              background:"rgba(255,250,102,0.10)",border:"2px solid rgba(255,250,102,0.4)",
+              display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <VeerIcon size={25}/>
             </div>
-            {/* Gradient accent bar */}
-            <div style={{height:1,background:`linear-gradient(90deg,transparent,${Y} 30%,${G} 70%,transparent)`,opacity:0.55,marginBottom:0}}/>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-white leading-tight" style={{fontSize:16.5}}>Veer AI</p>
+              <p style={{fontSize:12.5,color:thinking?"#FFFA66":G,fontWeight:500,marginTop:1}}>
+                {thinking?"typing…":"online · lifestyle coach"}
+              </p>
+            </div>
+          </div>
 
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 pt-4 pb-3">
-              <div className="flex items-center gap-3">
-                <div style={{width:40,height:40,borderRadius:"50%",flexShrink:0,
-                  background:"rgba(255,250,102,0.07)",border:"1.5px solid rgba(255,250,102,0.3)",
-                  display:"flex",alignItems:"center",justifyContent:"center"}}>
-                  <VeerIcon size={24}/>
+          {/* Chat area */}
+          <div className="flex-1 overflow-y-auto px-3 py-3"
+            style={{
+              background:"#0B1418",
+              backgroundImage:`url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.018'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+            }}
+            onClick={()=>setShowAttachMenu(false)}>
+
+            {messages.map((m,i)=>{
+              const isVeer=m.role==="assistant";
+              const showTail=i===0||messages[i-1]?.role!==m.role;
+              return(
+                <div key={i} className={`flex mb-1 ${isVeer?"justify-start":"justify-end"}`}
+                  style={{animation:"vBubbleIn .2s ease both",animationDelay:`${Math.min(i*0.04,0.18)}s`}}>
+                  <div className="relative" style={{
+                    maxWidth:"78%",
+                    background:isVeer?"#1F2C34":"#005C4B",
+                    borderRadius:isVeer
+                      ?(showTail?"2px 12px 12px 12px":"12px 12px 12px 12px")
+                      :(showTail?"12px 2px 12px 12px":"12px 12px 12px 12px"),
+                    padding:"7px 10px 5px 10px",
+                    boxShadow:"0 1px 2px rgba(0,0,0,0.4)",
+                    marginTop:showTail&&i>0?"6px":"1px",
+                  }}>
+                    {/* Bubble tail */}
+                    {showTail&&isVeer&&(
+                      <div style={{position:"absolute",top:0,left:-7,width:0,height:0,
+                        borderTop:"8px solid #1F2C34",borderLeft:"8px solid transparent"}}/>
+                    )}
+                    {showTail&&!isVeer&&(
+                      <div style={{position:"absolute",top:0,right:-7,width:0,height:0,
+                        borderTop:"8px solid #005C4B",borderRight:"8px solid transparent"}}/>
+                    )}
+
+                    {/* Attachment bubble */}
+                    {m.attachment&&(
+                      <div className="mb-1.5">
+                        {m.attachment.type==="image"&&m.attachment.url?(
+                          <img src={m.attachment.url} alt={m.attachment.name}
+                            className="rounded-lg block" style={{maxWidth:220,maxHeight:200,objectFit:"cover"}}/>
+                        ):(
+                          <div className="flex items-center gap-2.5 rounded-xl px-3 py-2.5"
+                            style={{background:"rgba(0,0,0,0.25)",minWidth:180}}>
+                            <div className="flex-shrink-0 w-9 h-11 rounded-lg flex items-center justify-center"
+                              style={{background:m.attachment.name.toLowerCase().endsWith(".pdf")
+                                ?"rgba(239,68,68,0.25)":"rgba(59,130,246,0.25)"}}>
+                              <FileText size={20} color={m.attachment.name.toLowerCase().endsWith(".pdf")?"#F87171":"#93C5FD"}/>
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-white font-semibold truncate" style={{fontSize:12.5,maxWidth:140}}>{m.attachment.name}</p>
+                              <p style={{fontSize:11,color:"rgba(255,255,255,0.42)"}}>{m.attachment.size||"Document"}</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Message text */}
+                    {m.content&&(
+                      <p style={{fontSize:14.5,color:"rgba(255,255,255,0.93)",
+                        lineHeight:1.5,whiteSpace:"pre-wrap",wordBreak:"break-word"}}>
+                        {m.content}
+                      </p>
+                    )}
+
+                    {/* Time + tick */}
+                    <div className={`flex items-center gap-1 mt-0.5 ${isVeer?"justify-start":"justify-end"}`}>
+                      <span style={{fontSize:10,color:"rgba(255,255,255,0.38)",lineHeight:1}}>{m.time}</span>
+                      {!isVeer&&<Check size={13} color="rgba(134,239,172,0.8)"/>}
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-black text-white leading-none" style={{fontSize:15}}>Veer AI</p>
-                  <p style={{fontSize:11,color:"rgba(255,255,255,0.3)",marginTop:2}}>Lifestyle Coach</p>
+              );
+            })}
+
+            {/* Typing indicator */}
+            {thinking&&(
+              <div className="flex justify-start mb-1 mt-1">
+                <div style={{background:"#1F2C34",borderRadius:"2px 12px 12px 12px",
+                  padding:"10px 14px",boxShadow:"0 1px 2px rgba(0,0,0,0.4)"}}>
+                  <div style={{position:"absolute",top:0,left:-7,width:0,height:0,
+                    borderTop:"8px solid #1F2C34",borderLeft:"8px solid transparent"}}/>
+                  <div className="flex items-center gap-1.5">
+                    {[0,1,2].map(i=>(
+                      <span key={i} style={{width:8,height:8,borderRadius:"50%",display:"block",
+                        background:"rgba(255,255,255,0.5)",
+                        animation:`waDot 1.1s ease-in-out ${i*0.22}s infinite`}}/>
+                    ))}
+                  </div>
                 </div>
               </div>
-              <button onClick={()=>setOpen(false)}
-                style={{color:"rgba(255,255,255,0.3)"}} className="hover:text-white transition-colors p-1">
-                <X size={18}/>
+            )}
+
+            {error&&(
+              <div className="flex justify-center my-2">
+                <span style={{fontSize:11.5,color:"#F87171",background:"rgba(248,113,113,0.10)",
+                  border:"1px solid rgba(248,113,113,0.22)",padding:"5px 12px",borderRadius:20}}>
+                  {error}
+                </span>
+              </div>
+            )}
+            <div ref={bottomRef}/>
+          </div>
+
+          {/* Attach menu */}
+          <AnimatePresence>
+            {showAttachMenu&&(
+              <motion.div
+                initial={{opacity:0,y:12}} animate={{opacity:1,y:0}} exit={{opacity:0,y:12}}
+                transition={{duration:0.18,ease:[0.23,1,0.32,1]}}
+                style={{background:"#1F2C34",borderTop:"1px solid rgba(255,255,255,0.07)",
+                  padding:"12px 16px"}}>
+                <div className="flex gap-4">
+                  <button onClick={()=>{setShowAttachMenu(false);docRef.current?.click();}}
+                    className="flex flex-col items-center gap-2 flex-1 py-3 rounded-2xl active:scale-95 transition-transform"
+                    style={{background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.09)"}}>
+                    <div className="w-12 h-12 rounded-full flex items-center justify-center"
+                      style={{background:"rgba(239,68,68,0.15)"}}>
+                      <FileText size={22} color="#F87171"/>
+                    </div>
+                    <span style={{fontSize:12,color:"rgba(255,255,255,0.70)",fontWeight:600}}>Document</span>
+                    <span style={{fontSize:10,color:"rgba(255,255,255,0.30)"}}>PDF · Word · TXT</span>
+                  </button>
+                  <button onClick={()=>{setShowAttachMenu(false);imgRef.current?.click();}}
+                    className="flex flex-col items-center gap-2 flex-1 py-3 rounded-2xl active:scale-95 transition-transform"
+                    style={{background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.09)"}}>
+                    <div className="w-12 h-12 rounded-full flex items-center justify-center"
+                      style={{background:"rgba(29,170,97,0.15)"}}>
+                      <Camera size={22} color={G}/>
+                    </div>
+                    <span style={{fontSize:12,color:"rgba(255,255,255,0.70)",fontWeight:600}}>Camera</span>
+                    <span style={{fontSize:10,color:"rgba(255,255,255,0.30)"}}>Photo · Gallery</span>
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Pending attachment preview */}
+          {pendingAttach&&(
+            <div className="flex items-center gap-2.5 px-3 py-2"
+              style={{background:"rgba(255,255,255,0.04)",borderTop:"1px solid rgba(255,255,255,0.07)"}}>
+              {pendingAttach.type==="image"&&pendingAttach.url?(
+                <img src={pendingAttach.url} alt="" style={{width:40,height:40,borderRadius:8,objectFit:"cover",flexShrink:0}}/>
+              ):(
+                <div style={{width:40,height:40,borderRadius:8,background:"rgba(239,68,68,0.18)",
+                  display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                  <FileText size={20} color="#F87171"/>
+                </div>
+              )}
+              <p className="flex-1 text-white truncate" style={{fontSize:13}}>{pendingAttach.name}</p>
+              <button onClick={()=>setPendingAttach(null)} className="p-1 rounded-full hover:bg-white/10">
+                <X size={16} color="rgba(255,255,255,0.45)"/>
               </button>
             </div>
+          )}
 
-            {/* Orb */}
-            <div className="flex justify-center" style={{paddingTop:8,paddingBottom:4}}>
-              <div className="relative flex items-center justify-center" style={{width:ORB+40,height:ORB+40}}>
-                {/* Thinking: spinning ring */}
-                {phase==="thinking"&&(
-                  <span className="absolute rounded-full pointer-events-none"
-                    style={{width:ORB+12,height:ORB+12,top:14,left:14,
-                      border:"2.5px solid transparent",
-                      borderTopColor:Y,borderRightColor:G,
-                      animation:"vSpin .9s linear infinite"}}/>
-                )}
-                {/* Main orb */}
-                <div className="rounded-full flex items-center justify-center" style={{
-                  width:ORB,height:ORB,
-                  background:"radial-gradient(circle at 38% 34%,rgba(255,250,102,0.09),rgba(6,6,14,.97))",
-                  border:`2px solid ${phase==="thinking"?"rgba(255,250,102,0.22)":"rgba(255,255,255,0.08)"}`,
-                  boxShadow:`0 0 36px rgba(255,250,102,.05)`,
-                  transition:"border-color .4s",
-                }}>
-                  {phase==="idle"&&(
-                    <div style={{animation:"vBreathe 3s ease-in-out infinite"}}>
-                      <VeerIcon size={66}/>
-                    </div>
-                  )}
-                  {phase==="thinking"&&(
-                    <div className="flex items-center" style={{gap:10}}>
-                      {[0,1,2].map(i=>(
-                        <span key={i} style={{width:10,height:10,borderRadius:"50%",display:"block",
-                          background:Y,animation:`vDot 1.1s ease-in-out ${i*0.22}s infinite`}}/>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
+          {/* Input bar */}
+          <div className="flex items-end gap-2 px-3 py-2"
+            style={{background:"#1F2C34",paddingBottom:"max(env(safe-area-inset-bottom,0px) + 8px, 12px)"}}>
+            <button
+              onClick={()=>setShowAttachMenu(v=>!v)}
+              className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center mb-0.5 active:scale-90 transition-all"
+              style={{background:showAttachMenu?"#FFFA66":"rgba(255,255,255,0.10)"}}>
+              <Paperclip size={19} color={showAttachMenu?"#111":"rgba(255,255,255,0.65)"}/>
+            </button>
+
+            <div className="flex-1 flex items-end rounded-[24px] overflow-hidden"
+              style={{background:"rgba(255,255,255,0.09)",border:"1px solid rgba(255,255,255,0.11)"}}>
+              <textarea
+                ref={taRef} rows={1}
+                value={textInput}
+                onChange={e=>{
+                  setTextInput(e.target.value);
+                  e.target.style.height="auto";
+                  e.target.style.height=Math.min(e.target.scrollHeight,120)+"px";
+                }}
+                onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();submit();}}}
+                placeholder="Message"
+                disabled={thinking}
+                style={{
+                  flex:1,background:"transparent",outline:"none",resize:"none",
+                  paddingLeft:14,paddingRight:10,paddingTop:10,paddingBottom:10,
+                  fontSize:15,color:"rgba(255,255,255,0.93)",lineHeight:1.45,
+                  maxHeight:120,display:"block",width:"100%",
+                  fontFamily:"inherit",
+                }}/>
             </div>
 
-            {/* Phase label */}
-            <p className="text-center font-bold uppercase tracking-widest"
-              style={{fontSize:10,color:phaseColor,transition:"color .35s",letterSpacing:"0.14em",marginBottom:12}}>
-              {phase==="thinking"?"Thinking…":"Ask me anything"}
-            </p>
-
-            {/* Reply card */}
-            {lastReply&&phase!=="thinking"&&(
-              <div className="mx-5 mb-3 rounded-2xl px-4 py-3.5"
-                style={{background:"rgba(255,255,255,0.045)",border:"1px solid rgba(255,255,255,0.07)",
-                  animation:"vReply .28s ease both"}}>
-                <p className="text-white leading-relaxed" style={{fontSize:13.5}}>{lastReply}</p>
-              </div>
-            )}
-
-            {/* Error */}
-            {error&&(
-              <p className="text-center mx-5 mb-3 px-3 py-2 rounded-xl"
-                style={{fontSize:11.5,color:"#F87171",
-                  background:"rgba(248,113,113,0.07)",border:"1px solid rgba(248,113,113,0.18)"}}>
-                {error}
-              </p>
-            )}
-
-            {/* Text input */}
-            <div className="px-4 mt-1 mb-2">
-              <form className="flex items-center rounded-2xl overflow-hidden"
-                style={{background:"rgba(255,255,255,0.055)",border:"1px solid rgba(255,255,255,0.10)"}}
-                onSubmit={e=>{
-                  e.preventDefault();
-                  const q=textInput.trim();
-                  if(!q||phase==="thinking")return;
-                  handleVeer(q);setTextInput("");
-                }}>
-                <input
-                  value={textInput}
-                  onChange={e=>setTextInput(e.target.value)}
-                  placeholder="Type a question…"
-                  disabled={phase==="thinking"}
-                  className="flex-1 bg-transparent outline-none px-3 py-2.5"
-                  style={{fontSize:13.5,color:"rgba(255,255,255,0.9)"}}
-                />
-                <button type="submit"
-                  disabled={!textInput.trim()||phase==="thinking"}
-                  className="px-3 py-2.5 transition-opacity disabled:opacity-25 flex-shrink-0"
-                  style={{color:Y}}>
-                  <ArrowRight size={18}/>
-                </button>
-              </form>
-            </div>
-
-            <p className="text-center px-6 mt-2" style={{fontSize:9.5,color:"rgba(255,255,255,0.14)"}}>
-              Diet &amp; fitness only · Hindi &amp; English
-            </p>
+            <button
+              onClick={submit}
+              disabled={thinking&&!textInput.trim()&&!pendingAttach}
+              className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center mb-0.5 active:scale-90 transition-transform disabled:opacity-40"
+              style={{background:G}}>
+              <Send size={17} color="white" style={{marginLeft:2}}/>
+            </button>
           </div>
         </div>
       )}
