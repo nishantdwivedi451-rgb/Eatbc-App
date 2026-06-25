@@ -2427,56 +2427,67 @@ function OnbSlide3({accent}:{accent:string}) {
   );
 }
 function MacroRingIllus({accent}:{accent:string}) {
-  const r=44, circ=2*Math.PI*r;
   const macros=[
-    {label:"Protein",pct:0.82,color:accent,offset:0},
-    {label:"Carbs",pct:0.67,color:"rgba(255,255,255,0.55)",offset:0.09},
-    {label:"Fat",pct:0.54,color:ha(accent,0.55),offset:0.18},
+    {pct:0.82,color:accent,r:44},
+    {pct:0.67,color:"rgba(255,255,255,0.65)",r:31},
+    {pct:0.54,color:ha(accent,0.62),r:18},
   ];
   return(
-    <motion.svg width="130" height="130" viewBox="0 0 130 130" style={{overflow:"visible"}}
-      initial="hidden" animate="show">
-      {/* Glow halo */}
-      <motion.ellipse cx="65" cy="122" rx="30" ry="8" fill={accent}
-        initial={{opacity:0}} animate={{opacity:[0.15,0.28,0.15]}}
-        transition={{duration:2.4,repeat:Infinity,ease:"easeInOut",delay:0.8}}/>
-      {/* Three concentric rings */}
-      {macros.map((m,i)=>{
-        const ri=r-i*13, ci=2*Math.PI*ri;
-        return(
-          <g key={m.label}>
-            <circle cx="65" cy="65" r={ri} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="8"/>
-            <motion.circle cx="65" cy="65" r={ri}
-              fill="none" stroke={m.color} strokeWidth="8" strokeLinecap="round"
-              strokeDasharray={ci}
-              style={{transformOrigin:"65px 65px",rotate:-90}}
-              initial={{strokeDashoffset:ci}}
-              animate={{strokeDashoffset:ci*(1-m.pct)}}
-              transition={{duration:1.1,ease:EASE_OUT,delay:0.25+m.offset}}/>
-          </g>
-        );
-      })}
-      {/* Center kcal readout */}
-      <motion.text x="65" y="60" textAnchor="middle" fill="white"
-        fontWeight="900" fontSize="21" fontFamily="Space Grotesk,Inter,sans-serif"
-        initial={{opacity:0,y:68}} animate={{opacity:1,y:60}}
-        transition={{duration:0.45,ease:EASE_OUT,delay:0.6}}>
-        1840
-      </motion.text>
-      <motion.text x="65" y="74" textAnchor="middle" fill={accent}
-        fontWeight="700" fontSize="10.5" fontFamily="Space Grotesk,Inter,sans-serif"
-        initial={{opacity:0}} animate={{opacity:1}} transition={{delay:0.82}}>
-        kcal today
-      </motion.text>
-      {/* Electron dot orbiting outermost ring */}
-      <motion.circle r="5" fill={accent}
-        style={{filter:`drop-shadow(0 0 5px ${accent})`,transformOrigin:"65px 65px"}}
-        animate={{rotate:[0,360]}}
-        transition={{duration:4,repeat:Infinity,ease:"linear",delay:1.1}}>
-        <animateMotion dur="4s" repeatCount="indefinite"
-          path={`M ${65+r} 65 A ${r} ${r} 0 1 1 ${65+r-0.001} 65`}/>
-      </motion.circle>
-    </motion.svg>
+    /* Hologram spin-in: rotates from -90° on Y axis like a disc being revealed */
+    <motion.div
+      initial={{rotateY:-90,scale:0.80,opacity:0}}
+      animate={{rotateY:0,scale:1,opacity:1}}
+      transition={{type:"spring",duration:0.80,bounce:0.18}}>
+      <svg width="130" height="130" viewBox="0 0 130 130" style={{overflow:"visible"}}>
+        {/* Ground shadow halo */}
+        <motion.ellipse cx="65" cy="122" rx="30" ry="8" fill={accent}
+          initial={{opacity:0}} animate={{opacity:[0.15,0.32,0.15]}}
+          transition={{duration:2.4,repeat:Infinity,ease:"easeInOut",delay:0.9}}/>
+        {/* Three concentric rings */}
+        {macros.map((m,i)=>{
+          const ci=2*Math.PI*m.r;
+          return(
+            <g key={i}>
+              <circle cx="65" cy="65" r={m.r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="8"/>
+              <motion.circle cx="65" cy="65" r={m.r}
+                fill="none" stroke={m.color} strokeWidth="8" strokeLinecap="round"
+                strokeDasharray={ci}
+                style={{transformOrigin:"65px 65px",rotate:-90}}
+                initial={{strokeDashoffset:ci}}
+                animate={{strokeDashoffset:ci*(1-m.pct)}}
+                transition={{duration:1.1,ease:EASE_OUT,delay:0.20+i*0.14}}/>
+            </g>
+          );
+        })}
+        {/* Center kcal readout */}
+        <motion.text x="65" y="60" textAnchor="middle" fill="white"
+          fontWeight="900" fontSize="21" fontFamily="Space Grotesk,Inter,sans-serif"
+          initial={{opacity:0}} animate={{opacity:1}}
+          transition={{duration:0.4,ease:EASE_OUT,delay:0.55}}>
+          1840
+        </motion.text>
+        <motion.text x="65" y="74" textAnchor="middle" fill={accent}
+          fontWeight="700" fontSize="10.5" fontFamily="Space Grotesk,Inter,sans-serif"
+          initial={{opacity:0}} animate={{opacity:1}} transition={{delay:0.78}}>
+          kcal today
+        </motion.text>
+        {/* Orbiting spark — brighter glow than before */}
+        <motion.circle r="5.5" fill={accent}
+          style={{filter:`drop-shadow(0 0 7px ${accent}) drop-shadow(0 0 14px ${ha(accent,0.55)})`,transformOrigin:"65px 65px"}}
+          initial={{opacity:0}} animate={{opacity:1}} transition={{delay:1.3}}>
+          <animateMotion dur="3.8s" repeatCount="indefinite" begin="1.3s"
+            path={`M ${65+44} 65 A 44 44 0 1 1 ${65+44-0.001} 65`}/>
+        </motion.circle>
+        {/* Micro sparks pop at first orbit completion */}
+        {([[-30,-30],[30,-30],[30,30],[-30,30]] as [number,number][]).map(([dx,dy],i)=>(
+          <motion.circle key={i} cx={65+dx} cy={65+dy} r="3"
+            fill={accent} opacity={0.7}
+            initial={{scale:0,opacity:0}}
+            animate={{scale:[0,1.4,0.8],opacity:[0,0.85,0]}}
+            transition={{duration:0.55,delay:1.36+i*0.07,ease:EASE_OUT}}/>
+        ))}
+      </svg>
+    </motion.div>
   );
 }
 function OnbSlide4({accent}:{accent:string}) {
@@ -2796,10 +2807,9 @@ function LIFinal({accent}:{accent:string}) {
     {t:"−500 kcal",x:"6%",delay:0.6},{t:"150g protein",x:"58%",delay:1.0},
     {t:"Day 1 ✓",x:"10%",delay:1.3},{t:"2,100 kcal",x:"52%",delay:0.8},
   ];
+  const eatLetters="Eat Better".split("");
   return(
-    <motion.div className="relative flex flex-col items-center justify-center"
-      style={{height:340,perspective:"900px"}}
-      variants={staggerContainer} initial="hidden" animate="show">
+    <div className="relative flex flex-col items-center justify-center" style={{height:340}}>
       {/* Floating stat chips */}
       {FLOATS.map((f,i)=>(
         <motion.span key={i}
@@ -2812,39 +2822,80 @@ function LIFinal({accent}:{accent:string}) {
         </motion.span>
       ))}
 
-      {/* StreakOrb illustration */}
-      <motion.div variants={slideUp} className="mb-4">
+      {/* StreakOrb */}
+      <motion.div className="mb-5"
+        initial={{opacity:0,scale:0.88,y:22}}
+        animate={{opacity:1,scale:1,y:0}}
+        transition={{...SPRING_ENTRY,delay:0.06}}>
         <StreakOrb accent={accent}/>
       </motion.div>
 
-      {/* "Eat Better" */}
-      <motion.div variants={slideUp}
-        style={{fontSize:52,fontWeight:900,color:"#fff",lineHeight:1.1,letterSpacing:"-2px",
-          textShadow:"0 2px 24px rgba(255,255,255,0.14)"}}>
-        Eat Better
-      </motion.div>
+      {/* "Eat Better" — each letter gravity-falls from above with spring bounce */}
+      <div style={{fontSize:52,fontWeight:900,lineHeight:1.1,letterSpacing:"-2px",color:"#fff",
+        textShadow:"0 2px 24px rgba(255,255,255,0.14)"}}>
+        {eatLetters.map((ch,i)=>(
+          <motion.span key={i} style={{display:"inline-block"}}
+            initial={{y:-65,opacity:0,rotateZ:i%3===0?-15:i%3===1?11:-9}}
+            animate={{y:0,opacity:1,rotateZ:0}}
+            transition={{type:"spring",duration:0.50,bounce:0.42,delay:0.24+i*0.042}}>
+            {ch===" "?" ":ch}
+          </motion.span>
+        ))}
+      </div>
 
-      {/* "& Count" — springs in with glow */}
+      {/* "& Count" — neon sign flicker-on effect */}
       <motion.div
-        initial={{opacity:0,y:18,scale:0.95}}
-        animate={{opacity:1,y:0,scale:1}}
-        transition={{...SPRING_ENTRY,delay:0.42}}
-        style={{fontSize:44,fontWeight:900,color:accent,lineHeight:1.1,letterSpacing:"-1.5px",
-          textShadow:`0 0 28px ${ha(accent,0.6)}`}}>
-        &amp; Count
+        initial={{opacity:0}}
+        animate={{opacity:1}}
+        transition={{duration:0.01,delay:0.80}}
+        style={{fontSize:44,fontWeight:900,color:accent,lineHeight:1.1,letterSpacing:"-1.5px"}}>
+        <motion.span
+          style={{display:"inline-block"}}
+          initial={{textShadow:"0 0 0px transparent"}}
+          animate={{textShadow:[
+            "0 0 0px transparent",
+            `0 0 24px ${accent}`,
+            "0 0 0px transparent",
+            `0 0 40px ${accent}`,
+            "0 0 0px transparent",
+            `0 0 18px ${accent}, 0 0 55px ${ha(accent,0.55)}, 0 0 95px ${ha(accent,0.28)}`,
+          ]}}
+          transition={{duration:0.54,delay:0.86,times:[0,0.18,0.34,0.52,0.70,1]}}>
+          &amp; Count
+        </motion.span>
       </motion.div>
 
       {/* Tagline */}
       <motion.p
         initial={{opacity:0}}
         animate={{opacity:1}}
-        transition={{duration:0.55,delay:0.82}}
+        transition={{duration:0.55,delay:1.35}}
         style={{fontSize:13,color:"rgba(255,255,255,0.38)",letterSpacing:"0.06em",marginTop:14}}>
         Eat Better. Count Smarter.
       </motion.p>
-    </motion.div>
+    </div>
   );
 }
+/* Twinkling star field SVG for LoginIntro */
+function StarField() {
+  const stars=useMemo(()=>Array.from({length:70},(_,i)=>({
+    x:Math.random()*100,y:Math.random()*100,
+    r:Math.random()*1.1+0.3,
+    delay:Math.random()*5,
+    dur:2.8+Math.random()*5,
+  })),[]);
+  return(
+    <svg style={{position:"absolute",inset:0,width:"100%",height:"100%",pointerEvents:"none",zIndex:0}}>
+      {stars.map((s,i)=>(
+        <motion.circle key={i} cx={`${s.x}%`} cy={`${s.y}%`} r={s.r}
+          fill="rgba(255,255,255,0.75)"
+          animate={{opacity:[0,s.r>1?0.80:0.45,0.08,s.r>0.8?0.60:0.28,0]}}
+          transition={{duration:s.dur,delay:s.delay,repeat:Infinity,ease:"easeInOut"}}/>
+      ))}
+    </svg>
+  );
+}
+
 function LoginIntro({onDone}:{onDone:()=>void;diet?:string}) {
   const ACCENT="#FFFA66";
   const tilt=use3DParallax();
@@ -2853,48 +2904,81 @@ function LoginIntro({onDone}:{onDone:()=>void;diet?:string}) {
     transition:"transform 0.18s ease-out",
   });
   useEffect(()=>{
-    const t=setTimeout(onDone,5200);
+    const t=setTimeout(onDone,5600);
     return()=>clearTimeout(t);
   },[]);
 
   return(
     <div className="min-h-screen flex flex-col relative overflow-hidden"
-      style={{background:"linear-gradient(155deg,#180826 0%,#250c3b 45%,#370854 100%)",perspective:"1100px"}}
+      style={{background:"linear-gradient(155deg,#0e0418 0%,#1a0830 48%,#280642 100%)",perspective:"1100px"}}
       onClick={onDone}>
-      {/* Orbs */}
+
+      {/* Star field */}
+      <StarField/>
+
+      {/* Aurora orbs — layered parallax */}
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute rounded-full" style={{width:360,height:360,top:"6%",left:"-18%",background:`radial-gradient(circle,${ACCENT}50,transparent 70%)`,filter:"blur(46px)",...layer(46)}}/>
-        <div className="absolute rounded-full" style={{width:280,height:280,bottom:"10%",right:"-14%",background:`radial-gradient(circle,${ACCENT}38,transparent 70%)`,filter:"blur(40px)",...layer(62)}}/>
-        <div className="absolute rounded-full" style={{width:160,height:160,top:"44%",right:"18%",background:`radial-gradient(circle,${ACCENT}28,transparent 70%)`,filter:"blur(26px)",...layer(80)}}/>
+        <motion.div className="absolute rounded-full"
+          style={{width:420,height:420,top:"4%",left:"-20%",
+            background:`radial-gradient(circle,${ACCENT}44,transparent 68%)`,
+            filter:"blur(55px)",...layer(46)}}
+          animate={{scale:[1,1.14,0.92,1.08,1]}}
+          transition={{duration:11,repeat:Infinity,ease:"easeInOut"}}/>
+        <motion.div className="absolute rounded-full"
+          style={{width:320,height:320,bottom:"8%",right:"-16%",
+            background:`radial-gradient(circle,${ACCENT}32,transparent 68%)`,
+            filter:"blur(48px)",...layer(62)}}
+          animate={{scale:[1,1.18,0.88,1.12,1]}}
+          transition={{duration:14,repeat:Infinity,ease:"easeInOut",delay:2}}/>
+        <motion.div className="absolute rounded-full"
+          style={{width:180,height:180,top:"42%",right:"16%",
+            background:`radial-gradient(circle,${ACCENT}22,transparent 70%)`,
+            filter:"blur(30px)",...layer(80)}}
+          animate={{scale:[1,1.20,0.90,1.10,1],x:[0,10,-8,5,0]}}
+          transition={{duration:9,repeat:Infinity,ease:"easeInOut",delay:4}}/>
       </div>
-      {/* Grid */}
+
+      {/* Subtle grid */}
       <div className="absolute inset-0 pointer-events-none" style={{
-        backgroundImage:`linear-gradient(${ACCENT}12 1px,transparent 1px),linear-gradient(90deg,${ACCENT}12 1px,transparent 1px)`,
+        backgroundImage:`linear-gradient(${ACCENT}10 1px,transparent 1px),linear-gradient(90deg,${ACCENT}10 1px,transparent 1px)`,
         backgroundSize:"44px 44px",
-        maskImage:"radial-gradient(circle at 50% 40%,black,transparent 75%)",
-        WebkitMaskImage:"radial-gradient(circle at 50% 40%,black,transparent 75%)",
+        maskImage:"radial-gradient(circle at 50% 42%,black,transparent 72%)",
+        WebkitMaskImage:"radial-gradient(circle at 50% 42%,black,transparent 72%)",
         ...layer(20),
       }}/>
-      {/* Card */}
+
+      {/* Card — flips up from below like a spotlight landing */}
       <div className="flex-1 flex items-center justify-center px-6 pt-16 pb-10 relative z-10">
         <motion.div
           style={layer(-26)}
-          initial={{opacity:0,scale:0.93,rotateY:18,z:-120}}
-          animate={{opacity:1,scale:1,rotateY:0,z:0}}
-          transition={{duration:0.62,ease:EASE_OUT}}>
+          initial={{opacity:0,scale:0.86,rotateX:-40,y:70}}
+          animate={{opacity:1,scale:1,rotateX:0,y:0}}
+          transition={{type:"spring",duration:0.78,bounce:0.22}}>
+
           <div className="relative rounded-[34px] px-8 py-10 flex items-center justify-center" style={{
             minWidth:300,minHeight:400,
             background:"linear-gradient(160deg,rgba(255,255,255,0.10),rgba(255,255,255,0.02))",
             border:"1px solid rgba(255,255,255,0.16)",
-            boxShadow:`0 30px 80px -20px ${ACCENT}42, inset 0 1px 0 rgba(255,255,255,0.18)`,
-            backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)",
+            boxShadow:`0 30px 80px -20px ${ACCENT}48, inset 0 1px 0 rgba(255,255,255,0.18)`,
+            backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",
             transform:`rotateX(${tilt.x*-5}deg) rotateY(${tilt.y*5}deg)`,
             transition:"transform 0.18s ease-out,box-shadow 0.6s ease",
           }}>
+            {/* Arrival glow flash */}
+            <motion.div style={{
+              position:"absolute",inset:-18,borderRadius:50,
+              background:`radial-gradient(ellipse at 50% 50%,${ha(ACCENT,0.30)} 0%,transparent 68%)`,
+              pointerEvents:"none",zIndex:-1,
+            }}
+              initial={{opacity:0,scale:0.88}}
+              animate={{opacity:[0,0.95,0.18],scale:[0.88,1.10,1.02]}}
+              transition={{duration:0.95,ease:[0.23,1,0.32,1]}}/>
+
             <LIFinal accent={ACCENT}/>
           </div>
         </motion.div>
       </div>
+
       <div className="pb-9 flex justify-center relative z-10">
         <span className="text-[11px] tracking-widest uppercase font-semibold" style={{color:"rgba(255,255,255,0.28)"}}>tap to continue</span>
       </div>
@@ -3106,43 +3190,6 @@ const THEME_ACCENT:Record<string,string>={
   runner:"#52B788",lotus:"#C77DFF",lightning:"#FFFA66",
   leaf:"#74C69D",heart:"#FF6B9D",star:"#A8DADC",water:"#4CC9F0",
 };
-const SHARDS=[
-  // Large primary sectors from impact point (52%,44%)
-  {clip:"polygon(0% 0%,20% 0%,52% 44%,0% 32%)",          tx:-310,ty:-240,rot:-62,dur:0.52,delay:0},
-  {clip:"polygon(20% 0%,52% 0%,52% 44%)",                 tx:-22, ty:-295,rot:26, dur:0.44,delay:0.03},
-  {clip:"polygon(52% 0%,73% 0%,52% 44%)",                 tx:38,  ty:-275,rot:-22,dur:0.48,delay:0.01},
-  {clip:"polygon(73% 0%,100% 0%,100% 18%,52% 44%)",       tx:280, ty:-215,rot:50, dur:0.50,delay:0.04},
-  {clip:"polygon(100% 18%,100% 60%,52% 44%)",             tx:315, ty:40,  rot:65, dur:0.46,delay:0.02},
-  {clip:"polygon(100% 60%,100% 100%,70% 100%,52% 44%)",   tx:250, ty:265, rot:46, dur:0.54,delay:0.05},
-  {clip:"polygon(70% 100%,28% 100%,52% 44%)",             tx:0,   ty:315, rot:-28,dur:0.50,delay:0.03},
-  {clip:"polygon(28% 100%,0% 100%,0% 66%,52% 44%)",       tx:-255,ty:252, rot:-54,dur:0.52,delay:0.06},
-  {clip:"polygon(0% 66%,0% 20%,52% 44%)",                 tx:-310,ty:24,  rot:-68,dur:0.46,delay:0.02},
-  // Secondary shards near impact centre — faster, more violent
-  {clip:"polygon(52% 44%,34% 16%,56% 10%,72% 26%)",       tx:-65, ty:-340,rot:40, dur:0.34,delay:0.08},
-  {clip:"polygon(52% 44%,72% 26%,88% 44%,76% 64%)",       tx:340, ty:-65, rot:-62,dur:0.36,delay:0.09},
-  {clip:"polygon(52% 44%,76% 64%,58% 80%,34% 74%)",       tx:88,  ty:340, rot:32, dur:0.34,delay:0.10},
-  {clip:"polygon(52% 44%,34% 74%,18% 56%,28% 32%)",       tx:-340,ty:88,  rot:-50,dur:0.36,delay:0.07},
-  // Tiny tertiary chips — explosively fast
-  {clip:"polygon(52% 44%,28% 32%,34% 16%)",               tx:-240,ty:-280,rot:82, dur:0.28,delay:0.12},
-  {clip:"polygon(52% 44%,56% 10%,72% 26%)",               tx:135, ty:-300,rot:-76,dur:0.26,delay:0.13},
-  {clip:"polygon(52% 44%,76% 64%,58% 80%)",               tx:280, ty:215, rot:94, dur:0.28,delay:0.11},
-  {clip:"polygon(52% 44%,18% 56%,28% 32%)",               tx:-310,ty:-48, rot:-92,dur:0.24,delay:0.14},
-];
-
-const DEBRIS=[
-  {x:"35%",y:"28%",w:5,h:4,tx:-185,ty:-245,rot:135,delay:0.09},
-  {x:"63%",y:"17%",w:3,h:3,tx:105, ty:-285,rot:-122,delay:0.11},
-  {x:"80%",y:"38%",w:4,h:3,tx:245, ty:-125,rot:205, delay:0.10},
-  {x:"72%",y:"65%",w:3,h:4,tx:225, ty:205, rot:-92, delay:0.13},
-  {x:"44%",y:"75%",w:5,h:3,tx:-58, ty:285, rot:162, delay:0.08},
-  {x:"20%",y:"60%",w:4,h:4,tx:-245,ty:165, rot:-205,delay:0.12},
-  {x:"16%",y:"32%",w:3,h:3,tx:-225,ty:-185,rot:112, delay:0.10},
-  {x:"46%",y:"10%",w:4,h:3,tx:-38, ty:-305,rot:-152,delay:0.09},
-  {x:"84%",y:"50%",w:3,h:4,tx:285, ty:42,  rot:244, delay:0.11},
-  {x:"58%",y:"8%", w:2,h:3,tx:95,  ty:-260,rot:180, delay:0.14},
-  {x:"25%",y:"45%",w:3,h:2,tx:-270,ty:-30, rot:-168,delay:0.12},
-  {x:"68%",y:"80%",w:2,h:3,tx:180, ty:260, rot:130, delay:0.13},
-];
 
 function QuoteIllustration({theme,accent}:{theme:string;accent:string}) {
   const a=accent;
@@ -3254,226 +3301,157 @@ function QuoteIllustration({theme,accent}:{theme:string;accent:string}) {
 function DailyQuote({onDone}:{onDone:()=>void}) {
   const [q]=useState(()=>MOTIVATION_QUOTES[Math.floor(Math.random()*MOTIVATION_QUOTES.length)]);
   const accent=THEME_ACCENT[q.theme]||"#FFFA66";
-  // phase: 0=glass intact | 1=cracks draw | 2=shards fly | 3=content in
-  const [phase,setPhase]=useState<0|1|2|3>(0);
+  const [show,setShow]=useState(false);
   useEffect(()=>{
-    const t1=setTimeout(()=>setPhase(1),400);
-    const t2=setTimeout(()=>setPhase(2),900);
-    const t3=setTimeout(()=>setPhase(3),1380);
-    return()=>{clearTimeout(t1);clearTimeout(t2);clearTimeout(t3);};
+    const t=setTimeout(()=>setShow(true),1050);
+    return()=>clearTimeout(t);
   },[]);
   const words=q.text.split(" ");
-  const show=phase>=3;
+  const wordDelay=(i:number)=>0.18+i*0.042;
+  const ctaDelay=0.28+words.length*0.042;
   return(
     <motion.div className="min-h-screen relative overflow-hidden flex flex-col items-center justify-center"
-      style={{background:"#0A0A0A"}} onClick={show?onDone:undefined}
-      animate={phase===1?{x:[0,-16,14,-9,6,-3,1,0],y:[0,-10,9,-6,3,-1,0,0]}:{x:0,y:0}}
-      transition={{duration:0.44,times:[0,0.08,0.20,0.36,0.52,0.68,0.84,1],ease:"linear"}}>
+      style={{background:"#070312"}} onClick={show?onDone:undefined}>
 
-      {/* Deep accent glow */}
-      <div style={{position:"absolute",inset:0,background:`radial-gradient(ellipse 80% 60% at 50% 50%,${ha(accent,0.22)} 0%,transparent 70%)`}}/>
-      {/* Secondary purple glow */}
-      <div style={{position:"absolute",width:400,height:400,borderRadius:"50%",bottom:-120,right:-80,background:"radial-gradient(circle,rgba(139,92,246,0.28) 0%,transparent 70%)",filter:"blur(40px)"}}/>
+      {/* ── Aurora background blobs (breathe + drift) ── */}
+      <motion.div style={{position:"absolute",width:620,height:620,borderRadius:"50%",
+        top:-200,left:-220,filter:"blur(64px)",pointerEvents:"none",
+        background:`radial-gradient(circle,${ha(accent,0.24)} 0%,transparent 65%)`}}
+        animate={{scale:[1,1.20,0.93,1.14,1],x:[0,32,-22,16,0],y:[0,-28,20,-12,0]}}
+        transition={{duration:15,repeat:Infinity,ease:"easeInOut"}}/>
+      <motion.div style={{position:"absolute",width:520,height:520,borderRadius:"50%",
+        bottom:-180,right:-160,filter:"blur(58px)",pointerEvents:"none",
+        background:"radial-gradient(circle,rgba(139,92,246,0.32) 0%,transparent 65%)"}}
+        animate={{scale:[1,0.86,1.16,0.94,1],x:[0,-24,16,-20,0],y:[0,22,-16,24,0]}}
+        transition={{duration:19,repeat:Infinity,ease:"easeInOut",delay:2.5}}/>
+      <motion.div style={{position:"absolute",width:360,height:360,borderRadius:"50%",
+        top:"38%",right:-110,filter:"blur(48px)",pointerEvents:"none",
+        background:"radial-gradient(circle,rgba(56,189,248,0.20) 0%,transparent 65%)"}}
+        animate={{scale:[1,1.24,0.90,1.12,1],x:[0,18,-28,12,0],y:[0,-20,28,-14,0]}}
+        transition={{duration:24,repeat:Infinity,ease:"easeInOut",delay:6}}/>
+
       {/* Dot grid */}
-      <div style={{position:"absolute",inset:0,backgroundImage:"radial-gradient(rgba(255,255,255,0.055) 1.2px,transparent 1.2px)",backgroundSize:"24px 24px"}}/>
+      <div style={{position:"absolute",inset:0,pointerEvents:"none",
+        backgroundImage:"radial-gradient(rgba(255,255,255,0.048) 1.2px,transparent 1.2px)",
+        backgroundSize:"24px 24px"}}/>
 
-      {/* ── Content revealed via Framer Motion when phase reaches 3 ── */}
-      <motion.div className="relative z-10 flex flex-col items-center text-center px-6 max-w-sm mx-auto w-full"
-        variants={staggerContainer} initial="hidden" animate={show?"show":"hidden"}>
+      {/* ── Nova burst rings (fire once on mount) ── */}
+      {[0,1,2,3].map(ring=>(
+        <motion.div key={ring} style={{
+          position:"absolute",width:14,height:14,borderRadius:"50%",
+          border:`${2.4-ring*0.45}px solid ${ring===0?accent:`rgba(255,255,255,${0.62-ring*0.12})`}`,
+          pointerEvents:"none",
+        }}
+          initial={{scale:0,opacity:0}}
+          animate={{scale:[0,10+ring*3.5,10+ring*3.5],opacity:[0,ring===0?0.92:0.68,0]}}
+          transition={{duration:1.5+ring*0.24,delay:ring*0.14,ease:[0.23,1,0.32,1],times:[0,0.28,1]}}/>
+      ))}
 
-        {/* Chip label */}
-        <motion.div variants={slideUp} className="mb-5">
+      {/* Center star point — flash then fade */}
+      <motion.div style={{
+        position:"absolute",width:10,height:10,borderRadius:"50%",
+        background:"#fff",pointerEvents:"none",
+        boxShadow:`0 0 22px 8px ${accent}, 0 0 70px 24px ${ha(accent,0.44)}`,
+      }}
+        initial={{scale:0,opacity:0}}
+        animate={{scale:[0,3.2,0.7,1.4,0],opacity:[0,1,0.88,0.55,0]}}
+        transition={{duration:1.15,times:[0,0.16,0.46,0.72,1],ease:[0.23,1,0.32,1]}}/>
+
+      {/* ── Main content ── */}
+      <div className="relative z-10 flex flex-col items-center text-center px-6 max-w-sm mx-auto w-full">
+
+        {/* Chip */}
+        <motion.div className="mb-5"
+          initial={{opacity:0,y:-20,scale:0.82}}
+          animate={show?{opacity:1,y:0,scale:1}:{}}
+          transition={{...SPRING_ENTRY,delay:0}}>
           <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1"
-            style={{background:ha(accent,0.15),border:`1px solid ${ha(accent,0.35)}`,letterSpacing:"0.12em"}}>
+            style={{background:ha(accent,0.16),border:`1px solid ${ha(accent,0.40)}`,letterSpacing:"0.12em"}}>
             <span style={{fontSize:12}}>⚡</span>
             <span className="font-black text-[10px] uppercase tracking-widest" style={{color:accent}}>Today's fuel</span>
           </div>
         </motion.div>
 
-        {/* Illustration — springs in then bobs */}
-        <motion.div variants={slideUp} style={{marginBottom:20}}>
+        {/* Illustration — materialises blur → sharp, then floats */}
+        <motion.div className="mb-5"
+          initial={{opacity:0,scale:0.70,filter:"blur(20px)"}}
+          animate={show?{opacity:1,scale:1,filter:"blur(0px)"}:{}}
+          transition={{type:"spring",duration:0.92,bounce:0.12,delay:0.06}}>
           <motion.div
-            animate={show?{y:[0,-10,0]}:{y:0}}
-            transition={{duration:3.8,repeat:Infinity,ease:"easeInOut",delay:0.6}}>
+            animate={show?{y:[0,-10,0]}:{}}
+            transition={{duration:3.8,repeat:Infinity,ease:"easeInOut",delay:1.4}}>
             <QuoteIllustration theme={q.theme} accent={accent}/>
           </motion.div>
         </motion.div>
 
-        {/* Animated opening quote mark */}
-        <motion.div variants={slideUp} style={{marginBottom:8,alignSelf:"flex-start"}}>
+        {/* Opening quote marks — SVG path draw */}
+        <motion.div style={{marginBottom:8,alignSelf:"flex-start"}}
+          initial={{opacity:0}}
+          animate={show?{opacity:1}:{}}
+          transition={{duration:0.20,delay:0.14}}>
           <svg width="36" height="28" viewBox="0 0 36 28" fill="none">
             <motion.path d="M4 24 C4 14 10 6 20 4" stroke={accent} strokeWidth="3.5"
               strokeLinecap="round"
               initial={{pathLength:0,opacity:0}}
-              animate={show?{pathLength:1,opacity:0.55}:{pathLength:0,opacity:0}}
-              transition={{duration:0.42,delay:0.15,ease:EASE_OUT}}/>
+              animate={show?{pathLength:1,opacity:0.55}:{}}
+              transition={{duration:0.40,delay:0.20,ease:EASE_OUT}}/>
             <motion.path d="M22 24 C22 14 28 6 38 4" stroke={accent} strokeWidth="3.5"
               strokeLinecap="round"
               initial={{pathLength:0,opacity:0}}
-              animate={show?{pathLength:1,opacity:0.40}:{pathLength:0,opacity:0}}
-              transition={{duration:0.42,delay:0.26,ease:EASE_OUT}}/>
+              animate={show?{pathLength:1,opacity:0.40}:{}}
+              transition={{duration:0.40,delay:0.32,ease:EASE_OUT}}/>
           </svg>
         </motion.div>
 
-        {/* Quote — word by word with Framer Motion springs (scale 0.95, not 0.7) */}
-        <div className="mb-5" style={{minHeight:90}}>
+        {/* Quote words — 3D fold-in stagger */}
+        <div className="mb-5" style={{minHeight:90,perspective:600}}>
           {words.map((word,i)=>(
             <motion.span key={i}
               style={{display:"inline-block",marginRight:"0.28em",fontWeight:900,
-                fontSize:22,lineHeight:1.25,letterSpacing:"-0.4px",color:"#fff"}}
-              initial={{opacity:0,y:14,scale:0.95}}
-              animate={show?{opacity:1,y:0,scale:1}:{opacity:0,y:14,scale:0.95}}
-              transition={{type:"spring",duration:0.48,bounce:0.18,delay:i*0.038}}>
+                fontSize:22,lineHeight:1.25,letterSpacing:"-0.4px",color:"#fff",
+                transformOrigin:"50% 0%"}}
+              initial={{opacity:0,y:22,rotateX:-55}}
+              animate={show?{opacity:1,y:0,rotateX:0}:{}}
+              transition={{type:"spring",duration:0.54,bounce:0.14,delay:wordDelay(i)}}>
               {word}
             </motion.span>
           ))}
         </div>
 
         {/* Author */}
-        <motion.div variants={slideUp} style={{marginBottom:28}}>
+        <motion.div style={{marginBottom:28}}
+          initial={{opacity:0,y:10}}
+          animate={show?{opacity:1,y:0}:{}}
+          transition={{...SPRING_ENTRY,delay:wordDelay(words.length)}}>
           {q.author&&(
-            <span className="text-xs font-bold px-3 py-1 rounded-full" style={{background:ha(accent,0.14),color:ha(accent,0.90),border:`1px solid ${ha(accent,0.25)}`}}>
+            <span className="text-xs font-bold px-3 py-1 rounded-full"
+              style={{background:ha(accent,0.14),color:ha(accent,0.90),
+                border:`1px solid ${ha(accent,0.26)}`}}>
               — {q.author}
             </span>
           )}
         </motion.div>
 
         {/* CTA */}
-        <motion.div variants={slideUp}>
+        <motion.div
+          initial={{opacity:0,scale:0.86,y:20}}
+          animate={show?{opacity:1,scale:1,y:0}:{}}
+          transition={{...SPRING_ENTRY,delay:ctaDelay}}>
           <motion.button onClick={e=>{e.stopPropagation();onDone();}}
             className="px-10 py-4 rounded-2xl font-black text-base tracking-wide"
-            style={{background:accent,color:"#0A0A0A",
-              boxShadow:`0 12px 40px ${ha(accent,0.40)}`}}
-            whileTap={{scale:0.97}}
+            style={{background:accent,color:"#070312",
+              boxShadow:`0 14px 44px ${ha(accent,0.42)}`}}
+            whileTap={{scale:0.96}}
             animate={{boxShadow:[
-              `0 12px 40px ${ha(accent,0.38)}`,
-              `0 12px 56px ${ha(accent,0.58)}`,
-              `0 12px 40px ${ha(accent,0.38)}`,
+              `0 14px 44px ${ha(accent,0.38)}`,
+              `0 14px 62px ${ha(accent,0.60)}`,
+              `0 14px 44px ${ha(accent,0.38)}`,
             ]}}
-            transition={{duration:2.4,repeat:Infinity,ease:"easeInOut",delay:0.8}}>
+            transition={{duration:2.4,repeat:Infinity,ease:"easeInOut",delay:1.4}}>
             Let's crush it →
           </motion.button>
           <p className="mt-3 text-xs" style={{color:"rgba(255,255,255,0.20)"}}>tap anywhere to continue</p>
         </motion.div>
-      </motion.div>
-
-      {/* ── Glass overlay (z above content) ── */}
-      <div className="absolute inset-0 z-20" style={{pointerEvents:"none"}}>
-
-        {/* White impact flash — radial burst from impact centre */}
-        <motion.div style={{
-          position:"absolute",left:"52%",top:"44%",
-          translateX:"-50%",translateY:"-50%",
-          width:80,height:80,borderRadius:"50%",
-          background:"radial-gradient(circle,rgba(255,255,255,1) 0%,rgba(220,240,255,0.7) 25%,rgba(180,220,255,0.3) 55%,transparent 75%)",
-          pointerEvents:"none",
-        }}
-          initial={{opacity:0,scale:0}}
-          animate={phase>=1?{opacity:[0,1,0.7,0],scale:[0,1,2.2,4.5]}:{opacity:0,scale:0}}
-          transition={{duration:0.48,ease:[0.23,1,0.32,1]}}/>
-
-        {/* Expanding shockwave rings */}
-        {[0,1,2].map(ring=>(
-          <motion.div key={ring} style={{
-            position:"absolute",left:"52%",top:"44%",
-            translateX:"-50%",translateY:"-50%",
-            width:12,height:12,borderRadius:"50%",
-            border:`${2.5-ring*0.6}px solid rgba(255,255,255,${0.75-ring*0.15})`,
-            pointerEvents:"none",
-          }}
-            initial={{opacity:0,width:12,height:12}}
-            animate={phase>=1?{
-              opacity:[0,0.95,0.5,0],
-              width:[12,280+ring*110],
-              height:[12,280+ring*110],
-            }:{opacity:0}}
-            transition={{duration:0.58+ring*0.1,delay:ring*0.07,ease:[0.23,1,0.32,1]}}/>
-        ))}
-
-        {/* Crack SVG — white luminous lines spreading from impact */}
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none"
-          className="absolute inset-0 w-full h-full"
-          style={{pointerEvents:"none",opacity:phase>=2?0:1,transition:"opacity 0.14s ease 0.20s"}}>
-          <defs>
-            <filter id="crackGlow">
-              <feGaussianBlur stdDeviation="0.6" result="blur"/>
-              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-            </filter>
-          </defs>
-          {/* Primary radial cracks */}
-          {["M52,44 L20,0","M52,44 L52,0","M52,44 L73,0","M52,44 L100,18",
-            "M52,44 L100,60","M52,44 L70,100","M52,44 L28,100","M52,44 L0,66",
-            "M52,44 L0,20"].map((d,i)=>(
-            <path key={i} d={d} stroke="rgba(255,255,255,0.95)" strokeWidth="1.1" fill="none"
-              filter="url(#crackGlow)"
-              strokeDasharray="400" strokeDashoffset={phase>=1?"0":"400"}
-              style={{transition:`stroke-dashoffset ${0.26+i*0.014}s ease ${i*0.016}s`}}/>
-          ))}
-          {/* Secondary hairline cracks */}
-          {["M28,22 L12,4","M68,8 L80,2","M90,36 L100,28","M84,78 L96,88",
-            "M38,92 L32,100","M6,80 L0,90","M14,46 L4,40","M72,16 L82,8",
-            "M52,44 L40,20","M52,44 L64,68","M52,44 L30,60","M52,44 L70,32"].map((d,i)=>(
-            <path key={i} d={d} stroke={i<8?"rgba(255,255,255,0.50)":"rgba(255,255,255,0.30)"}
-              strokeWidth={i<8?"0.65":"0.45"} fill="none"
-              strokeDasharray="400" strokeDashoffset={phase>=1?"0":"400"}
-              style={{transition:`stroke-dashoffset ${0.30+i*0.012}s ease ${0.04+i*0.018}s`}}/>
-          ))}
-          {/* Impact epicentre — glowing dot + craze ring */}
-          <circle cx="52" cy="44" r="3" fill="rgba(255,255,255,1)"
-            filter="url(#crackGlow)"
-            opacity={phase>=1?1:0} style={{transition:"opacity 0.10s ease"}}/>
-          <circle cx="52" cy="44" r="9" fill="none"
-            stroke="rgba(255,255,255,0.40)" strokeWidth="0.6"
-            opacity={phase>=1?1:0} style={{transition:"opacity 0.10s ease 0.04s"}}/>
-        </svg>
-
-        {/* Glass shards — true glass appearance, Framer Motion physics */}
-        {SHARDS.map((s,i)=>{
-          const glassGrad=i%3===0
-            ?"linear-gradient(138deg,rgba(225,242,255,0.48),rgba(180,220,255,0.22),rgba(255,255,255,0.30))"
-            :i%3===1
-            ?"linear-gradient(158deg,rgba(255,255,255,0.42),rgba(195,228,255,0.24))"
-            :"linear-gradient(118deg,rgba(175,213,255,0.32),rgba(255,255,255,0.45),rgba(195,228,255,0.18))";
-          return(
-            <motion.div key={i} style={{
-              position:"absolute",inset:0,
-              background:glassGrad,
-              backdropFilter:"blur(6px) saturate(1.5) brightness(1.20)",
-              WebkitBackdropFilter:"blur(6px) saturate(1.5) brightness(1.20)",
-              clipPath:s.clip,
-              boxShadow:"inset 0 0 0 0.5px rgba(255,255,255,0.90), inset 1px 1px 0 rgba(255,255,255,0.55), 0 4px 16px rgba(0,0,0,0.45)",
-            }}
-              animate={phase>=2?{
-                x:s.tx,y:s.ty,rotate:s.rot,scale:0.50,opacity:0,
-              }:{x:0,y:0,rotate:0,scale:1,opacity:1}}
-              transition={{
-                duration:s.dur,
-                delay:phase>=2?s.delay:0,
-                ease:[0.36,0.07,0.19,0.97],
-                opacity:{duration:s.dur*0.7,delay:phase>=2?s.delay+s.dur*0.30:0},
-              }}/>
-          );
-        })}
-
-        {/* Tiny debris chips — scatter explosively */}
-        {DEBRIS.map((d,i)=>(
-          <motion.div key={i} style={{
-            position:"absolute",left:d.x,top:d.y,
-            width:d.w,height:d.h,borderRadius:1,
-            background:"linear-gradient(135deg,rgba(225,242,255,0.80),rgba(255,255,255,0.60))",
-            boxShadow:"inset 0 0 0 0.5px rgba(255,255,255,0.95), 0 2px 4px rgba(0,0,0,0.35)",
-          }}
-            animate={phase>=2
-              ?{x:d.tx,y:d.ty,rotate:d.rot,opacity:0,scale:0.4}
-              :phase>=1?{opacity:1,x:0,y:0,rotate:0,scale:1}
-              :{opacity:0,x:0,y:0,rotate:0,scale:1}}
-            transition={{
-              duration:phase>=2?0.36:0.10,
-              delay:phase>=2?d.delay:0.04+i*0.008,
-              ease:phase>=2?[0.36,0.07,0.19,0.97]:"easeOut",
-              opacity:{duration:phase>=2?0.28:0.10,delay:phase>=2?d.delay+0.12:0.04+i*0.008},
-            }}/>
-        ))}
       </div>
     </motion.div>
   );
@@ -3489,8 +3467,18 @@ function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;on
       style={{background:"#0A0A0A"}}>
       {/* Background atmosphere */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute rounded-full" style={{width:480,height:480,background:"radial-gradient(circle,rgba(255,250,102,0.14) 0%,transparent 68%)",top:-160,left:-160}}/>
-        <div className="absolute rounded-full" style={{width:420,height:420,background:"radial-gradient(circle,rgba(55,8,84,0.60) 0%,transparent 68%)",bottom:-120,right:-120}}/>
+        <motion.div className="absolute rounded-full"
+          style={{width:520,height:520,background:"radial-gradient(circle,rgba(255,250,102,0.18) 0%,transparent 68%)",top:-180,left:-180,filter:"blur(28px)"}}
+          animate={{scale:[1,1.18,0.94,1.12,1],x:[0,28,-18,14,0],y:[0,-22,16,-10,0],borderRadius:["50%","48% 52% 54% 46%","52% 48% 46% 54%","50%"]}}
+          transition={{duration:13,repeat:Infinity,ease:"easeInOut"}}/>
+        <motion.div className="absolute rounded-full"
+          style={{width:460,height:460,background:"radial-gradient(circle,rgba(55,8,84,0.68) 0%,transparent 68%)",bottom:-130,right:-130,filter:"blur(32px)"}}
+          animate={{scale:[1,0.86,1.18,0.92,1],x:[0,-22,14,-18,0],y:[0,20,-14,22,0],borderRadius:["50%","54% 46% 48% 52%","46% 54% 52% 48%","50%"]}}
+          transition={{duration:17,repeat:Infinity,ease:"easeInOut",delay:3}}/>
+        <motion.div className="absolute rounded-full"
+          style={{width:300,height:300,background:"radial-gradient(circle,rgba(139,92,246,0.22) 0%,transparent 68%)",top:"35%",right:-80,filter:"blur(36px)"}}
+          animate={{scale:[1,1.26,0.88,1.14,1],x:[0,16,-24,10,0],y:[0,-18,22,-12,0]}}
+          transition={{duration:21,repeat:Infinity,ease:"easeInOut",delay:8}}/>
         <div className="absolute inset-0" style={{backgroundImage:"radial-gradient(rgba(255,255,255,0.05) 1px,transparent 1px)",backgroundSize:"28px 28px"}}/>
       </div>
       <FloatingFoods/>
