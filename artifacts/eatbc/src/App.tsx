@@ -7,7 +7,7 @@ import {
   Sparkles, Stethoscope, User, UserPlus, ArrowRight, Scale,
   Flame, BarChart3, Trophy, Users, Bell, Plus, RefreshCw,
   Lightbulb, Globe, X, Check, Target, Dumbbell, CalendarDays, Clock, BookOpen, ChefHat,
-  Mic, MicOff, Volume2, Camera, Lock, Zap, Star,
+  Camera, Lock, Zap, Star,
   Search, ClipboardList, ChevronLeft,
 } from "lucide-react";
 import {
@@ -5387,17 +5387,11 @@ function VeerIcon({size=40}:{size?:number}) {
 function VeerBot({session,planCondition}:{session:Session|null;planCondition:string}) {
   const Y="#FFFA66"; const G="#1DAA61";
   const [open,setOpen]=useState(false);
-  const [phase,setPhase]=useState<"idle"|"listening"|"thinking"|"speaking">("idle");
+  const [phase,setPhase]=useState<"idle"|"thinking">("idle");
   const [messages,setMessages]=useState<{role:"user"|"assistant";content:string}[]>([]);
-  const [transcript,setTranscript]=useState("");
-  const [interim,setInterim]=useState("");
   const [error,setError]=useState("");
   const [textInput,setTextInput]=useState("");
   const hasIntroduced=useRef(false);
-  const recogRef=useRef<any>(null);
-  const audioRef=useRef<HTMLAudioElement|null>(null);
-  const phaseRef=useRef(phase);
-  phaseRef.current=phase;
 
   useEffect(()=>{
     if(!open) return;
@@ -5405,57 +5399,24 @@ function VeerBot({session,planCondition}:{session:Session|null;planCondition:str
       hasIntroduced.current=true;
       const intro="Namaste! I am Veer, your AI lifestyle coach. Kaise help kar sakta hoon aapki?";
       setMessages([{role:"assistant",content:intro}]);
-      setPhase("speaking");
-      playTTS(intro).then(()=>setPhase("idle"));
     }
     // eslint-disable-next-line
   },[open]);
 
-  async function playTTS(text:string):Promise<void> {
-    try {
-      const r=await fetch("/api/veer-tts",{
-        method:"POST",
-        headers:{"Content-Type":"application/json",...(session?.token?{Authorization:`Bearer ${session.token}`}:{})},
-        body:JSON.stringify({text}),
-      });
-      if(r.ok){
-        const blob=await r.blob();
-        const url=URL.createObjectURL(blob);
-        await new Promise<void>(resolve=>{
-          const audio=new Audio(url);
-          audioRef.current=audio;
-          audio.onended=()=>{URL.revokeObjectURL(url);resolve();};
-          audio.onerror=()=>resolve();
-          audio.play().catch(resolve);
-        });
-        return;
-      }
-    } catch {}
-    await new Promise<void>(resolve=>{
-      const utt=new SpeechSynthesisUtterance(text);
-      utt.lang="en-IN"; utt.rate=0.88; utt.pitch=1.04;
-      utt.onend=()=>resolve(); utt.onerror=()=>resolve();
-      window.speechSynthesis.speak(utt);
-    });
-  }
-
-  async function handleVeer(userText:string|null,first=false) {
-    setError(""); setInterim("");
+  async function handleVeer(userText:string) {
+    setError("");
     setPhase("thinking");
-    const newMessages=userText?[...messages,{role:"user" as const,content:userText}]:messages;
+    const newMessages=[...messages,{role:"user" as const,content:userText}];
     try {
-      const body=first?{messages:[],isFirst:true}:{messages:newMessages};
       const r=await fetch("/api/veer",{
         method:"POST",
         headers:{"Content-Type":"application/json",...(session?.token?{Authorization:`Bearer ${session.token}`}:{})},
-        body:JSON.stringify(body),
+        body:JSON.stringify({messages:newMessages}),
       });
       const data=await r.json() as {reply?:string;error?:string};
       if(!r.ok){setError(data.error||"Something went wrong.");setPhase("idle");return;}
       const reply=data.reply||"";
       setMessages([...newMessages,{role:"assistant" as const,content:reply}]);
-      setPhase("speaking");
-      await playTTS(reply);
     } catch {
       setError("Couldn't reach Veer — check your connection.");
     } finally {
@@ -5463,39 +5424,15 @@ function VeerBot({session,planCondition}:{session:Session|null;planCondition:str
     }
   }
 
-  function startListening() {
-    const SR=(window as any).SpeechRecognition||(window as any).webkitSpeechRecognition;
-    if(!SR){setError("Voice not supported — try Chrome.");return;}
-    audioRef.current?.pause();
-    window.speechSynthesis.cancel();
-    setTranscript(""); setInterim(""); setError("");
-    const recog=new SR();
-    recog.lang="en-IN"; recog.interimResults=true; recog.maxAlternatives=1;
-    recog.onresult=(e:any)=>{
-      let itm="",fin="";
-      for(const r of e.results){if(r.isFinal)fin+=r[0].transcript;else itm+=r[0].transcript;}
-      if(itm)setInterim(itm);
-      if(fin){setTranscript(fin);setInterim("");recog.stop();handleVeer(fin);}
-    };
-    recog.onerror=(e:any)=>{if(e.error!=="aborted")setError("Mic: "+e.error);setPhase("idle");};
-    recog.onend=()=>{if(phaseRef.current==="listening")setPhase("idle");};
-    recog.start(); recogRef.current=recog; setPhase("listening");
-  }
-
-  function stopListening(){recogRef.current?.stop();setPhase("idle");}
-
   const lastReply=messages.filter(m=>m.role==="assistant").at(-1)?.content;
-  const phaseColor={idle:"rgba(255,255,255,0.28)",listening:"#93C5FD",thinking:Y,speaking:G}[phase];
-  const phaseLabel={idle:"Tap mic to speak",listening:"Listening…",thinking:"Thinking…",speaking:"Speaking"}[phase];
+  const phaseColor={idle:"rgba(255,255,255,0.28)",thinking:Y}[phase];
   const ORB=130;
 
   return (
     <>
       <style>{`
         @keyframes vBreathe{0%,100%{transform:scale(1);opacity:.85}50%{transform:scale(1.07);opacity:1}}
-        @keyframes vRipple{0%{transform:scale(1);opacity:.5}100%{transform:scale(2.3);opacity:0}}
         @keyframes vSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-        @keyframes vBar{from{transform:scaleY(.22);opacity:.45}to{transform:scaleY(1);opacity:1}}
         @keyframes vDot{0%,70%,100%{transform:translateY(0);opacity:.28}35%{transform:translateY(-9px);opacity:1}}
         @keyframes vSlide{from{transform:translateY(100%)}to{transform:translateY(0)}}
         @keyframes vGlowBtn{0%,100%{box-shadow:0 4px 20px rgba(255,250,102,.22),0 0 0 0 rgba(255,250,102,.08)}50%{box-shadow:0 6px 34px rgba(255,250,102,.52),0 0 0 6px rgba(255,250,102,.05)}}
@@ -5514,7 +5451,7 @@ function VeerBot({session,planCondition}:{session:Session|null;planCondition:str
       {open&&(
         <div className="fixed inset-0 z-50 flex flex-col justify-end"
           style={{background:"rgba(0,0,0,0.72)",backdropFilter:"blur(10px)"}}
-          onClick={()=>{setOpen(false);window.speechSynthesis.cancel();audioRef.current?.pause();}}>
+          onClick={()=>setOpen(false)}>
           <div className="w-full max-w-sm mx-auto rounded-t-3xl pb-10"
             style={{background:"#09090F",borderTop:"1px solid rgba(255,255,255,0.08)",
               animation:"vSlide .32s cubic-bezier(.22,1,.36,1) both"}}
@@ -5540,7 +5477,7 @@ function VeerBot({session,planCondition}:{session:Session|null;planCondition:str
                   <p style={{fontSize:11,color:"rgba(255,255,255,0.3)",marginTop:2}}>Lifestyle Coach</p>
                 </div>
               </div>
-              <button onClick={()=>{setOpen(false);window.speechSynthesis.cancel();audioRef.current?.pause();}}
+              <button onClick={()=>setOpen(false)}
                 style={{color:"rgba(255,255,255,0.3)"}} className="hover:text-white transition-colors p-1">
                 <X size={18}/>
               </button>
@@ -5549,15 +5486,6 @@ function VeerBot({session,planCondition}:{session:Session|null;planCondition:str
             {/* Orb */}
             <div className="flex justify-center" style={{paddingTop:8,paddingBottom:4}}>
               <div className="relative flex items-center justify-center" style={{width:ORB+40,height:ORB+40}}>
-                {/* Listening: ripple rings */}
-                {phase==="listening"&&[0,1,2].map(i=>(
-                  <span key={i} className="absolute rounded-full pointer-events-none"
-                    style={{width:ORB+i*38,height:ORB+i*38,
-                      border:"1px solid rgba(147,197,253,0.35)",
-                      animation:"vRipple 2s ease-out infinite",
-                      animationDelay:`${i*0.55}s`,
-                      top:20-(i*19),left:20-(i*19)}}/>
-                ))}
                 {/* Thinking: spinning ring */}
                 {phase==="thinking"&&(
                   <span className="absolute rounded-full pointer-events-none"
@@ -5566,48 +5494,17 @@ function VeerBot({session,planCondition}:{session:Session|null;planCondition:str
                       borderTopColor:Y,borderRightColor:G,
                       animation:"vSpin .9s linear infinite"}}/>
                 )}
-                {/* Speaking: outer glow ring */}
-                {phase==="speaking"&&(
-                  <span className="absolute rounded-full pointer-events-none"
-                    style={{width:ORB+8,height:ORB+8,top:16,left:16,
-                      border:`1.5px solid rgba(29,170,97,0.5)`,
-                      boxShadow:`0 0 24px rgba(29,170,97,0.25)`,
-                      animation:"vBreathe 1.2s ease-in-out infinite"}}/>
-                )}
                 {/* Main orb */}
                 <div className="rounded-full flex items-center justify-center" style={{
                   width:ORB,height:ORB,
-                  background:
-                    phase==="listening"?"radial-gradient(circle at 38% 34%,rgba(147,197,253,0.16),rgba(6,6,14,.97))":
-                    phase==="speaking"?"radial-gradient(circle at 38% 34%,rgba(29,170,97,0.2),rgba(6,6,14,.97))":
-                    "radial-gradient(circle at 38% 34%,rgba(255,250,102,0.09),rgba(6,6,14,.97))",
-                  border:`2px solid ${
-                    phase==="listening"?"rgba(147,197,253,0.38)":
-                    phase==="thinking"?"rgba(255,250,102,0.22)":
-                    phase==="speaking"?"rgba(29,170,97,0.45)":
-                    "rgba(255,255,255,0.08)"}`,
-                  boxShadow:
-                    phase==="speaking"?`0 0 56px rgba(29,170,97,.26)`:
-                    phase==="listening"?"0 0 56px rgba(147,197,253,.18)":
-                    `0 0 36px rgba(255,250,102,.05)`,
-                  transition:"background .4s,border-color .4s,box-shadow .4s",
+                  background:"radial-gradient(circle at 38% 34%,rgba(255,250,102,0.09),rgba(6,6,14,.97))",
+                  border:`2px solid ${phase==="thinking"?"rgba(255,250,102,0.22)":"rgba(255,255,255,0.08)"}`,
+                  boxShadow:`0 0 36px rgba(255,250,102,.05)`,
+                  transition:"border-color .4s",
                 }}>
                   {phase==="idle"&&(
                     <div style={{animation:"vBreathe 3s ease-in-out infinite"}}>
                       <VeerIcon size={66}/>
-                    </div>
-                  )}
-                  {phase==="listening"&&(
-                    <div className="flex flex-col items-center" style={{gap:10}}>
-                      <Mic size={24} style={{color:"#93C5FD",filter:"drop-shadow(0 0 10px rgba(147,197,253,0.9))"}}/>
-                      <div className="flex items-end" style={{gap:3,height:22}}>
-                        {[7,14,9,18,12,16,8].map((h,i)=>(
-                          <span key={i} style={{width:3,height:h,borderRadius:3,display:"block",
-                            background:"rgba(147,197,253,0.72)",
-                            animation:`vBar .54s ease-in-out ${i*0.09}s infinite alternate`,
-                            transformOrigin:"bottom"}}/>
-                        ))}
-                      </div>
                     </div>
                   )}
                   {phase==="thinking"&&(
@@ -5618,16 +5515,6 @@ function VeerBot({session,planCondition}:{session:Session|null;planCondition:str
                       ))}
                     </div>
                   )}
-                  {phase==="speaking"&&(
-                    <div className="flex items-end" style={{gap:3,height:56}}>
-                      {[9,21,13,33,17,39,23,35,18,26,11].map((h,i)=>(
-                        <span key={i} style={{width:4,height:h,borderRadius:4,display:"block",
-                          background:`rgba(29,170,97,${0.58+i%4*.11})`,
-                          animation:`vBar .44s ease-in-out ${i*0.06}s infinite alternate`,
-                          transformOrigin:"bottom"}}/>
-                      ))}
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
@@ -5635,7 +5522,7 @@ function VeerBot({session,planCondition}:{session:Session|null;planCondition:str
             {/* Phase label */}
             <p className="text-center font-bold uppercase tracking-widest"
               style={{fontSize:10,color:phaseColor,transition:"color .35s",letterSpacing:"0.14em",marginBottom:12}}>
-              {phaseLabel}
+              {phase==="thinking"?"Thinking…":"Ask me anything"}
             </p>
 
             {/* Reply card */}
@@ -5647,15 +5534,6 @@ function VeerBot({session,planCondition}:{session:Session|null;planCondition:str
               </div>
             )}
 
-            {/* Interim / final transcript */}
-            {(transcript||interim)&&(
-              <p className="text-center mx-5 mb-3 px-3 py-2 rounded-xl"
-                style={{fontSize:11.5,color:"rgba(255,255,255,0.38)",
-                  background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.06)"}}>
-                {interim||transcript}
-              </p>
-            )}
-
             {/* Error */}
             {error&&(
               <p className="text-center mx-5 mb-3 px-3 py-2 rounded-xl"
@@ -5665,52 +5543,35 @@ function VeerBot({session,planCondition}:{session:Session|null;planCondition:str
               </p>
             )}
 
-            {/* Text input + mic row */}
-            <div className="flex items-center gap-2 px-4 mt-1 mb-2">
-              <form className="flex-1 flex items-center rounded-2xl overflow-hidden"
+            {/* Text input */}
+            <div className="px-4 mt-1 mb-2">
+              <form className="flex items-center rounded-2xl overflow-hidden"
                 style={{background:"rgba(255,255,255,0.055)",border:"1px solid rgba(255,255,255,0.10)"}}
                 onSubmit={e=>{
                   e.preventDefault();
                   const q=textInput.trim();
-                  if(!q||phase==="thinking"||phase==="speaking")return;
+                  if(!q||phase==="thinking")return;
                   handleVeer(q);setTextInput("");
                 }}>
                 <input
                   value={textInput}
                   onChange={e=>setTextInput(e.target.value)}
                   placeholder="Type a question…"
-                  disabled={phase==="thinking"||phase==="speaking"}
+                  disabled={phase==="thinking"}
                   className="flex-1 bg-transparent outline-none px-3 py-2.5"
                   style={{fontSize:13.5,color:"rgba(255,255,255,0.9)"}}
                 />
                 <button type="submit"
-                  disabled={!textInput.trim()||phase==="thinking"||phase==="speaking"}
+                  disabled={!textInput.trim()||phase==="thinking"}
                   className="px-3 py-2.5 transition-opacity disabled:opacity-25 flex-shrink-0"
                   style={{color:Y}}>
                   <ArrowRight size={18}/>
                 </button>
               </form>
-              {phase==="listening"?(
-                <button onClick={stopListening}
-                  className="flex-shrink-0 flex items-center justify-center rounded-full active:scale-95 transition-transform"
-                  style={{width:48,height:48,background:"linear-gradient(135deg,#EF4444,#DC2626)",
-                    boxShadow:"0 4px 20px rgba(239,68,68,.40)"}}>
-                  <MicOff size={20} className="text-white"/>
-                </button>
-              ):(
-                <button onClick={startListening}
-                  disabled={phase==="thinking"||phase==="speaking"}
-                  className="flex-shrink-0 flex items-center justify-center rounded-full active:scale-95 transition-all disabled:opacity-25"
-                  style={{width:48,height:48,
-                    background:"linear-gradient(135deg,#1DAA61,#0B6E40)",
-                    boxShadow:"0 4px 20px rgba(29,170,97,.40)"}}>
-                  <Mic size={20} className="text-white"/>
-                </button>
-              )}
             </div>
 
             <p className="text-center px-6 mt-2" style={{fontSize:9.5,color:"rgba(255,255,255,0.14)"}}>
-              Diet &amp; fitness only · Indian voice · Hindi &amp; English
+              Diet &amp; fitness only · Hindi &amp; English
             </p>
           </div>
         </div>
