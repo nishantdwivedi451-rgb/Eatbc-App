@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronRight, Utensils, Share2, Mail,
   CheckCircle2, Droplet, LogOut, TrendingDown, Loader2,
@@ -2239,10 +2240,54 @@ function ha(hex:string,a:number){
   const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
   return `rgba(${r},${g},${b},${a})`;
 }
+/* ── Emil Kowalski animation standards ── */
+const EASE_OUT=[0.23,1,0.32,1] as const;
+const SPRING_ENTRY={type:"spring",duration:0.55,bounce:0.20} as const;
+const SPRING_CRISP={type:"spring",duration:0.45,bounce:0.10} as const;
+/* Stagger container variants — children declare their own show variant */
+const staggerContainer={hidden:{},show:{transition:{staggerChildren:0.07,delayChildren:0.06}}};
+const slideUp={
+  hidden:{opacity:0,y:16,scale:0.96},
+  show:{opacity:1,y:0,scale:1,transition:SPRING_ENTRY},
+};
+
 function waterTarget(weight?:string|number,age?:string|number):number {
   const w=+(weight||70),a=+(age||30);
   return Math.max(6,Math.min(14,Math.round((w*33+(a<25?200:a>60?300:0))/250)));
 }
+/* Animated atom illustration — 3 elliptical orbits + nucleus */
+function AtomOrb({accent}:{accent:string}) {
+  return (
+    <motion.div className="relative flex items-center justify-center" style={{width:110,height:110}}
+      animate={{scale:[1,1.05,1]}} transition={{duration:3,repeat:Infinity,ease:"easeInOut"}}>
+      <div className="absolute inset-0 rounded-full" style={{background:accent,filter:"blur(26px)",opacity:0.22}}/>
+      <svg width="110" height="110" viewBox="0 0 110 110" style={{position:"absolute",inset:0,overflow:"visible"}}>
+        {/* 3 orbiting ellipses at different angles */}
+        {([0,60,120] as number[]).map((angle,i)=>(
+          <motion.ellipse key={i} cx="55" cy="55" rx="50" ry="19"
+            fill="none" stroke={ha(accent,0.45-i*0.08)} strokeWidth={1.8-i*0.3}
+            style={{transformOrigin:"55px 55px",transform:`rotate(${angle}deg)`}}
+            animate={{rotate:[angle,angle+360]}}
+            transition={{duration:5+i*2.2,repeat:Infinity,ease:"linear"}}
+          />
+        ))}
+        {/* 3 orbiting electron dots */}
+        {([0,1,2] as number[]).map(i=>(
+          <motion.circle key={`e${i}`} cx="55" cy="6" r="5.5" fill={accent}
+            style={{transformOrigin:"55px 55px",filter:`drop-shadow(0 0 4px ${accent})`}}
+            animate={{rotate:[i*120,i*120+360]}}
+            transition={{duration:4.5,repeat:Infinity,ease:"linear",delay:-i*1.5}}
+          />
+        ))}
+        {/* Nucleus glow */}
+        <circle cx="55" cy="55" r="16" fill={accent} opacity="0.25"/>
+        <circle cx="55" cy="55" r="11" fill={accent} opacity="0.85"/>
+        <circle cx="55" cy="55" r="6" fill="white" opacity="0.55"/>
+      </svg>
+    </motion.div>
+  );
+}
+
 function OnbSlide1({accent}:{accent:string}) {
   const [ct,setCt]=useState(0);
   useEffect(()=>{
@@ -2250,38 +2295,91 @@ function OnbSlide1({accent}:{accent:string}) {
     return()=>clearInterval(iv);
   },[]);
   return(
-    <div className="flex flex-col items-center text-center">
-      <div className="mb-4" style={{fontSize:72,animation:"onbPulse 2.5s ease-in-out infinite",filter:`drop-shadow(0 0 28px ${ha(accent,0.45)})`}}>🧬</div>
-      <div className="font-black leading-none mb-1 tabular-nums"
-        style={{fontSize:86,color:accent,textShadow:`0 0 48px ${ha(accent,0.4)}`,letterSpacing:"-3px"}}>{ct.toLocaleString()}+</div>
-      <p className="font-black mb-4" style={{fontSize:20,color:"rgba(255,255,255,0.9)",letterSpacing:"-0.3px"}}>Nutrition Studies</p>
-      <p style={{color:"rgba(255,255,255,0.48)",fontSize:14,maxWidth:250,lineHeight:1.7}}>
+    <motion.div className="flex flex-col items-center text-center"
+      variants={staggerContainer} initial="hidden" animate="show">
+      <motion.div variants={slideUp} className="mb-4">
+        <AtomOrb accent={accent}/>
+      </motion.div>
+      <motion.div variants={slideUp} className="font-black leading-none mb-1 tabular-nums"
+        style={{fontSize:86,color:accent,textShadow:`0 0 48px ${ha(accent,0.4)}`,letterSpacing:"-3px"}}>
+        {ct.toLocaleString()}+
+      </motion.div>
+      <motion.p variants={slideUp} className="font-black mb-4"
+        style={{fontSize:20,color:"rgba(255,255,255,0.9)",letterSpacing:"-0.3px"}}>
+        Nutrition Studies
+      </motion.p>
+      <motion.p variants={slideUp}
+        style={{color:"rgba(255,255,255,0.48)",fontSize:14,maxWidth:250,lineHeight:1.7}}>
         Real science behind every meal. Peer-reviewed nutrition research — not influencer guesswork.
-      </p>
-    </div>
+      </motion.p>
+    </motion.div>
   );
 }
+/* Animated shield with self-drawing path + checkmark reveal */
+function ShieldCheck({accent}:{accent:string}) {
+  return (
+    <svg width="96" height="108" viewBox="0 0 96 108" style={{overflow:"visible"}}>
+      {/* Ground glow */}
+      <motion.ellipse cx="48" cy="100" rx="28" ry="7" fill={accent}
+        animate={{opacity:[0.18,0.32,0.18],rx:[28,32,28]}}
+        transition={{duration:2.5,repeat:Infinity,ease:"easeInOut"}}/>
+      {/* Shield body draws itself */}
+      <motion.path
+        d="M48 4 L88 20 L88 52 C88 78 48 104 48 104 C48 104 8 78 8 52 L8 20 Z"
+        fill={ha(accent,0.18)} stroke={accent} strokeWidth="2.5"
+        initial={{pathLength:0,opacity:0}}
+        animate={{pathLength:1,opacity:1}}
+        transition={{duration:0.72,ease:EASE_OUT}}
+      />
+      {/* Inner highlight */}
+      <motion.path
+        d="M48 14 L80 27 L80 52 C80 72 48 96 48 96 C48 96 16 72 16 52 L16 27 Z"
+        fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="1"
+        initial={{opacity:0}} animate={{opacity:1}} transition={{delay:0.5}}
+      />
+      {/* Checkmark draws after shield */}
+      <motion.path
+        d="M30 55 L43 68 L66 40"
+        fill="none" stroke={accent} strokeWidth="5.5"
+        strokeLinecap="round" strokeLinejoin="round"
+        initial={{pathLength:0,opacity:0}}
+        animate={{pathLength:1,opacity:1}}
+        transition={{duration:0.42,delay:0.82,ease:EASE_OUT}}
+      />
+    </svg>
+  );
+}
+
 function OnbSlide2({accent}:{accent:string}) {
   return(
-    <div className="flex flex-col items-center text-center">
-      <div className="mb-5" style={{fontSize:72,animation:"onbPulse 2.5s ease-in-out infinite",filter:`drop-shadow(0 0 28px ${ha(accent,0.5)})`}}>🔐</div>
-      <div className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 mb-5"
+    <motion.div className="flex flex-col items-center text-center"
+      variants={staggerContainer} initial="hidden" animate="show">
+      <motion.div variants={slideUp} className="mb-5">
+        <ShieldCheck accent={accent}/>
+      </motion.div>
+      <motion.div variants={slideUp}
+        className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 mb-5"
         style={{background:ha(accent,0.14),border:`1px solid ${ha(accent,0.28)}`}}>
         <span style={{color:accent,fontSize:11,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase"}}>No spam calls guaranteed</span>
-      </div>
-      <h2 className="font-black text-white mb-4" style={{fontSize:52,lineHeight:0.95,letterSpacing:"-2px"}}>We don't sell<br/>your data.</h2>
-      <p style={{color:"rgba(255,255,255,0.48)",fontSize:14,maxWidth:260,lineHeight:1.7}}>
+      </motion.div>
+      <motion.h2 variants={slideUp} className="font-black text-white mb-4"
+        style={{fontSize:52,lineHeight:0.95,letterSpacing:"-2px"}}>
+        We don't sell<br/>your data.
+      </motion.h2>
+      <motion.p variants={slideUp}
+        style={{color:"rgba(255,255,255,0.48)",fontSize:14,maxWidth:260,lineHeight:1.7}}>
         We do not sell your data to Bajaj Finance or anyone else. Your health information stays yours — always.
-      </p>
-    </div>
+      </motion.p>
+    </motion.div>
   );
 }
 function OnbSlide3({accent}:{accent:string}) {
-  const [showChat,setShowChat]=useState(false);
-  useEffect(()=>{const t=setTimeout(()=>setShowChat(true),1350);return()=>clearTimeout(t);},[]);
+  const [phase,setPhase]=useState<"typing"|"chat">("typing");
+  useEffect(()=>{const t=setTimeout(()=>setPhase("chat"),1500);return()=>clearTimeout(t);},[]);
   return(
-    <div className="flex flex-col items-center text-center">
-      <div className="relative flex items-center justify-center mb-4" style={{width:114,height:114}}>
+    <motion.div className="flex flex-col items-center text-center"
+      variants={staggerContainer} initial="hidden" animate="show">
+      <motion.div variants={slideUp} className="relative flex items-center justify-center mb-4" style={{width:114,height:114}}>
         {[0,1,2].map(i=>(
           <div key={i} className="absolute inset-0 rounded-full" style={{
             border:`1.5px solid ${ha(accent,0.45)}`,
@@ -2289,48 +2387,119 @@ function OnbSlide3({accent}:{accent:string}) {
           }}/>
         ))}
         <div className="relative z-10"><VeerIcon size={88}/></div>
+      </motion.div>
+      {/* Typing indicator → chat bubble */}
+      <div className="mb-3" style={{minHeight:52}}>
+        <AnimatePresence mode="wait">
+          {phase==="typing"?(
+            <motion.div key="typing"
+              className="inline-flex items-center gap-1.5 rounded-[18px] px-4 py-3"
+              style={{background:ha(accent,0.12),border:`1px solid ${ha(accent,0.28)}`,borderBottomLeftRadius:4}}
+              initial={{opacity:0,scale:0.95,y:6}} animate={{opacity:1,scale:1,y:0}}
+              exit={{opacity:0,scale:0.95,y:-6}}
+              transition={SPRING_CRISP}>
+              {[0,1,2].map(i=>(
+                <motion.span key={i} style={{width:7,height:7,borderRadius:"50%",background:accent,display:"block"}}
+                  animate={{y:[0,-8,0],opacity:[0.35,1,0.35]}}
+                  transition={{duration:0.7,repeat:Infinity,ease:"easeInOut",delay:i*0.18}}/>
+              ))}
+            </motion.div>
+          ):(
+            <motion.div key="chat"
+              className="rounded-[20px] px-5 py-3"
+              style={{maxWidth:224,background:ha(accent,0.12),border:`1px solid ${ha(accent,0.30)}`,borderBottomLeftRadius:4}}
+              initial={{opacity:0,scale:0.96,y:6}} animate={{opacity:1,scale:1,y:0}}
+              transition={SPRING_ENTRY}>
+              <p style={{color:"rgba(255,255,255,0.92)",fontSize:13,lineHeight:1.55}}>
+                "Hi, I am Veer — your AI powered lifestyle coach."
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
-      {showChat&&(
-        <div className="rounded-[20px] px-5 py-3 mb-3" style={{
-          maxWidth:224,background:ha(accent,0.12),border:`1px solid ${ha(accent,0.30)}`,
-          borderBottomLeftRadius:4,animation:"liChatIn 0.5s cubic-bezier(0.22,1,0.36,1) both",
-        }}>
-          <p style={{color:"rgba(255,255,255,0.92)",fontSize:13,lineHeight:1.55}}>
-            "Hi, I am Veer — your AI powered lifestyle coach."
-          </p>
-        </div>
-      )}
-      <h2 className="font-black mb-2" style={{fontSize:26,letterSpacing:"-0.5px",color:accent}}>Meet Veer AI</h2>
-      <p style={{color:"rgba(255,255,255,0.42)",fontSize:13,maxWidth:250,lineHeight:1.75}}>
+      <motion.h2 variants={slideUp} className="font-black mb-2" style={{fontSize:26,letterSpacing:"-0.5px",color:accent}}>
+        Meet Veer AI
+      </motion.h2>
+      <motion.p variants={slideUp} style={{color:"rgba(255,255,255,0.42)",fontSize:13,maxWidth:250,lineHeight:1.75}}>
         Diet, workouts &amp; motivation in Hindi &amp; English. 24/7, always free.
-      </p>
-    </div>
+      </motion.p>
+    </motion.div>
   );
 }
-function OnbSlide4({anim,accent}:{anim:number;accent:string}) {
+function MacroRingIllus({accent}:{accent:string}) {
+  const r=44, circ=2*Math.PI*r;
+  const macros=[
+    {label:"Protein",pct:0.82,color:accent,offset:0},
+    {label:"Carbs",pct:0.67,color:"rgba(255,255,255,0.55)",offset:0.09},
+    {label:"Fat",pct:0.54,color:ha(accent,0.55),offset:0.18},
+  ];
   return(
-    <div className="relative flex flex-col items-center justify-center" style={{height:320}}>
-      <div className="flex flex-col items-center justify-center gap-1">
-        <div style={{
-          fontSize:52,fontWeight:900,color:"#ffffff",lineHeight:1.15,
-          opacity:anim>=0?1:0,
-          transform:anim>=1?"scale(0.92) translateY(-4px)":"scale(1) translateY(0)",
-          transition:"opacity 0.5s ease,transform 0.65s ease",
-        }}>Eat Better</div>
-        <div style={{
-          fontSize:44,fontWeight:900,color:accent,lineHeight:1.15,
-          opacity:anim>=1?1:0,
-          transform:anim>=1?"scale(1) translateY(0)":"scale(0.8) translateY(16px)",
-          transition:"opacity 0.5s ease 0.15s,transform 0.6s ease 0.15s",
-          textShadow:`0 0 28px ${ha(accent,0.6)}`,
-        }}>&amp; Count</div>
-        <p className="font-semibold mt-4" style={{
-          fontSize:14,color:"rgba(255,255,255,0.45)",letterSpacing:"0.05em",
-          opacity:anim>=2?1:0,
-          transition:"opacity 0.5s ease 0.2s",
-        }}>Eat Better. Count.</p>
-      </div>
-    </div>
+    <motion.svg width="130" height="130" viewBox="0 0 130 130" style={{overflow:"visible"}}
+      initial="hidden" animate="show">
+      {/* Glow halo */}
+      <motion.ellipse cx="65" cy="122" rx="30" ry="8" fill={accent}
+        initial={{opacity:0}} animate={{opacity:[0.15,0.28,0.15]}}
+        transition={{duration:2.4,repeat:Infinity,ease:"easeInOut",delay:0.8}}/>
+      {/* Three concentric rings */}
+      {macros.map((m,i)=>{
+        const ri=r-i*13, ci=2*Math.PI*ri;
+        return(
+          <g key={m.label}>
+            <circle cx="65" cy="65" r={ri} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="8"/>
+            <motion.circle cx="65" cy="65" r={ri}
+              fill="none" stroke={m.color} strokeWidth="8" strokeLinecap="round"
+              strokeDasharray={ci}
+              style={{transformOrigin:"65px 65px",rotate:-90}}
+              initial={{strokeDashoffset:ci}}
+              animate={{strokeDashoffset:ci*(1-m.pct)}}
+              transition={{duration:1.1,ease:EASE_OUT,delay:0.25+m.offset}}/>
+          </g>
+        );
+      })}
+      {/* Center kcal readout */}
+      <motion.text x="65" y="60" textAnchor="middle" fill="white"
+        fontWeight="900" fontSize="21" fontFamily="Space Grotesk,Inter,sans-serif"
+        initial={{opacity:0,y:68}} animate={{opacity:1,y:60}}
+        transition={{duration:0.45,ease:EASE_OUT,delay:0.6}}>
+        1840
+      </motion.text>
+      <motion.text x="65" y="74" textAnchor="middle" fill={accent}
+        fontWeight="700" fontSize="10.5" fontFamily="Space Grotesk,Inter,sans-serif"
+        initial={{opacity:0}} animate={{opacity:1}} transition={{delay:0.82}}>
+        kcal today
+      </motion.text>
+      {/* Electron dot orbiting outermost ring */}
+      <motion.circle r="5" fill={accent}
+        style={{filter:`drop-shadow(0 0 5px ${accent})`,transformOrigin:"65px 65px"}}
+        animate={{rotate:[0,360]}}
+        transition={{duration:4,repeat:Infinity,ease:"linear",delay:1.1}}>
+        <animateMotion dur="4s" repeatCount="indefinite"
+          path={`M ${65+r} 65 A ${r} ${r} 0 1 1 ${65+r-0.001} 65`}/>
+      </motion.circle>
+    </motion.svg>
+  );
+}
+function OnbSlide4({accent}:{accent:string}) {
+  return(
+    <motion.div className="flex flex-col items-center text-center"
+      variants={staggerContainer} initial="hidden" animate="show">
+      <motion.div variants={slideUp} className="mb-5">
+        <MacroRingIllus accent={accent}/>
+      </motion.div>
+      <motion.div variants={slideUp}
+        style={{fontSize:46,fontWeight:900,color:"#ffffff",lineHeight:1.1,letterSpacing:"-2px"}}>
+        Eat Better
+      </motion.div>
+      <motion.div variants={slideUp}
+        style={{fontSize:38,fontWeight:900,color:accent,lineHeight:1.1,letterSpacing:"-1.5px",
+          textShadow:`0 0 28px ${ha(accent,0.6)}`}}>
+        &amp; Count
+      </motion.div>
+      <motion.p variants={slideUp}
+        style={{fontSize:13,color:"rgba(255,255,255,0.42)",marginTop:16,letterSpacing:"0.06em"}}>
+        Your nutrition. Your rules.
+      </motion.p>
+    </motion.div>
   );
 }
 function Onboarding({onDone}:{onDone:()=>void}) {
@@ -2444,7 +2613,7 @@ function Onboarding({onDone}:{onDone:()=>void}) {
             {slide===0&&<OnbSlide1 accent={ACCENT[slide]}/>}
             {slide===1&&<OnbSlide2 accent={ACCENT[slide]}/>}
             {slide===2&&<OnbSlide3 accent={ACCENT[slide]}/>}
-            {slide===3&&<OnbSlide4 anim={anim} accent={ACCENT[slide]}/>}
+            {slide===3&&<OnbSlide4 accent={ACCENT[slide]}/>}
           </div>
         </div>
       </div>
@@ -3135,9 +3304,9 @@ function DailyQuote({onDone}:{onDone:()=>void}) {
 
 function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;onNew:()=>void;onLogin:()=>void}) {
   const t=makeT(lang);
-  const [visible,setVisible]=useState(false);
-  useEffect(()=>{const tm=setTimeout(()=>setVisible(true),80);return()=>clearTimeout(tm);},[]);
   const Y="#FFFA66";
+  const wq=useMemo(()=>MOTIVATION_QUOTES[Math.floor(Math.random()*MOTIVATION_QUOTES.length)],[]);
+  const wa=THEME_ACCENT[wq.theme]||Y;
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-5 py-16 relative overflow-hidden"
       style={{background:"#0A0A0A"}}>
@@ -3148,15 +3317,20 @@ function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;on
         <div className="absolute inset-0" style={{backgroundImage:"radial-gradient(rgba(255,255,255,0.05) 1px,transparent 1px)",backgroundSize:"28px 28px"}}/>
       </div>
       <FloatingFoods/>
-      <div className={`relative z-10 w-full max-w-sm transition-all duration-700 ${visible?"opacity-100 translate-y-0":"opacity-0 translate-y-8"}`}>
+
+      <motion.div className="relative z-10 w-full max-w-sm"
+        variants={staggerContainer} initial="hidden" animate="show">
+
         {/* Hero highlight */}
-        <div className="flex flex-col items-center mb-10">
-          <div className="relative flex flex-col items-center px-10 py-7 rounded-3xl mb-1"
+        <motion.div variants={slideUp} className="flex flex-col items-center mb-10">
+          <motion.div className="relative flex flex-col items-center px-10 py-7 rounded-3xl mb-1"
             style={{
               background:"linear-gradient(135deg,rgba(255,250,102,0.13) 0%,rgba(255,250,102,0.05) 100%)",
               border:"1.5px solid rgba(255,250,102,0.28)",
               boxShadow:"0 0 48px rgba(255,250,102,0.18), inset 0 1px 0 rgba(255,255,255,0.08)",
-            }}>
+            }}
+            animate={{boxShadow:["0 0 48px rgba(255,250,102,0.18), inset 0 1px 0 rgba(255,255,255,0.08)","0 0 72px rgba(255,250,102,0.30), inset 0 1px 0 rgba(255,255,255,0.10)","0 0 48px rgba(255,250,102,0.18), inset 0 1px 0 rgba(255,255,255,0.08)"]}}
+            transition={{duration:3.2,repeat:Infinity,ease:"easeInOut"}}>
             <div className="absolute -top-px left-1/2 -translate-x-1/2 h-px rounded-full"
               style={{width:"60%",background:"linear-gradient(90deg,transparent,rgba(255,250,102,0.7),transparent)"}}/>
             <h1 className="font-black text-white leading-none mb-2 text-center"
@@ -3165,39 +3339,37 @@ function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;on
               style={{color:Y,fontSize:11,letterSpacing:"0.18em",opacity:0.85}}>
               Eat Better &amp; Count
             </p>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
 
-        {/* Stat + daily quote */}
-        {(()=>{
-          const wq=MOTIVATION_QUOTES[Math.floor(Math.random()*MOTIVATION_QUOTES.length)];
-          const wa=THEME_ACCENT[wq.theme]||"#FFFA66";
-          return(
-            <div className="px-5 py-5 rounded-2xl mb-8" style={{background:"rgba(255,255,255,0.05)",border:`1px solid ${ha(wa,0.25)}`}}>
-              <p className="font-semibold leading-snug" style={{color:"rgba(255,255,255,0.85)",fontSize:14,textAlign:"center"}}>"{wq.text}"</p>
-              {wq.author&&<p className="mt-2.5 font-bold text-xs" style={{color:ha(wa,0.7),textAlign:"center"}}>— {wq.author}</p>}
-            </div>
-          );
-        })()}
+        {/* Daily quote */}
+        <motion.div variants={slideUp}
+          className="px-5 py-5 rounded-2xl mb-8"
+          style={{background:"rgba(255,255,255,0.05)",border:`1px solid ${ha(wa,0.25)}`}}>
+          <p className="font-semibold leading-snug" style={{color:"rgba(255,255,255,0.85)",fontSize:14,textAlign:"center"}}>"{wq.text}"</p>
+          {wq.author&&<p className="mt-2.5 font-bold text-xs" style={{color:ha(wa,0.7),textAlign:"center"}}>— {wq.author}</p>}
+        </motion.div>
 
         {/* CTAs */}
-        <div className="space-y-4">
-          <button onClick={onNew}
-            className="group relative w-full py-4 px-5 rounded-2xl font-black text-[1.05rem] transition-all duration-150 active:scale-[0.97]"
-            style={{background:Y,color:"#0A0A0A",boxShadow:"0 8px 32px rgba(255,250,102,0.25)"}}>
+        <motion.div variants={slideUp} className="space-y-4">
+          <motion.button onClick={onNew}
+            className="group relative w-full py-4 px-5 rounded-2xl font-black text-[1.05rem]"
+            style={{background:Y,color:"#0A0A0A",boxShadow:"0 8px 32px rgba(255,250,102,0.25)"}}
+            whileTap={{scale:0.97}} transition={SPRING_CRISP}>
             <span className="absolute left-5 top-1/2 -translate-y-1/2"><UserPlus size={21}/></span>
             <span className="block text-center">{t("newWarrior")}</span>
             <span className="absolute right-5 top-1/2 -translate-y-1/2 opacity-50 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all"><ArrowRight size={19}/></span>
-          </button>
-          <button onClick={onLogin}
-            className="group relative w-full py-4 px-5 rounded-2xl font-black text-[1.05rem] transition-all duration-150 active:scale-[0.97]"
-            style={{background:"transparent",border:"1.5px solid rgba(255,255,255,0.20)",color:"rgba(255,255,255,0.82)"}}>
+          </motion.button>
+          <motion.button onClick={onLogin}
+            className="group relative w-full py-4 px-5 rounded-2xl font-black text-[1.05rem]"
+            style={{background:"transparent",border:"1.5px solid rgba(255,255,255,0.20)",color:"rgba(255,255,255,0.82)"}}
+            whileTap={{scale:0.97}} transition={SPRING_CRISP}>
             <span className="absolute left-5 top-1/2 -translate-y-1/2"><User size={21}/></span>
             <span className="block text-center">{t("alreadyHustle")}</span>
             <span className="absolute right-5 top-1/2 -translate-y-1/2 opacity-40 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all"><ArrowRight size={19}/></span>
-          </button>
-        </div>
-      </div>
+          </motion.button>
+        </motion.div>
+      </motion.div>
     </div>
   );
 }

@@ -216,7 +216,7 @@
   to   { width: 100%; }
 }
 @keyframes liCounter {
-  from { opacity: 0; transform: translateY(28px) scale(0.72); }
+  from { opacity: 0; transform: translateY(18px) scale(0.95); }
   to   { opacity: 1; transform: none; }
 }
 @keyframes liRowIn {
@@ -228,7 +228,7 @@
   100% { transform: scale(2.7); opacity: 0; }
 }
 @keyframes liChatIn {
-  from { opacity: 0; transform: scale(0.78) translateY(10px); }
+  from { opacity: 0; transform: scale(0.95) translateY(8px); }
   to   { opacity: 1; transform: none; }
 }
 @keyframes liFloat {
