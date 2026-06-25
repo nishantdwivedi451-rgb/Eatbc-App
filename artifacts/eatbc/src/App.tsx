@@ -3107,14 +3107,41 @@ const THEME_ACCENT:Record<string,string>={
   leaf:"#74C69D",heart:"#FF6B9D",star:"#A8DADC",water:"#4CC9F0",
 };
 const SHARDS=[
-  {clip:"polygon(0% 0%,20% 0%,52% 44%,0% 32%)",    tx:-150,ty:-120,rot:-38},
-  {clip:"polygon(20% 0%,65% 0%,52% 44%)",            tx:0,  ty:-160,rot:12},
-  {clip:"polygon(65% 0%,100% 0%,100% 20%,52% 44%)", tx:150,ty:-120,rot:32},
-  {clip:"polygon(100% 20%,100% 58%,52% 44%)",        tx:165,ty:0,   rot:45},
-  {clip:"polygon(100% 58%,100% 100%,70% 100%,52% 44%)",tx:140,ty:130,rot:35},
-  {clip:"polygon(70% 100%,28% 100%,52% 44%)",        tx:0,  ty:160, rot:-15},
-  {clip:"polygon(28% 100%,0% 100%,0% 68%,52% 44%)", tx:-140,ty:130,rot:-32},
-  {clip:"polygon(0% 68%,0% 32%,52% 44%)",            tx:-165,ty:0,  rot:-45},
+  // Large primary sectors from impact point (52%,44%)
+  {clip:"polygon(0% 0%,20% 0%,52% 44%,0% 32%)",          tx:-310,ty:-240,rot:-62,dur:0.52,delay:0},
+  {clip:"polygon(20% 0%,52% 0%,52% 44%)",                 tx:-22, ty:-295,rot:26, dur:0.44,delay:0.03},
+  {clip:"polygon(52% 0%,73% 0%,52% 44%)",                 tx:38,  ty:-275,rot:-22,dur:0.48,delay:0.01},
+  {clip:"polygon(73% 0%,100% 0%,100% 18%,52% 44%)",       tx:280, ty:-215,rot:50, dur:0.50,delay:0.04},
+  {clip:"polygon(100% 18%,100% 60%,52% 44%)",             tx:315, ty:40,  rot:65, dur:0.46,delay:0.02},
+  {clip:"polygon(100% 60%,100% 100%,70% 100%,52% 44%)",   tx:250, ty:265, rot:46, dur:0.54,delay:0.05},
+  {clip:"polygon(70% 100%,28% 100%,52% 44%)",             tx:0,   ty:315, rot:-28,dur:0.50,delay:0.03},
+  {clip:"polygon(28% 100%,0% 100%,0% 66%,52% 44%)",       tx:-255,ty:252, rot:-54,dur:0.52,delay:0.06},
+  {clip:"polygon(0% 66%,0% 20%,52% 44%)",                 tx:-310,ty:24,  rot:-68,dur:0.46,delay:0.02},
+  // Secondary shards near impact centre — faster, more violent
+  {clip:"polygon(52% 44%,34% 16%,56% 10%,72% 26%)",       tx:-65, ty:-340,rot:40, dur:0.34,delay:0.08},
+  {clip:"polygon(52% 44%,72% 26%,88% 44%,76% 64%)",       tx:340, ty:-65, rot:-62,dur:0.36,delay:0.09},
+  {clip:"polygon(52% 44%,76% 64%,58% 80%,34% 74%)",       tx:88,  ty:340, rot:32, dur:0.34,delay:0.10},
+  {clip:"polygon(52% 44%,34% 74%,18% 56%,28% 32%)",       tx:-340,ty:88,  rot:-50,dur:0.36,delay:0.07},
+  // Tiny tertiary chips — explosively fast
+  {clip:"polygon(52% 44%,28% 32%,34% 16%)",               tx:-240,ty:-280,rot:82, dur:0.28,delay:0.12},
+  {clip:"polygon(52% 44%,56% 10%,72% 26%)",               tx:135, ty:-300,rot:-76,dur:0.26,delay:0.13},
+  {clip:"polygon(52% 44%,76% 64%,58% 80%)",               tx:280, ty:215, rot:94, dur:0.28,delay:0.11},
+  {clip:"polygon(52% 44%,18% 56%,28% 32%)",               tx:-310,ty:-48, rot:-92,dur:0.24,delay:0.14},
+];
+
+const DEBRIS=[
+  {x:"35%",y:"28%",w:5,h:4,tx:-185,ty:-245,rot:135,delay:0.09},
+  {x:"63%",y:"17%",w:3,h:3,tx:105, ty:-285,rot:-122,delay:0.11},
+  {x:"80%",y:"38%",w:4,h:3,tx:245, ty:-125,rot:205, delay:0.10},
+  {x:"72%",y:"65%",w:3,h:4,tx:225, ty:205, rot:-92, delay:0.13},
+  {x:"44%",y:"75%",w:5,h:3,tx:-58, ty:285, rot:162, delay:0.08},
+  {x:"20%",y:"60%",w:4,h:4,tx:-245,ty:165, rot:-205,delay:0.12},
+  {x:"16%",y:"32%",w:3,h:3,tx:-225,ty:-185,rot:112, delay:0.10},
+  {x:"46%",y:"10%",w:4,h:3,tx:-38, ty:-305,rot:-152,delay:0.09},
+  {x:"84%",y:"50%",w:3,h:4,tx:285, ty:42,  rot:244, delay:0.11},
+  {x:"58%",y:"8%", w:2,h:3,tx:95,  ty:-260,rot:180, delay:0.14},
+  {x:"25%",y:"45%",w:3,h:2,tx:-270,ty:-30, rot:-168,delay:0.12},
+  {x:"68%",y:"80%",w:2,h:3,tx:180, ty:260, rot:130, delay:0.13},
 ];
 
 function QuoteIllustration({theme,accent}:{theme:string;accent:string}) {
@@ -3238,8 +3265,10 @@ function DailyQuote({onDone}:{onDone:()=>void}) {
   const words=q.text.split(" ");
   const show=phase>=3;
   return(
-    <div className="min-h-screen relative overflow-hidden flex flex-col items-center justify-center"
-      style={{background:"#0A0A0A"}} onClick={show?onDone:undefined}>
+    <motion.div className="min-h-screen relative overflow-hidden flex flex-col items-center justify-center"
+      style={{background:"#0A0A0A"}} onClick={show?onDone:undefined}
+      animate={phase===1?{x:[0,-16,14,-9,6,-3,1,0],y:[0,-10,9,-6,3,-1,0,0]}:{x:0,y:0}}
+      transition={{duration:0.44,times:[0,0.08,0.20,0.36,0.52,0.68,0.84,1],ease:"linear"}}>
 
       {/* Deep accent glow */}
       <div style={{position:"absolute",inset:0,background:`radial-gradient(ellipse 80% 60% at 50% 50%,${ha(accent,0.22)} 0%,transparent 70%)`}}/>
@@ -3330,38 +3359,123 @@ function DailyQuote({onDone}:{onDone:()=>void}) {
 
       {/* ── Glass overlay (z above content) ── */}
       <div className="absolute inset-0 z-20" style={{pointerEvents:"none"}}>
-        {/* Crack SVG */}
+
+        {/* White impact flash — radial burst from impact centre */}
+        <motion.div style={{
+          position:"absolute",left:"52%",top:"44%",
+          translateX:"-50%",translateY:"-50%",
+          width:80,height:80,borderRadius:"50%",
+          background:"radial-gradient(circle,rgba(255,255,255,1) 0%,rgba(220,240,255,0.7) 25%,rgba(180,220,255,0.3) 55%,transparent 75%)",
+          pointerEvents:"none",
+        }}
+          initial={{opacity:0,scale:0}}
+          animate={phase>=1?{opacity:[0,1,0.7,0],scale:[0,1,2.2,4.5]}:{opacity:0,scale:0}}
+          transition={{duration:0.48,ease:[0.23,1,0.32,1]}}/>
+
+        {/* Expanding shockwave rings */}
+        {[0,1,2].map(ring=>(
+          <motion.div key={ring} style={{
+            position:"absolute",left:"52%",top:"44%",
+            translateX:"-50%",translateY:"-50%",
+            width:12,height:12,borderRadius:"50%",
+            border:`${2.5-ring*0.6}px solid rgba(255,255,255,${0.75-ring*0.15})`,
+            pointerEvents:"none",
+          }}
+            initial={{opacity:0,width:12,height:12}}
+            animate={phase>=1?{
+              opacity:[0,0.95,0.5,0],
+              width:[12,280+ring*110],
+              height:[12,280+ring*110],
+            }:{opacity:0}}
+            transition={{duration:0.58+ring*0.1,delay:ring*0.07,ease:[0.23,1,0.32,1]}}/>
+        ))}
+
+        {/* Crack SVG — white luminous lines spreading from impact */}
         <svg viewBox="0 0 100 100" preserveAspectRatio="none"
           className="absolute inset-0 w-full h-full"
-          style={{zIndex:3,pointerEvents:"none",opacity:phase>=2?0:1,transition:"opacity 0.18s ease 0.28s"}}>
-          {["M52,44 L20,0","M52,44 L65,0","M52,44 L100,20","M52,44 L100,58",
-            "M52,44 L70,100","M52,44 L28,100","M52,44 L0,68","M52,44 L0,32",
-            "M28,22 L14,6","M72,8 L84,2","M88,38 L98,30","M82,76 L94,86",
-            "M40,90 L36,100","M8,82 L2,92"].map((d,i)=>(
-            <path key={i} d={d} stroke={accent} strokeWidth={i<8?"1.2":"0.55"} fill="none"
+          style={{pointerEvents:"none",opacity:phase>=2?0:1,transition:"opacity 0.14s ease 0.20s"}}>
+          <defs>
+            <filter id="crackGlow">
+              <feGaussianBlur stdDeviation="0.6" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+          {/* Primary radial cracks */}
+          {["M52,44 L20,0","M52,44 L52,0","M52,44 L73,0","M52,44 L100,18",
+            "M52,44 L100,60","M52,44 L70,100","M52,44 L28,100","M52,44 L0,66",
+            "M52,44 L0,20"].map((d,i)=>(
+            <path key={i} d={d} stroke="rgba(255,255,255,0.95)" strokeWidth="1.1" fill="none"
+              filter="url(#crackGlow)"
               strokeDasharray="400" strokeDashoffset={phase>=1?"0":"400"}
-              style={{transition:`stroke-dashoffset ${0.32+i*0.018}s ease ${i*0.022}s`}}/>
+              style={{transition:`stroke-dashoffset ${0.26+i*0.014}s ease ${i*0.016}s`}}/>
           ))}
-          <circle cx="52" cy="44" r="2.5" fill={accent} opacity={phase>=1?1:0} style={{transition:"opacity 0.2s ease 0.05s"}}/>
+          {/* Secondary hairline cracks */}
+          {["M28,22 L12,4","M68,8 L80,2","M90,36 L100,28","M84,78 L96,88",
+            "M38,92 L32,100","M6,80 L0,90","M14,46 L4,40","M72,16 L82,8",
+            "M52,44 L40,20","M52,44 L64,68","M52,44 L30,60","M52,44 L70,32"].map((d,i)=>(
+            <path key={i} d={d} stroke={i<8?"rgba(255,255,255,0.50)":"rgba(255,255,255,0.30)"}
+              strokeWidth={i<8?"0.65":"0.45"} fill="none"
+              strokeDasharray="400" strokeDashoffset={phase>=1?"0":"400"}
+              style={{transition:`stroke-dashoffset ${0.30+i*0.012}s ease ${0.04+i*0.018}s`}}/>
+          ))}
+          {/* Impact epicentre — glowing dot + craze ring */}
+          <circle cx="52" cy="44" r="3" fill="rgba(255,255,255,1)"
+            filter="url(#crackGlow)"
+            opacity={phase>=1?1:0} style={{transition:"opacity 0.10s ease"}}/>
+          <circle cx="52" cy="44" r="9" fill="none"
+            stroke="rgba(255,255,255,0.40)" strokeWidth="0.6"
+            opacity={phase>=1?1:0} style={{transition:"opacity 0.10s ease 0.04s"}}/>
         </svg>
-        {/* Shards — vivid coloured so they're clearly visible */}
-        {SHARDS.map((s,i)=>(
-          <div key={i} style={{
-            position:"absolute",inset:0,
-            background:i%2===0
-              ?`linear-gradient(145deg,${ha(accent,0.38)},${ha(accent,0.18)})`
-              :`linear-gradient(160deg,${ha(accent,0.22)},${ha(accent,0.42)})`,
-            backdropFilter:"blur(10px) saturate(1.8) brightness(1.1)",
-            WebkitBackdropFilter:"blur(10px) saturate(1.8) brightness(1.1)",
-            clipPath:s.clip,
-            boxShadow:`inset 0 0 0 1px ${ha(accent,0.45)}, inset 0 1px 0 rgba(255,255,255,0.25)`,
-            transition:`transform 0.55s cubic-bezier(0.36,0.07,0.19,0.97) ${i*0.04}s, opacity 0.48s ease ${i*0.04}s`,
-            transform:phase>=2?`translate(${s.tx}px,${s.ty}px) rotate(${s.rot}deg) scale(0.2)`:"none",
-            opacity:phase>=2?0:1,
-          }}/>
+
+        {/* Glass shards — true glass appearance, Framer Motion physics */}
+        {SHARDS.map((s,i)=>{
+          const glassGrad=i%3===0
+            ?"linear-gradient(138deg,rgba(225,242,255,0.48),rgba(180,220,255,0.22),rgba(255,255,255,0.30))"
+            :i%3===1
+            ?"linear-gradient(158deg,rgba(255,255,255,0.42),rgba(195,228,255,0.24))"
+            :"linear-gradient(118deg,rgba(175,213,255,0.32),rgba(255,255,255,0.45),rgba(195,228,255,0.18))";
+          return(
+            <motion.div key={i} style={{
+              position:"absolute",inset:0,
+              background:glassGrad,
+              backdropFilter:"blur(6px) saturate(1.5) brightness(1.20)",
+              WebkitBackdropFilter:"blur(6px) saturate(1.5) brightness(1.20)",
+              clipPath:s.clip,
+              boxShadow:"inset 0 0 0 0.5px rgba(255,255,255,0.90), inset 1px 1px 0 rgba(255,255,255,0.55), 0 4px 16px rgba(0,0,0,0.45)",
+            }}
+              animate={phase>=2?{
+                x:s.tx,y:s.ty,rotate:s.rot,scale:0.50,opacity:0,
+              }:{x:0,y:0,rotate:0,scale:1,opacity:1}}
+              transition={{
+                duration:s.dur,
+                delay:phase>=2?s.delay:0,
+                ease:[0.36,0.07,0.19,0.97],
+                opacity:{duration:s.dur*0.7,delay:phase>=2?s.delay+s.dur*0.30:0},
+              }}/>
+          );
+        })}
+
+        {/* Tiny debris chips — scatter explosively */}
+        {DEBRIS.map((d,i)=>(
+          <motion.div key={i} style={{
+            position:"absolute",left:d.x,top:d.y,
+            width:d.w,height:d.h,borderRadius:1,
+            background:"linear-gradient(135deg,rgba(225,242,255,0.80),rgba(255,255,255,0.60))",
+            boxShadow:"inset 0 0 0 0.5px rgba(255,255,255,0.95), 0 2px 4px rgba(0,0,0,0.35)",
+          }}
+            animate={phase>=2
+              ?{x:d.tx,y:d.ty,rotate:d.rot,opacity:0,scale:0.4}
+              :phase>=1?{opacity:1,x:0,y:0,rotate:0,scale:1}
+              :{opacity:0,x:0,y:0,rotate:0,scale:1}}
+            transition={{
+              duration:phase>=2?0.36:0.10,
+              delay:phase>=2?d.delay:0.04+i*0.008,
+              ease:phase>=2?[0.36,0.07,0.19,0.97]:"easeOut",
+              opacity:{duration:phase>=2?0.28:0.10,delay:phase>=2?d.delay+0.12:0.04+i*0.008},
+            }}/>
         ))}
       </div>
-    </div>
+    </motion.div>
   );
 }
 
