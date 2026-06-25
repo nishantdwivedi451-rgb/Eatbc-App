@@ -44,14 +44,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === "GET") return res.status(200).json({ ok: true });
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { messages, isFirst } = req.body as {
+  const { messages, isFirst, userContext } = req.body as {
     messages?: { role: "user" | "assistant"; content: string }[];
     isFirst?: boolean;
+    userContext?: string;
   };
+
+  // Build system prompt — append user's personal data if available
+  const systemContent = userContext?.trim()
+    ? `${SYSTEM_PROMPT}\n\n---\nCURRENT USER PROFILE & JOURNEY\n${userContext}\n---\nUse this data to personalise answers. When asked "how am I doing", "what should I eat today", "am I on track" etc., refer specifically to their numbers.`
+    : SYSTEM_PROMPT;
 
   // Build OpenAI messages array
   const chatMessages: { role: "system" | "user" | "assistant"; content: string }[] = [
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: systemContent },
   ];
 
   if (isFirst) {

@@ -2373,55 +2373,212 @@ function OnbSlide2({accent}:{accent:string}) {
     </motion.div>
   );
 }
+/* ── Veer knowledge-absorption avatar ── */
+function VeerKnowledgeAvatar({accent,onDone}:{accent:string;onDone?:()=>void}) {
+  const [absorbed,setAbsorbed]=useState(0);
+  const [phase,setPhase]=useState<0|1|2>(0);
+
+  useEffect(()=>{
+    const t=setTimeout(()=>setPhase(1),480);
+    return()=>clearTimeout(t);
+  },[]);
+
+  useEffect(()=>{
+    if(phase!==1) return;
+    let n=0;
+    const iv=setInterval(()=>{
+      n++; setAbsorbed(n);
+      if(n>=8){clearInterval(iv);setTimeout(()=>{setPhase(2);onDone?.();},120);}
+    },310);
+    return()=>clearInterval(iv);
+  },[phase]);
+
+  const BOOKS=[
+    {tx:-78,ty:-52,r:28},{tx:80,ty:-58,r:-24},
+    {tx:-88,ty:12,r:16},{tx:90,ty:16,r:-30},
+    {tx:-52,ty:-94,r:36},{tx:54,ty:-92,r:-32},
+    {tx:4,ty:-108,r:6},{tx:-22,ty:78,r:-14},
+  ];
+  const NEURAL=[
+    "M60 60 L49 51","M60 60 L73 49","M60 60 L53 73",
+    "M60 60 L71 69","M60 60 L60 37","M60 60 L41 61",
+    "M60 60 L79 61","M49 51 L41 61","M73 49 L79 61","M53 73 L71 69",
+  ];
+  const NODES=[
+    {cx:49,cy:51},{cx:73,cy:49},{cx:53,cy:73},{cx:71,cy:69},
+    {cx:60,cy:37},{cx:41,cy:61},{cx:79,cy:61},{cx:60,cy:60},
+  ];
+
+  return(
+    <div className="relative flex items-center justify-center" style={{width:188,height:210}}>
+      {/* Flying books */}
+      {BOOKS.map((b,i)=>(
+        <motion.div key={i} style={{position:"absolute",top:"43%",left:"50%",
+          width:22,height:30,marginLeft:-11,marginTop:-15,zIndex:10,pointerEvents:"none"}}
+          initial={{x:b.tx,y:b.ty,opacity:0,scale:0.8,rotate:b.r}}
+          animate={phase===1&&i<absorbed
+            ?{x:0,y:0,opacity:[0,0.95,0.95,0],scale:[0.85,1.1,0.12],rotate:0}
+            :phase===0||(phase===1&&i>=absorbed)
+            ?{x:b.tx,y:b.ty,opacity:i<3?0.38:0,scale:0.8,rotate:b.r}
+            :{opacity:0,x:0,y:0}}
+          transition={{duration:0.50,ease:[0.23,1,0.32,1]}}>
+          <svg width="22" height="30" viewBox="0 0 22 30" style={{overflow:"visible"}}>
+            <rect x="1" y="1" width="20" height="28" rx="2"
+              fill={ha(accent,0.90)} stroke={accent} strokeWidth="1.5"
+              style={{filter:`drop-shadow(0 0 5px ${ha(accent,0.7)})`}}/>
+            <rect x="1" y="1" width="4" height="28" rx="1" fill={ha(accent,0.42)}/>
+            {[7,12,17,22].map(y=><line key={y} x1="7" y1={y} x2="18" y2={y}
+              stroke="rgba(0,0,0,0.30)" strokeWidth="1"/>)}
+          </svg>
+        </motion.div>
+      ))}
+
+      {/* Avatar SVG */}
+      <svg width="158" height="195" viewBox="0 0 120 148" style={{position:"relative",zIndex:2,overflow:"visible"}}>
+        {/* Outer breathing aura */}
+        <motion.circle cx="60" cy="61" r="56" fill="none" stroke={ha(accent,0.09)} strokeWidth="1.5"
+          animate={{scale:[1,1.055,1],opacity:[0.09,0.20,0.09]}}
+          transition={{duration:3.4,repeat:Infinity,ease:"easeInOut"}}/>
+
+        {/* Body silhouette */}
+        <motion.path d="M15 145 C21 117 39 109 60 107 C81 109 99 117 105 145"
+          fill={ha(accent,0.07)} stroke={ha(accent,0.30)} strokeWidth="3.5" strokeLinecap="round"
+          initial={{opacity:0,y:14}} animate={{opacity:1,y:0}}
+          transition={{delay:0.28,duration:0.52}}/>
+
+        {/* Neck */}
+        <motion.rect x="52" y="95" width="16" height="17" rx="8"
+          fill={ha(accent,0.12)} stroke={ha(accent,0.28)} strokeWidth="1.5"
+          initial={{opacity:0}} animate={{opacity:1}} transition={{delay:0.2}}/>
+
+        {/* Head outer power ring — only phase 2 */}
+        {phase===2&&(
+          <motion.circle cx="60" cy="61" r="42" fill={ha(accent,0.05)}
+            stroke={ha(accent,0.45)} strokeWidth="1.5"
+            animate={{scale:[1,1.05,1],opacity:[0.45,0.80,0.45]}}
+            transition={{duration:2.1,repeat:Infinity,ease:"easeInOut"}}/>
+        )}
+
+        {/* Head main circle */}
+        <motion.circle cx="60" cy="61" r="37"
+          fill="rgba(7,5,17,0.98)" stroke={accent} strokeWidth="2.5"
+          style={{filter:`drop-shadow(0 0 14px ${ha(accent,0.28)})`}}
+          initial={{scale:0,opacity:0}} animate={{scale:1,opacity:1}}
+          transition={{type:"spring",duration:0.68,bounce:0.26,delay:0.08}}/>
+
+        {/* Skull inner ring */}
+        <motion.circle cx="60" cy="61" r="31" fill="none" stroke={ha(accent,0.15)} strokeWidth="0.8"
+          initial={{opacity:0}} animate={{opacity:1}} transition={{delay:0.55}}/>
+
+        {/* Neural pathways */}
+        {NEURAL.map((d,i)=>(
+          <motion.path key={i} d={d} fill="none" stroke={accent} strokeWidth="1.6" strokeLinecap="round"
+            initial={{pathLength:0,opacity:0}}
+            animate={absorbed>Math.floor(i*0.72)?{pathLength:1,opacity:0.62}:{pathLength:0,opacity:0}}
+            transition={{duration:0.26,ease:"easeOut"}}/>
+        ))}
+
+        {/* Neural nodes */}
+        {NODES.map(({cx,cy},i)=>(
+          <motion.circle key={i} cx={cx} cy={cy} r={i===7?5.8:2.6} fill={accent}
+            style={{filter:`drop-shadow(0 0 ${i===7?9:5}px ${ha(accent,0.9)})`}}
+            initial={{scale:0,opacity:0}}
+            animate={absorbed>i?{scale:1,opacity:0.92}:{scale:0,opacity:0}}
+            transition={{type:"spring",duration:0.30,bounce:0.35}}/>
+        ))}
+
+        {/* Brow lines */}
+        <motion.path d="M44 54 Q49 51 54 54" fill="none" stroke={ha(accent,0.55)} strokeWidth="2" strokeLinecap="round"
+          initial={{opacity:0}} animate={{opacity:1}} transition={{delay:0.6}}/>
+        <motion.path d="M66 54 Q71 51 76 54" fill="none" stroke={ha(accent,0.55)} strokeWidth="2" strokeLinecap="round"
+          initial={{opacity:0}} animate={{opacity:1}} transition={{delay:0.6}}/>
+
+        {/* Eyes */}
+        <motion.ellipse cx="50" cy="62" rx={phase>=2?6.5:5.5} ry={phase>=2?5.5:5}
+          fill={phase>=2?accent:"rgba(255,255,255,0.72)"}
+          style={{filter:`drop-shadow(0 0 ${phase>=2?11:5}px ${accent})`}}
+          animate={phase>=2?{opacity:[0.72,1,0.72]}:{opacity:1}}
+          transition={{duration:1.8,repeat:phase>=2?Infinity:0}}/>
+        <motion.ellipse cx="70" cy="62" rx={phase>=2?6.5:5.5} ry={phase>=2?5.5:5}
+          fill={phase>=2?accent:"rgba(255,255,255,0.72)"}
+          style={{filter:`drop-shadow(0 0 ${phase>=2?11:5}px ${accent})`}}
+          animate={phase>=2?{opacity:[0.72,1,0.72]}:{opacity:1}}
+          transition={{duration:1.8,repeat:phase>=2?Infinity:0,delay:0.22}}/>
+
+        {/* Mouth — slight smile */}
+        <motion.path d="M52 75 Q60 80 68 75" fill="none" stroke={ha(accent,0.45)} strokeWidth="2" strokeLinecap="round"
+          initial={{opacity:0,pathLength:0}} animate={{opacity:1,pathLength:1}} transition={{delay:0.7,duration:0.4}}/>
+
+        {/* Power burst rings on completion */}
+        {phase===2&&[0,1,2].map(i=>(
+          <motion.circle key={i} cx="60" cy="61" r="42"
+            fill="none" stroke={ha(accent,0.52-i*0.13)} strokeWidth={2.8-i*0.6}
+            initial={{scale:0.82,opacity:0.75}}
+            animate={{scale:1.75+i*0.22,opacity:0}}
+            transition={{duration:0.92+i*0.16,delay:i*0.17,ease:"easeOut"}}/>
+        ))}
+
+        {/* Crown sparks on completion */}
+        {phase===2&&([-26,-13,0,13,26] as number[]).map((dx,i)=>(
+          <motion.circle key={i} cx={60+dx} cy={26} r="3.2" fill={accent}
+            style={{filter:`drop-shadow(0 0 6px ${accent})`}}
+            initial={{scale:0,opacity:0,y:0}}
+            animate={{scale:[0,1.5,0],opacity:[0,1,0],y:[-4,-18,-34]}}
+            transition={{duration:0.72,delay:0.06+i*0.07,ease:"easeOut"}}/>
+        ))}
+
+        {/* Data-stream particles flying into head during absorption */}
+        {phase===1&&[0,1,2,3].map(i=>(
+          <motion.circle key={`p${i}`} cx={60+[-18,20,-12,15][i]} cy={20+i*6} r="2" fill={accent}
+            opacity="0.6"
+            animate={{cy:[20+i*6,61],opacity:[0.6,0]}}
+            transition={{duration:0.4,delay:absorbed>i?0:99,repeat:Infinity,repeatDelay:1.2}}/>
+        ))}
+      </svg>
+    </div>
+  );
+}
+
 function OnbSlide3({accent}:{accent:string}) {
-  const [phase,setPhase]=useState<"typing"|"chat">("typing");
-  useEffect(()=>{const t=setTimeout(()=>setPhase("chat"),1500);return()=>clearTimeout(t);},[]);
+  const [count,setCount]=useState(0);
+  const [loaded,setLoaded]=useState(false);
+
+  useEffect(()=>{
+    if(!loaded) return;
+    const iv=setInterval(()=>setCount(c=>{const n=c+9;return n>=200?200:n;}),22);
+    return()=>clearInterval(iv);
+  },[loaded]);
+
   return(
     <motion.div className="flex flex-col items-center text-center"
       variants={staggerContainer} initial="hidden" animate="show">
-      <motion.div variants={slideUp} className="relative flex items-center justify-center mb-4" style={{width:114,height:114}}>
-        {[0,1,2].map(i=>(
-          <div key={i} className="absolute inset-0 rounded-full" style={{
-            border:`1.5px solid ${ha(accent,0.45)}`,
-            animation:`liVeerRing 2.2s ease-out ${i*0.65}s infinite`,
-          }}/>
-        ))}
-        <div className="relative z-10"><VeerIcon size={88}/></div>
+      <motion.div variants={slideUp} className="mb-1">
+        <VeerKnowledgeAvatar accent={accent} onDone={()=>setLoaded(true)}/>
       </motion.div>
-      {/* Typing indicator → chat bubble */}
-      <div className="mb-3" style={{minHeight:52}}>
-        <AnimatePresence mode="wait">
-          {phase==="typing"?(
-            <motion.div key="typing"
-              className="inline-flex items-center gap-1.5 rounded-[18px] px-4 py-3"
-              style={{background:ha(accent,0.12),border:`1px solid ${ha(accent,0.28)}`,borderBottomLeftRadius:4}}
-              initial={{opacity:0,scale:0.95,y:6}} animate={{opacity:1,scale:1,y:0}}
-              exit={{opacity:0,scale:0.95,y:-6}}
-              transition={SPRING_CRISP}>
-              {[0,1,2].map(i=>(
-                <motion.span key={i} style={{width:7,height:7,borderRadius:"50%",background:accent,display:"block"}}
-                  animate={{y:[0,-8,0],opacity:[0.35,1,0.35]}}
-                  transition={{duration:0.7,repeat:Infinity,ease:"easeInOut",delay:i*0.18}}/>
-              ))}
-            </motion.div>
-          ):(
-            <motion.div key="chat"
-              className="rounded-[20px] px-5 py-3"
-              style={{maxWidth:224,background:ha(accent,0.12),border:`1px solid ${ha(accent,0.30)}`,borderBottomLeftRadius:4}}
-              initial={{opacity:0,scale:0.96,y:6}} animate={{opacity:1,scale:1,y:0}}
-              transition={SPRING_ENTRY}>
-              <p style={{color:"rgba(255,255,255,0.92)",fontSize:13,lineHeight:1.55}}>
-                "Hi, I am Veer — your AI powered lifestyle coach."
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-      <motion.h2 variants={slideUp} className="font-black mb-2" style={{fontSize:26,letterSpacing:"-0.5px",color:accent}}>
+      <motion.h2 variants={slideUp} className="font-black mb-2"
+        style={{fontSize:26,letterSpacing:"-0.5px",color:accent}}>
         Meet Veer AI
       </motion.h2>
-      <motion.p variants={slideUp} style={{color:"rgba(255,255,255,0.42)",fontSize:13,maxWidth:250,lineHeight:1.75}}>
-        Diet, workouts &amp; motivation in Hindi &amp; English. 24/7, always free.
+      {loaded?(
+        <motion.div className="mb-2" initial={{opacity:0,scale:0.82}} animate={{opacity:1,scale:1}} transition={SPRING_ENTRY}>
+          <span className="font-black tabular-nums"
+            style={{fontSize:62,color:accent,letterSpacing:"-3px",lineHeight:1,
+              textShadow:`0 0 40px ${ha(accent,0.6)},0 0 80px ${ha(accent,0.28)}`}}>
+            {count}+
+          </span>
+          <p style={{fontSize:12,color:"rgba(255,255,255,0.50)",marginTop:3,
+            letterSpacing:"0.08em",textTransform:"uppercase",fontWeight:700}}>
+            ebooks fed into Veer
+          </p>
+        </motion.div>
+      ):(
+        <p style={{fontSize:11,color:"rgba(255,255,255,0.32)",marginBottom:8,
+          letterSpacing:"0.12em",textTransform:"uppercase",fontWeight:600}}>
+          Absorbing knowledge…
+        </p>
+      )}
+      <motion.p variants={slideUp} style={{color:"rgba(255,255,255,0.42)",fontSize:13,maxWidth:252,lineHeight:1.75}}>
+        Nutrition, dietetics &amp; fitness research — baked into every answer. Hindi &amp; English, 24/7, free.
       </motion.p>
     </motion.div>
   );
@@ -5384,7 +5541,10 @@ function VeerIcon({size=40}:{size?:number}) {
   );
 }
 
-function VeerBot({session,planCondition}:{session:Session|null;planCondition:string}) {
+function VeerBot({session,planCondition,plan,tracking,profile}:{
+  session:Session|null;planCondition:string;
+  plan:Plan|null;tracking:Tracking;profile:Profile;
+}) {
   const Y="#FFFA66"; const G="#1DAA61";
   const [open,setOpen]=useState(false);
   const [phase,setPhase]=useState<"idle"|"thinking">("idle");
@@ -5403,6 +5563,33 @@ function VeerBot({session,planCondition}:{session:Session|null;planCondition:str
     // eslint-disable-next-line
   },[open]);
 
+  function buildUserContext():string {
+    const lines:string[]=[];
+    if(profile.name) lines.push(`User: ${profile.name}`);
+    if(profile.sex||profile.age) lines.push(`${profile.sex||""}${profile.age?`, age ${profile.age}`:""}${profile.weight?`, ${profile.weight}kg`:""}${profile.heightFt?`, ${profile.heightFt}'${profile.heightIn||0}"`:""}`.trim());
+    if(profile.goal) lines.push(`Goal: ${profile.goal}`);
+    if(profile.activity) lines.push(`Activity: ${profile.activity}${profile.exercise?` / ${profile.exercise}`:""}`);
+    if(profile.diet) lines.push(`Diet: ${profile.diet}`);
+    if(profile.condition) lines.push(`Health condition: ${profile.condition}`);
+    if(plan){
+      lines.push(`Daily calories: ${plan.dailyCalories} kcal`);
+      if(plan.weeklyLoss) lines.push(`Target: ${plan.weeklyLoss}`);
+    }
+    const weightLog=Object.entries(tracking.weights||{}).sort();
+    if(weightLog.length){
+      const [lastDate,lastW]=weightLog[weightLog.length-1];
+      lines.push(`Last logged weight: ${lastW}kg (${lastDate})`);
+      if(weightLog.length>1){
+        const firstW=weightLog[0][1];
+        const diff=(lastW-firstW).toFixed(1);
+        lines.push(`Weight change since start: ${+diff>0?"+":""}${diff}kg over ${weightLog.length} entries`);
+      }
+    }
+    const mealsLogged=Object.values(tracking).filter(v=>typeof v==="object"&&v&&"meals" in v).length;
+    if(mealsLogged) lines.push(`Days with meals logged: ${mealsLogged}`);
+    return lines.join("\n");
+  }
+
   async function handleVeer(userText:string) {
     setError("");
     setPhase("thinking");
@@ -5411,7 +5598,7 @@ function VeerBot({session,planCondition}:{session:Session|null;planCondition:str
       const r=await fetch("/api/veer",{
         method:"POST",
         headers:{"Content-Type":"application/json",...(session?.token?{Authorization:`Bearer ${session.token}`}:{})},
-        body:JSON.stringify({messages:newMessages}),
+        body:JSON.stringify({messages:newMessages,userContext:buildUserContext()}),
       });
       const data=await r.json() as {reply?:string;error?:string};
       if(!r.ok){setError(data.error||"Something went wrong.");setPhase("idle");return;}
@@ -5580,8 +5767,8 @@ function VeerBot({session,planCondition}:{session:Session|null;planCondition:str
   );
 }
 
-function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccount,onRecalc}:{
-  session:Session;plan:Plan|null;tracking:Tracking;lang:Lang;
+function Dash({session,plan,tracking,profile,lang,onUpdate,onSwap,onLogout,onDeleteAccount,onRecalc}:{
+  session:Session;plan:Plan|null;tracking:Tracking;profile:Profile;lang:Lang;
   onUpdate:(t:Tracking)=>void;onSwap:(day:DayName,mealIdx:number)=>void;onLogout:()=>void;onDeleteAccount:()=>void;onRecalc:(activity?:string,overrideWeight?:number)=>void;
 }) {
   const t=makeT(lang);
@@ -5971,7 +6158,7 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccou
         />
       )}
     </Shell>
-    <VeerBot session={session} planCondition={plan?.condition||""}/>
+    <VeerBot session={session} planCondition={plan?.condition||""} plan={plan} tracking={tracking} profile={profile} />
     </>
   );
 }
@@ -6154,13 +6341,13 @@ export default function App() {
     setSession(sess); sset<Session>("eatbc:session",sess);
     if(loginPlan) setPlan(loginPlan);
     setTracking(loginTracking||{});
-    setScreen("intro");
+    setScreen("quote");
   }
   async function doSignup(sess:Session) {
     setSession(sess); sset<Session>("eatbc:session",sess);
     if(plan) await apiPost("/api/plan",{plan,profile},sess.token).catch(()=>{});
     setTracking({});
-    setScreen("intro");
+    setScreen("quote");
   }
   function logout() {
     const token=session?.token;
@@ -6450,7 +6637,7 @@ export default function App() {
   if (screen==="signup") return <Signup profile={profile} plan={plan} onDone={doSignup} onBack={()=>setScreen("plan")} onLogin={()=>setScreen("login")}/>;
 
   if (screen==="dash"&&session) return (
-    <Dash session={session} plan={plan} tracking={tracking} lang={lang}
+    <Dash session={session} plan={plan} tracking={tracking} profile={profile} lang={lang}
       onUpdate={(tr)=>{setTracking(tr);if(session?.token)apiPost("/api/tracking",{tracking:tr},session.token).catch(()=>{});}}
       onSwap={swapMeal}
       onLogout={logout}
