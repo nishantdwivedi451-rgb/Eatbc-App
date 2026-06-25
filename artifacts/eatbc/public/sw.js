@@ -1,6 +1,22 @@
-/* EatBC service worker — offline shell + safe caching + notification routing */
+/* EatBC service worker — offline shell + safe caching + Web Push + notification routing */
 const CACHE = "eatbc-v1";
 const SHELL = ["/", "/index.html", "/manifest.webmanifest", "/icon.svg", "/favicon.svg"];
+
+/* ── Web Push: server sends a push event → SW shows the notification ── */
+self.addEventListener("push", (e) => {
+  let data = { title: "EatBC", body: "Time to check in!", icon: "/icon.svg", url: "/" };
+  try { if (e.data) data = { ...data, ...e.data.json() }; } catch {}
+  e.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: data.icon,
+      badge: "/icon.svg",
+      data: { url: data.url },
+      tag: "eatbc-nudge",         // replaces previous unread nudge
+      renotify: true,
+    })
+  );
+});
 
 self.addEventListener("notificationclick", (e) => {
   e.notification.close();

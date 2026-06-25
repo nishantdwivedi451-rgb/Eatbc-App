@@ -4395,10 +4395,59 @@ const NUDGE_MSGS: {cat:string; title:string; body:string}[] = [
   {cat:"cheat", title:"Keeping it real", body:"Good food choices AND cheat meals are both data. Log both."},
 ];
 
+const VAPID_PUBLIC_KEY = "BHc0QeYwUE28jHcubioSQfcXy8lZOLjbl0-o3TOQi1AgEBkQeQhTiAoIDnoBNBVJfHL6jCUsNh3Jrohg3NSXuqs";
+
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = "=".repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(base64);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+async function subscribePush(token?: string): Promise<boolean> {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+    }
+    const j = sub.toJSON();
+    await fetch("/api/push/subscribe", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ endpoint: j.endpoint, p256dh: j.keys?.p256dh, auth: j.keys?.auth }),
+    });
+    return true;
+  } catch { return false; }
+}
+
+async function unsubscribePush(): Promise<void> {
+  if (!("serviceWorker" in navigator)) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (sub) {
+      await fetch("/api/push/subscribe", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ endpoint: sub.endpoint }),
+      });
+      await sub.unsubscribe();
+    }
+  } catch {}
+}
+
+/* Fallback in-tab nudge for browsers that don't support Push API */
 function scheduleNextNudge() {
   sset("eatbc:nextNudge", Date.now() + 3 * 60 * 60 * 1000);
 }
-
 async function fireNudge() {
   if (typeof window === "undefined" || !("Notification" in window)) return;
   if (Notification.permission !== "granted") return;
@@ -4414,48 +4463,57 @@ async function fireNudge() {
   else             cats = ["meal","cheat"];
   const pool = NUDGE_MSGS.filter(m=>cats.includes(m.cat));
   const pick = pool[Math.floor(Math.random()*pool.length)];
-  const opts = {body:pick.body, icon:"/icon.svg"};
-  /* Prefer SW-owned notification so notificationclick fires in the service worker */
-  if ("serviceWorker" in navigator) {
-    try {
-      const reg = await navigator.serviceWorker.ready;
-      await reg.showNotification(pick.title, opts);
-      scheduleNextNudge();
-      return;
-    } catch {}
-  }
-  /* Fallback: page-context notification with manual click handler */
   try {
-    const n = new Notification(pick.title, opts);
-    n.onclick = () => {
-      window.focus();
-      window.dispatchEvent(new CustomEvent("eatbc:goto-dash"));
-    };
-  } catch {}
+    const reg = await navigator.serviceWorker.ready;
+    await reg.showNotification(pick.title, {body:pick.body,icon:"/icon.svg",tag:"eatbc-nudge",renotify:true});
+  } catch {
+    try { new Notification(pick.title, {body:pick.body,icon:"/icon.svg"}); } catch {}
+  }
   scheduleNextNudge();
 }
 
-function ReminderToggle({t, compact}:{t:(k:keyof typeof STR)=>string; compact?:boolean}) {
+function ReminderToggle({t, compact, token}:{t:(k:keyof typeof STR)=>string; compact?:boolean; token?:string}) {
   const [on,setOn]=useState<boolean>(()=>!!sget<boolean>("eatbc:reminders"));
-  const supported=typeof window!=="undefined"&&"Notification"in window;
+  const [loading,setLoading]=useState(false);
+  const supported=typeof window!=="undefined"&&("Notification"in window||"PushManager"in window);
+
   async function enable(){
-    if (!supported) return;
-    const perm=await Notification.requestPermission();
-    if (perm==="granted"){
+    if (!supported||loading) return;
+    setLoading(true);
+    try {
+      const perm = await Notification.requestPermission();
+      if (perm !== "granted") { setLoading(false); return; }
       sset("eatbc:reminders",true); setOn(true);
       scheduleNextNudge();
-      try { new Notification("EatBC nudges are on",{body:"Every 3 hours: water, meals & workout reminders. 8am–10pm only.",icon:"/icon.svg"}); } catch {}
-    }
+      const pushOk = await subscribePush(token);
+      /* Immediate welcome nudge so user confirms it works */
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        await reg.showNotification("EatBC nudges are on 🎉", {
+          body: pushOk
+            ? "You'll get nudges every 3 hours — even when the app is closed."
+            : "You'll get nudges every 3 hours while the app is open.",
+          icon: "/icon.svg", tag: "eatbc-welcome",
+        });
+      } catch {
+        try { new Notification("EatBC nudges are on 🎉",{body:"Every 3 hours: water, meals & workout reminders.",icon:"/icon.svg"}); } catch {}
+      }
+    } finally { setLoading(false); }
   }
-  function disable(){ sset("eatbc:reminders",false); setOn(false); }
+
+  async function disable(){
+    sset("eatbc:reminders",false); setOn(false);
+    await unsubscribePush();
+  }
+
   if (!supported) return null;
   if (compact) return (
-    <button onClick={on?disable:enable}
+    <button onClick={on?disable:enable} disabled={loading}
       className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0"
       style={on
         ?{background:"#F0FDF4",color:"#16A34A",border:"1.5px solid #BBF7D0"}
         :{background:"#FFFBEB",color:"#92400E",border:"1.5px solid #FDE68A"}}>
-      <Bell size={12}/>{on?"Nudges on":"Enable nudges"}
+      <Bell size={12}/>{loading?"…":on?"Nudges on":"Enable nudges"}
     </button>
   );
   return (
@@ -4466,12 +4524,12 @@ function ReminderToggle({t, compact}:{t:(k:keyof typeof STR)=>string; compact?:b
         </div>
         <div className="flex-1 min-w-0">
           <div className="font-bold text-gray-800 text-sm">Smart nudges</div>
-          <div className="text-xs text-gray-400">Water, meals &amp; workouts — every 3 hours, 8am–10pm.</div>
+          <div className="text-xs text-gray-400">Water, meals &amp; workouts — every 3 hours, even when the app is closed.</div>
         </div>
-        <button onClick={on?disable:enable}
+        <button onClick={on?disable:enable} disabled={loading}
           className="text-xs font-bold px-4 py-2 rounded-xl shrink-0 transition"
           style={on?{background:"#fff",color:"#6b7280",border:"1.5px solid #e5e7eb"}:{background:GREEN,color:"#fff"}}>
-          {on?"On ✓":"Turn on"}
+          {loading?"…":on?"On ✓":"Turn on"}
         </button>
       </div>
     </Card>
@@ -5834,7 +5892,7 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccou
                 />
                 <div className="flex items-center justify-between mb-2 mt-1 px-1">
                   <span className="text-xs text-gray-400">Stay on track with reminders</span>
-                  <ReminderToggle t={t} compact/>
+                  <ReminderToggle t={t} compact token={session.token}/>
                 </div>
                 <Card className="p-5 mb-4">
                   {(()=>{const wt=waterTarget(tracking.lastRecalcWeight);return(<>
@@ -5868,7 +5926,7 @@ function Dash({session,plan,tracking,lang,onUpdate,onSwap,onLogout,onDeleteAccou
             <InsightsCard history={history} proteinTarget={proteinTargetVal} t={t}/>
             <WeightLog t={tracking} onLog={logW}/>
             <div className="mb-4"/>
-            <ReminderToggle t={t}/>
+            <ReminderToggle t={t} token={session.token}/>
           </>
         )}
 
