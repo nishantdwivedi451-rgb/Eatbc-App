@@ -5426,7 +5426,6 @@ function VeerBot({session,planCondition}:{session:Session|null;planCondition:str
   const [messages,setMessages]=useState<{role:"user"|"assistant";content:string}[]>([]);
   const [transcript,setTranscript]=useState("");
   const [interim,setInterim]=useState("");
-  const [promptsLeft,setPromptsLeft]=useState<number>(()=>10-Math.min(10,sget<number>("eatbc:veerUsed")||0));
   const [error,setError]=useState("");
   const [textInput,setTextInput]=useState("");
   const hasIntroduced=useRef(false);
@@ -5437,11 +5436,6 @@ function VeerBot({session,planCondition}:{session:Session|null;planCondition:str
 
   useEffect(()=>{
     if(!open) return;
-    fetch("/api/veer",{method:"GET",headers:{...(session?.token?{Authorization:`Bearer ${session.token}`}:{})}})
-      .then(r=>r.ok?r.json():null)
-      .then((d:{promptsLeft?:number}|null)=>{
-        if(d?.promptsLeft!=null){setPromptsLeft(d.promptsLeft);sset("eatbc:veerUsed",10-d.promptsLeft);}
-      }).catch(()=>{});
     if(!hasIntroduced.current){
       hasIntroduced.current=true;
       const intro="Hello, I am Veer, your lifestyle coach.";
@@ -5491,12 +5485,9 @@ function VeerBot({session,planCondition}:{session:Session|null;planCondition:str
         headers:{"Content-Type":"application/json",...(session?.token?{Authorization:`Bearer ${session.token}`}:{})},
         body:JSON.stringify(body),
       });
-      const data=await r.json() as {reply?:string;error?:string;promptsLeft?:number};
+      const data=await r.json() as {reply?:string;error?:string};
       if(!r.ok){setError(data.error||"Something went wrong.");setPhase("idle");return;}
       const reply=data.reply||"";
-      const left=data.promptsLeft??0;
-      setPromptsLeft(left);
-      sset("eatbc:veerUsed",10-left);
       setMessages([...newMessages,{role:"assistant" as const,content:reply}]);
       setPhase("speaking");
       await playTTS(reply);
@@ -5508,7 +5499,6 @@ function VeerBot({session,planCondition}:{session:Session|null;planCondition:str
   }
 
   function startListening() {
-    if(promptsLeft<=0){setError("All 10 questions used! Sign up for unlimited access.");return;}
     const SR=(window as any).SpeechRecognition||(window as any).webkitSpeechRecognition;
     if(!SR){setError("Voice not supported — try Chrome.");return;}
     audioRef.current?.pause();
@@ -5582,7 +5572,7 @@ function VeerBot({session,planCondition}:{session:Session|null;planCondition:str
                 </div>
                 <div>
                   <p className="font-black text-white leading-none" style={{fontSize:15}}>Veer AI</p>
-                  <p style={{fontSize:11,color:"rgba(255,255,255,0.3)",marginTop:2}}>Lifestyle Coach · {promptsLeft}/10 free</p>
+                  <p style={{fontSize:11,color:"rgba(255,255,255,0.3)",marginTop:2}}>Lifestyle Coach</p>
                 </div>
               </div>
               <button onClick={()=>{setOpen(false);window.speechSynthesis.cancel();audioRef.current?.pause();}}
@@ -5717,19 +5707,19 @@ function VeerBot({session,planCondition}:{session:Session|null;planCondition:str
                 onSubmit={e=>{
                   e.preventDefault();
                   const q=textInput.trim();
-                  if(!q||phase==="thinking"||phase==="speaking"||promptsLeft<=0)return;
+                  if(!q||phase==="thinking"||phase==="speaking")return;
                   handleVeer(q);setTextInput("");
                 }}>
                 <input
                   value={textInput}
                   onChange={e=>setTextInput(e.target.value)}
                   placeholder="Type a question…"
-                  disabled={phase==="thinking"||phase==="speaking"||promptsLeft<=0}
+                  disabled={phase==="thinking"||phase==="speaking"}
                   className="flex-1 bg-transparent outline-none px-3 py-2.5"
                   style={{fontSize:13.5,color:"rgba(255,255,255,0.9)"}}
                 />
                 <button type="submit"
-                  disabled={!textInput.trim()||phase==="thinking"||phase==="speaking"||promptsLeft<=0}
+                  disabled={!textInput.trim()||phase==="thinking"||phase==="speaking"}
                   className="px-3 py-2.5 transition-opacity disabled:opacity-25 flex-shrink-0"
                   style={{color:Y}}>
                   <ArrowRight size={18}/>
@@ -5744,23 +5734,18 @@ function VeerBot({session,planCondition}:{session:Session|null;planCondition:str
                 </button>
               ):(
                 <button onClick={startListening}
-                  disabled={phase==="thinking"||phase==="speaking"||promptsLeft<=0}
+                  disabled={phase==="thinking"||phase==="speaking"}
                   className="flex-shrink-0 flex items-center justify-center rounded-full active:scale-95 transition-all disabled:opacity-25"
                   style={{width:48,height:48,
-                    background:promptsLeft<=0?"rgba(255,255,255,0.05)":"linear-gradient(135deg,#1DAA61,#0B6E40)",
-                    boxShadow:promptsLeft>0?"0 4px 20px rgba(29,170,97,.40)":"none"}}>
+                    background:"linear-gradient(135deg,#1DAA61,#0B6E40)",
+                    boxShadow:"0 4px 20px rgba(29,170,97,.40)"}}>
                   <Mic size={20} className="text-white"/>
                 </button>
               )}
             </div>
 
-            {promptsLeft<=0&&(
-              <p className="text-center px-6 mt-2" style={{fontSize:11,color:"rgba(255,255,255,0.28)"}}>
-                10/10 used · Sign up for unlimited Veer access
-              </p>
-            )}
             <p className="text-center px-6 mt-2" style={{fontSize:9.5,color:"rgba(255,255,255,0.14)"}}>
-              Diet & fitness only · ElevenLabs Flash voice · Max 10 free
+              Diet &amp; fitness only · ElevenLabs Flash voice
             </p>
           </div>
         </div>

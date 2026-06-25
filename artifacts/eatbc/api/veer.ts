@@ -1,6 +1,4 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { sql, ensureDb } from "./_lib/db.js";
-import { verifyToken } from "./_lib/auth.js";
 
 const SYSTEM_PROMPT = `You are Veer, a certified AI lifestyle coach on EatBC — India's personal diet and fitness tracker. You have deep expertise in Indian nutrition, exercise science, and evidence-based wellness.
 
@@ -42,58 +40,14 @@ SAFETY NON-NEGOTIABLES
 - Supplements: protein powder, creatine, standard vitamins are fine to discuss. Unregulated, exotic, or unapproved supplements → decline to recommend.`;
 
 
-const MAX_PROMPTS = 10;
-
-async function getTrackingId(req: VercelRequest): Promise<string> {
-  const authHeader = req.headers.authorization;
-  const userId = authHeader ? await verifyToken(authHeader) : null;
-  const ip = ((req.headers["x-forwarded-for"] as string) || req.socket?.remoteAddress || "unknown")
-    .split(",")[0].trim();
-  return userId ?? `guest:${ip}`;
-}
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  await ensureDb();
-
-  await sql`
-    CREATE TABLE IF NOT EXISTS veer_usage (
-      user_id TEXT PRIMARY KEY,
-      count INTEGER NOT NULL DEFAULT 0,
-      updated_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `;
-
-  const trackingId = await getTrackingId(req);
-
-  /* GET — return current prompt count (for multi-device sync) */
-  if (req.method === "GET") {
-    const rows = await sql`SELECT count FROM veer_usage WHERE user_id = ${trackingId}`;
-    const count = (rows[0] as { count: number } | undefined)?.count ?? 0;
-    return res.status(200).json({ promptsLeft: Math.max(0, MAX_PROMPTS - count) });
-  }
-
+  if (req.method === "GET") return res.status(200).json({ ok: true });
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   const { messages, isFirst } = req.body as {
     messages?: { role: "user" | "assistant"; content: string }[];
     isFirst?: boolean;
   };
-
-  // Check + increment usage count atomically
-  const usage = await sql`
-    INSERT INTO veer_usage (user_id, count) VALUES (${trackingId}, 1)
-    ON CONFLICT (user_id) DO UPDATE
-      SET count = veer_usage.count + 1, updated_at = NOW()
-    RETURNING count
-  `;
-  const count = (usage[0] as { count: number }).count;
-
-  if (count > MAX_PROMPTS) {
-    return res.status(429).json({
-      error: "You've used all 10 free questions with Veer! Sign up to get unlimited access.",
-      promptsLeft: 0,
-    });
-  }
 
   // Build OpenAI messages array
   const chatMessages: { role: "system" | "user" | "assistant"; content: string }[] = [
@@ -132,5 +86,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const reply = oaiData.choices?.[0]?.message?.content?.trim()
     || "I'm here to help with your diet and fitness goals!";
 
-  return res.status(200).json({ reply, promptsLeft: MAX_PROMPTS - count });
+  return res.status(200).json({ reply });
 }
