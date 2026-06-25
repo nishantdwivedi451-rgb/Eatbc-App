@@ -207,7 +207,7 @@ interface DayTracking { meals: Record<number, boolean>; water: number; log?: Foo
 /* Date-keyed daily snapshot — powers real streaks, trends and insights. */
 interface HistEntry { onTrack: boolean; cal: number; protein: number; meals: number; total: number; water: number; }
 interface Tracking {
-  [day: string]: DayTracking | Record<string, number> | Record<string, HistEntry> | Record<string, boolean> | Record<string, number[]> | Record<string, Record<string, string>> | LogFood[] | string[] | string | number | undefined;
+  [day: string]: DayTracking | Record<string, number> | Record<string, HistEntry> | Record<string, boolean> | Record<string, number[]> | Record<string, Record<string, string>> | Record<string, ExerciseLog[]> | LogFood[] | string[] | string | number | undefined;
   weights?: Record<string, number>;
   history?: Record<string, HistEntry>;
   customFoods?: LogFood[];     // user-saved foods
@@ -223,7 +223,7 @@ interface Tracking {
   lastRecalcDate?: string;      // ISO date when plan was last recalculated
   lastRecalcWeight?: number;    // weight (kg) at last recalc
 }
-type Screen = "welcome" | "quiz" | "foodgame" | "plan" | "login" | "signup" | "dash" | "onboarding" | "intro";
+type Screen = "welcome" | "quiz" | "foodgame" | "plan" | "login" | "signup" | "dash" | "onboarding" | "intro" | "quote";
 
 /* ─────────────── quiz questions ─────────────── */
 interface Question {
@@ -4558,7 +4558,7 @@ async function subscribePush(token?: string): Promise<boolean> {
     if (!sub) {
       sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as unknown as ArrayBuffer,
       });
     }
     const j = sub.toJSON();
@@ -4611,7 +4611,7 @@ async function fireNudge() {
   const pick = pool[Math.floor(Math.random()*pool.length)];
   try {
     const reg = await navigator.serviceWorker.ready;
-    await reg.showNotification(pick.title, {body:pick.body,icon:"/icon.svg",tag:"eatbc-nudge",renotify:true});
+    await reg.showNotification(pick.title, {body:pick.body,icon:"/icon.svg",tag:"eatbc-nudge",renotify:true} as NotificationOptions);
   } catch {
     try { new Notification(pick.title, {body:pick.body,icon:"/icon.svg"}); } catch {}
   }
@@ -5403,7 +5403,7 @@ function VeerBot({session,planCondition}:{session:Session|null;planCondition:str
     if(!open) return;
     if(!hasIntroduced.current){
       hasIntroduced.current=true;
-      const intro="Hello, I am Veer, your lifestyle coach.";
+      const intro="Namaste! I am Veer, your AI lifestyle coach. Kaise help kar sakta hoon aapki?";
       setMessages([{role:"assistant",content:intro}]);
       setPhase("speaking");
       playTTS(intro).then(()=>setPhase("idle"));
@@ -5710,7 +5710,7 @@ function VeerBot({session,planCondition}:{session:Session|null;planCondition:str
             </div>
 
             <p className="text-center px-6 mt-2" style={{fontSize:9.5,color:"rgba(255,255,255,0.14)"}}>
-              Diet &amp; fitness only · ElevenLabs Flash voice
+              Diet &amp; fitness only · Indian voice · Hindi &amp; English
             </p>
           </div>
         </div>

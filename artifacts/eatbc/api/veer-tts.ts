@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-const DEFAULT_VOICE_ID = "N2al4jd45e882svx17SU";
+// Meera — Indian English female voice on ElevenLabs (handles Hindi words naturally)
+const DEFAULT_VOICE_ID = "nPczCjzI2devNBz1zQrb";
 
 function cleanForTTS(raw: string): string {
   return raw
@@ -38,11 +39,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       },
       body: JSON.stringify({
         text: clean,
-        model_id: "eleven_turbo_v2_5",
+        model_id: "eleven_multilingual_v2",
         voice_settings: {
-          stability: 0.62,
-          similarity_boost: 0.78,
-          style: 0.02,
+          stability: 0.55,
+          similarity_boost: 0.80,
+          style: 0.30,
           use_speaker_boost: true,
         },
       }),
