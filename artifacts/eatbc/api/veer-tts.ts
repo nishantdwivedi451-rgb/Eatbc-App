@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-// Meera — Indian English female voice on ElevenLabs (handles Hindi words naturally)
-const DEFAULT_VOICE_ID = "nPczCjzI2devNBz1zQrb";
+// Agam — Indian English male voice on ElevenLabs (handles Hindi words naturally)
+const DEFAULT_VOICE_ID = "IKne3meq5aSn9XLyUdCD";
 
 function cleanForTTS(raw: string): string {
   return raw
