@@ -2746,58 +2746,115 @@ function LISlide2({accent}:{accent:string}) {
     </div>
   );
 }
-function LIFinal({anim,accent}:{anim:number;accent:string}) {
+/* ── Achievement ring illustration for LoginIntro ── */
+function StreakOrb({accent}:{accent:string}) {
+  const r=38, c=2*Math.PI*r;
+  return(
+    <motion.svg width="112" height="112" viewBox="0 0 112 112" style={{overflow:"visible"}}
+      initial={{scale:0.90,opacity:0}} animate={{scale:1,opacity:1}} transition={SPRING_ENTRY}>
+      {/* Shadow halo */}
+      <motion.ellipse cx="56" cy="106" rx="26" ry="7" fill={accent}
+        animate={{opacity:[0.14,0.26,0.14],rx:[26,30,26]}}
+        transition={{duration:2.6,repeat:Infinity,ease:"easeInOut"}}/>
+      {/* Track */}
+      <circle cx="56" cy="56" r={r} fill="none" stroke="rgba(255,255,255,0.09)" strokeWidth="7.5"/>
+      {/* Progress — fills to 100% */}
+      <motion.circle cx="56" cy="56" r={r}
+        fill="none" stroke={accent} strokeWidth="7.5" strokeLinecap="round"
+        strokeDasharray={c}
+        style={{transformOrigin:"56px 56px",rotate:-90}}
+        initial={{strokeDashoffset:c}}
+        animate={{strokeDashoffset:0}}
+        transition={{duration:1.1,ease:EASE_OUT,delay:0.28}}/>
+      {/* Checkmark draws in after ring completes */}
+      <motion.path d="M36 56 L48 70 L76 40" fill="none" stroke={accent} strokeWidth="6"
+        strokeLinecap="round" strokeLinejoin="round"
+        initial={{pathLength:0,opacity:0}}
+        animate={{pathLength:1,opacity:1}}
+        transition={{duration:0.40,delay:1.18,ease:EASE_OUT}}/>
+      {/* Orbiting spark after ring */}
+      <motion.circle r="5.5" fill={accent}
+        style={{filter:`drop-shadow(0 0 5px ${accent})`,transformOrigin:"56px 56px"}}
+        initial={{opacity:0}} animate={{opacity:1}} transition={{delay:1.3}}>
+        <animateMotion dur="3.8s" repeatCount="indefinite" begin="1.3s"
+          path={`M ${56+r} 56 A ${r} ${r} 0 1 1 ${56+r-0.001} 56`}/>
+      </motion.circle>
+      {/* Four corner micro-sparks that pop out when check appears */}
+      {([[-30,-30],[30,-30],[30,30],[-30,30]] as [number,number][]).map(([dx,dy],i)=>(
+        <motion.circle key={i} cx={56+dx} cy={56+dy} r="3"
+          fill={accent} opacity={0.65}
+          initial={{scale:0,opacity:0}}
+          animate={{scale:[0,1.3,0.8],opacity:[0,0.8,0]}}
+          transition={{duration:0.55,delay:1.22+i*0.06,ease:EASE_OUT}}/>
+      ))}
+    </motion.svg>
+  );
+}
+
+function LIFinal({accent}:{accent:string}) {
   const FLOATS=[
-    {t:"−500 kcal",x:"6%",d:0},{t:"150g protein",x:"60%",d:0.4},
-    {t:"Day 1 ✓",x:"8%",d:0.7},{t:"2,100 kcal",x:"54%",d:0.18},
+    {t:"−500 kcal",x:"6%",delay:0.6},{t:"150g protein",x:"58%",delay:1.0},
+    {t:"Day 1 ✓",x:"10%",delay:1.3},{t:"2,100 kcal",x:"52%",delay:0.8},
   ];
   return(
-    <div className="relative flex flex-col items-center justify-center" style={{height:340,perspective:"900px"}}>
-      {anim>=1&&FLOATS.map((f,i)=>(
-        <div key={i} style={{position:"absolute",bottom:"12%",left:f.x,fontSize:11,fontWeight:700,
-          color:ha(accent,0.32),letterSpacing:"0.3px",pointerEvents:"none",
-          animation:`liFloat 3.8s ease-out ${f.d}s infinite`}}>{f.t}</div>
+    <motion.div className="relative flex flex-col items-center justify-center"
+      style={{height:340,perspective:"900px"}}
+      variants={staggerContainer} initial="hidden" animate="show">
+      {/* Floating stat chips */}
+      {FLOATS.map((f,i)=>(
+        <motion.span key={i}
+          style={{position:"absolute",bottom:"11%",left:f.x,fontSize:11,fontWeight:700,
+            color:ha(accent,0.34),letterSpacing:"0.3px",pointerEvents:"none"}}
+          initial={{opacity:0,y:0}}
+          animate={{opacity:[0,0.38,0.42,0.30,0],y:[0,-62,-62,-65,-95]}}
+          transition={{duration:3.6,delay:f.delay,repeat:Infinity,ease:"easeOut",repeatDelay:1.2}}>
+          {f.t}
+        </motion.span>
       ))}
-      {/* "Eat Better & Count" text — stays throughout */}
-      <div className="flex flex-col items-center justify-center gap-1">
-        <div style={{
-          fontSize:54,fontWeight:900,color:"#fff",lineHeight:1.1,letterSpacing:"-2px",
-          opacity:1,
-          transform:anim===0?"scale(1.22) translateZ(-80px) rotateX(14deg)":anim>=2?"scale(0.92) translateY(-4px)":"scale(1) translateZ(0) rotateX(0deg)",
-          transition:"transform 0.88s cubic-bezier(0.22,1,0.36,1)",
-          textShadow:"0 2px 24px rgba(255,255,255,0.14)",
-        }}>Eat Better</div>
-        <div style={{
-          fontSize:46,fontWeight:900,color:accent,lineHeight:1.1,letterSpacing:"-1.5px",
-          opacity:anim>=2?1:0,
-          transform:anim>=2?"scale(1)":"scale(0.52) translateY(32px)",
-          transition:"opacity 0.6s ease 0.08s,transform 0.78s cubic-bezier(0.34,1.56,0.64,1) 0.08s",
-          textShadow:`0 0 28px ${ha(accent,0.6)}`,
-        }}>&amp; Count</div>
-        <p className="font-semibold mt-3" style={{
-          fontSize:14,color:"rgba(255,255,255,0.40)",letterSpacing:"0.05em",
-          opacity:anim>=3?1:0,
-          transition:"opacity 0.5s ease 0.2s",
-        }}>Eat Better. Count Smarter.</p>
-      </div>
-    </div>
+
+      {/* StreakOrb illustration */}
+      <motion.div variants={slideUp} className="mb-4">
+        <StreakOrb accent={accent}/>
+      </motion.div>
+
+      {/* "Eat Better" */}
+      <motion.div variants={slideUp}
+        style={{fontSize:52,fontWeight:900,color:"#fff",lineHeight:1.1,letterSpacing:"-2px",
+          textShadow:"0 2px 24px rgba(255,255,255,0.14)"}}>
+        Eat Better
+      </motion.div>
+
+      {/* "& Count" — springs in with glow */}
+      <motion.div
+        initial={{opacity:0,y:18,scale:0.95}}
+        animate={{opacity:1,y:0,scale:1}}
+        transition={{...SPRING_ENTRY,delay:0.42}}
+        style={{fontSize:44,fontWeight:900,color:accent,lineHeight:1.1,letterSpacing:"-1.5px",
+          textShadow:`0 0 28px ${ha(accent,0.6)}`}}>
+        &amp; Count
+      </motion.div>
+
+      {/* Tagline */}
+      <motion.p
+        initial={{opacity:0}}
+        animate={{opacity:1}}
+        transition={{duration:0.55,delay:0.82}}
+        style={{fontSize:13,color:"rgba(255,255,255,0.38)",letterSpacing:"0.06em",marginTop:14}}>
+        Eat Better. Count Smarter.
+      </motion.p>
+    </motion.div>
   );
 }
 function LoginIntro({onDone}:{onDone:()=>void;diet?:string}) {
   const ACCENT="#FFFA66";
-  const [anim,setAnim]=useState(0);
   const tilt=use3DParallax();
   const layer=(depth:number)=>({
     transform:`translate3d(${tilt.y*depth}px,${tilt.x*depth}px,0)`,
     transition:"transform 0.18s ease-out",
   });
   useEffect(()=>{
-    const t1=setTimeout(()=>setAnim(1),600);
-    const t2=setTimeout(()=>setAnim(2),1700);
-    const t3=setTimeout(()=>setAnim(3),2650);
-    const t4=setTimeout(()=>setAnim(4),3450);
-    const t5=setTimeout(()=>onDone(),4800);
-    return()=>{clearTimeout(t1);clearTimeout(t2);clearTimeout(t3);clearTimeout(t4);clearTimeout(t5);};
+    const t=setTimeout(onDone,5200);
+    return()=>clearTimeout(t);
   },[]);
 
   return(
@@ -2820,7 +2877,11 @@ function LoginIntro({onDone}:{onDone:()=>void;diet?:string}) {
       }}/>
       {/* Card */}
       <div className="flex-1 flex items-center justify-center px-6 pt-16 pb-10 relative z-10">
-        <div style={{...layer(-26),animation:"onbCard 0.6s cubic-bezier(0.22,1,0.36,1) both"}}>
+        <motion.div
+          style={layer(-26)}
+          initial={{opacity:0,scale:0.93,rotateY:18,z:-120}}
+          animate={{opacity:1,scale:1,rotateY:0,z:0}}
+          transition={{duration:0.62,ease:EASE_OUT}}>
           <div className="relative rounded-[34px] px-8 py-10 flex items-center justify-center" style={{
             minWidth:300,minHeight:400,
             background:"linear-gradient(160deg,rgba(255,255,255,0.10),rgba(255,255,255,0.02))",
@@ -2830,9 +2891,9 @@ function LoginIntro({onDone}:{onDone:()=>void;diet?:string}) {
             transform:`rotateX(${tilt.x*-5}deg) rotateY(${tilt.y*5}deg)`,
             transition:"transform 0.18s ease-out,box-shadow 0.6s ease",
           }}>
-            <LIFinal anim={anim} accent={ACCENT}/>
+            <LIFinal accent={ACCENT}/>
           </div>
-        </div>
+        </motion.div>
       </div>
       <div className="pb-9 flex justify-center relative z-10">
         <span className="text-[11px] tracking-widest uppercase font-semibold" style={{color:"rgba(255,255,255,0.28)"}}>tap to continue</span>
@@ -3175,9 +3236,10 @@ function DailyQuote({onDone}:{onDone:()=>void}) {
     return()=>{clearTimeout(t1);clearTimeout(t2);clearTimeout(t3);};
   },[]);
   const words=q.text.split(" ");
+  const show=phase>=3;
   return(
     <div className="min-h-screen relative overflow-hidden flex flex-col items-center justify-center"
-      style={{background:"#0A0A0A"}} onClick={phase>=3?onDone:undefined}>
+      style={{background:"#0A0A0A"}} onClick={show?onDone:undefined}>
 
       {/* Deep accent glow */}
       <div style={{position:"absolute",inset:0,background:`radial-gradient(ellipse 80% 60% at 50% 50%,${ha(accent,0.22)} 0%,transparent 70%)`}}/>
@@ -3186,84 +3248,85 @@ function DailyQuote({onDone}:{onDone:()=>void}) {
       {/* Dot grid */}
       <div style={{position:"absolute",inset:0,backgroundImage:"radial-gradient(rgba(255,255,255,0.055) 1.2px,transparent 1.2px)",backgroundSize:"24px 24px"}}/>
 
-      {/* ── Content (phase 3) ── */}
-      <div className="relative z-10 flex flex-col items-center text-center px-6 max-w-sm mx-auto w-full">
+      {/* ── Content revealed via Framer Motion when phase reaches 3 ── */}
+      <motion.div className="relative z-10 flex flex-col items-center text-center px-6 max-w-sm mx-auto w-full"
+        variants={staggerContainer} initial="hidden" animate={show?"show":"hidden"}>
 
         {/* Chip label */}
-        <div style={{
-          opacity:phase>=3?1:0,
-          transform:phase>=3?"none":"translateY(-14px)",
-          transition:"opacity 0.45s ease, transform 0.45s cubic-bezier(0.34,1.56,0.64,1)",
-        }}>
-          <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 mb-5"
+        <motion.div variants={slideUp} className="mb-5">
+          <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1"
             style={{background:ha(accent,0.15),border:`1px solid ${ha(accent,0.35)}`,letterSpacing:"0.12em"}}>
             <span style={{fontSize:12}}>⚡</span>
             <span className="font-black text-[10px] uppercase tracking-widest" style={{color:accent}}>Today's fuel</span>
           </div>
-        </div>
+        </motion.div>
 
-        {/* Illustration */}
-        <div style={{
-          opacity:phase>=3?1:0,
-          transform:phase>=3?"scale(1)":"scale(0.5)",
-          transition:"opacity 0.5s ease 0.05s, transform 0.6s cubic-bezier(0.34,1.56,0.64,1) 0.05s",
-          animation:phase>=3?"bobFloat 3.8s ease-in-out infinite":"none",
-          marginBottom:20,
-        }}>
-          <QuoteIllustration theme={q.theme} accent={accent}/>
-        </div>
+        {/* Illustration — springs in then bobs */}
+        <motion.div variants={slideUp} style={{marginBottom:20}}>
+          <motion.div
+            animate={show?{y:[0,-10,0]}:{y:0}}
+            transition={{duration:3.8,repeat:Infinity,ease:"easeInOut",delay:0.6}}>
+            <QuoteIllustration theme={q.theme} accent={accent}/>
+          </motion.div>
+        </motion.div>
 
-        {/* Quote — word by word pop-in */}
-        <div className="mb-4" style={{minHeight:96}}>
+        {/* Animated opening quote mark */}
+        <motion.div variants={slideUp} style={{marginBottom:8,alignSelf:"flex-start"}}>
+          <svg width="36" height="28" viewBox="0 0 36 28" fill="none">
+            <motion.path d="M4 24 C4 14 10 6 20 4" stroke={accent} strokeWidth="3.5"
+              strokeLinecap="round"
+              initial={{pathLength:0,opacity:0}}
+              animate={show?{pathLength:1,opacity:0.55}:{pathLength:0,opacity:0}}
+              transition={{duration:0.42,delay:0.15,ease:EASE_OUT}}/>
+            <motion.path d="M22 24 C22 14 28 6 38 4" stroke={accent} strokeWidth="3.5"
+              strokeLinecap="round"
+              initial={{pathLength:0,opacity:0}}
+              animate={show?{pathLength:1,opacity:0.40}:{pathLength:0,opacity:0}}
+              transition={{duration:0.42,delay:0.26,ease:EASE_OUT}}/>
+          </svg>
+        </motion.div>
+
+        {/* Quote — word by word with Framer Motion springs (scale 0.95, not 0.7) */}
+        <div className="mb-5" style={{minHeight:90}}>
           {words.map((word,i)=>(
-            <span key={i} style={{
-              display:"inline-block",
-              marginRight:"0.28em",
-              fontWeight:900,
-              fontSize:22,
-              lineHeight:1.25,
-              letterSpacing:"-0.4px",
-              color:"#fff",
-              opacity:phase>=3?1:0,
-              transform:phase>=3?"none":"translateY(20px) scale(0.7)",
-              transition:`opacity 0.38s ease ${i*0.04}s, transform 0.42s cubic-bezier(0.34,1.56,0.64,1) ${i*0.04}s`,
-            }}>{word}</span>
+            <motion.span key={i}
+              style={{display:"inline-block",marginRight:"0.28em",fontWeight:900,
+                fontSize:22,lineHeight:1.25,letterSpacing:"-0.4px",color:"#fff"}}
+              initial={{opacity:0,y:14,scale:0.95}}
+              animate={show?{opacity:1,y:0,scale:1}:{opacity:0,y:14,scale:0.95}}
+              transition={{type:"spring",duration:0.48,bounce:0.18,delay:i*0.038}}>
+              {word}
+            </motion.span>
           ))}
         </div>
 
         {/* Author */}
-        {q.author&&(
-          <div style={{
-            opacity:phase>=3?1:0,
-            transform:phase>=3?"none":"translateY(10px)",
-            transition:"opacity 0.4s ease 0.3s, transform 0.4s ease 0.3s",
-            marginBottom:28,
-          }}>
+        <motion.div variants={slideUp} style={{marginBottom:28}}>
+          {q.author&&(
             <span className="text-xs font-bold px-3 py-1 rounded-full" style={{background:ha(accent,0.14),color:ha(accent,0.90),border:`1px solid ${ha(accent,0.25)}`}}>
               — {q.author}
             </span>
-          </div>
-        )}
-        {!q.author&&<div style={{marginBottom:28}}/>}
+          )}
+        </motion.div>
 
         {/* CTA */}
-        <div style={{
-          opacity:phase>=3?1:0,
-          transform:phase>=3?"none":"translateY(20px)",
-          transition:"opacity 0.45s ease 0.38s, transform 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.38s",
-        }}>
-          <button onClick={e=>{e.stopPropagation();onDone();}}
-            className="px-10 py-4 rounded-2xl font-black text-base tracking-wide transition-all active:scale-95"
-            style={{
-              background:accent,color:"#0A0A0A",
-              boxShadow:`0 0 0 0 ${ha(accent,0.5)}, 0 12px 40px ${ha(accent,0.40)}`,
-              animation:phase>=3?"onbPulse 2.6s ease-in-out 1s infinite":"none",
-            }}>
+        <motion.div variants={slideUp}>
+          <motion.button onClick={e=>{e.stopPropagation();onDone();}}
+            className="px-10 py-4 rounded-2xl font-black text-base tracking-wide"
+            style={{background:accent,color:"#0A0A0A",
+              boxShadow:`0 12px 40px ${ha(accent,0.40)}`}}
+            whileTap={{scale:0.97}}
+            animate={{boxShadow:[
+              `0 12px 40px ${ha(accent,0.38)}`,
+              `0 12px 56px ${ha(accent,0.58)}`,
+              `0 12px 40px ${ha(accent,0.38)}`,
+            ]}}
+            transition={{duration:2.4,repeat:Infinity,ease:"easeInOut",delay:0.8}}>
             Let's crush it →
-          </button>
+          </motion.button>
           <p className="mt-3 text-xs" style={{color:"rgba(255,255,255,0.20)"}}>tap anywhere to continue</p>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
       {/* ── Glass overlay (z above content) ── */}
       <div className="absolute inset-0 z-20" style={{pointerEvents:"none"}}>
