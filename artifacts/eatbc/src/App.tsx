@@ -8,7 +8,7 @@ import {
   Flame, BarChart3, Trophy, Users, Bell, Plus, RefreshCw,
   Lightbulb, Globe, X, Check, Target, Dumbbell, CalendarDays, Clock, BookOpen, ChefHat,
   Camera, Lock, Zap, Star,
-  Search, ClipboardList, ChevronLeft,
+  Search, ClipboardList, ChevronLeft, ArrowLeft,
   Paperclip, Send, FileText, Timer, TrendingUp,
 } from "lucide-react";
 import {
@@ -4051,6 +4051,9 @@ function Login({onDone,onBack}:{onDone:(sess:Session,plan?:Plan|null,tracking?:T
   }
   return (
     <Shell>
+      <button onClick={onBack} className="flex items-center gap-1.5 text-sm font-semibold text-gray-500 hover:text-gray-800 transition mb-4">
+        <ArrowLeft size={16}/> Home
+      </button>
       <Card className="p-6 md:p-8">
         <span className="font-bold text-gray-700 mb-2 block">EatBC</span>
         <h2 className="text-2xl font-black text-gray-800 mt-4">Welcome back,<br/><span style={{color:GREEN}}>warrior!</span></h2>
@@ -4102,6 +4105,9 @@ function Signup({profile,plan,onDone,onBack,onLogin}:{profile:Profile;plan:Plan|
   }
   return (
     <Shell>
+      <button onClick={onBack} className="flex items-center gap-1.5 text-sm font-semibold text-gray-500 hover:text-gray-800 transition mb-4">
+        <ArrowLeft size={16}/> Home
+      </button>
       <Card className="p-6 md:p-8">
         <span className="font-bold text-gray-700 mb-2 block">EatBC</span>
         <div className="rounded-2xl px-4 py-3 mb-5 mt-4" style={{background:"#EAF7F0"}}>
@@ -6666,6 +6672,7 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
   const today=WEEK[(new Date().getDay()+6)%7];
   const [sel,setSel]=useState<DayName>(today);
   const [recipeFor,setRecipeFor]=useState<string|null>(null);
+  const [expandedMeal,setExpandedMeal]=useState<number|null>(null);
   const dd=(tracking[sel] as DayTracking)||{meals:{},water:0};
   const dp=plan?.days?.find(d=>d.day===sel);
   const cal=plan?.dailyCalories||0;
@@ -7022,28 +7029,61 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
                     {dp.meals.map((m,i)=>{
                       const ui=MEAL_UI[m.time]||MEAL_UI["Lunch"];
                       const on=!!dd.meals[i];
+                      const isExpanded=expandedMeal===i;
+                      const dbItem=DB.find(f=>f.n===m.food);
+                      const longQty=m.qty.length>32;
                       return (
-                        <div key={i} className="w-full flex items-center gap-3 p-2.5 rounded-2xl hover:bg-gray-50 transition">
-                          <button onClick={()=>toggle(i)} className="shrink-0"><CheckCircle2 size={24} style={{color:on?GREEN:"#E5E7EB"}}/></button>
-                          <button onClick={()=>toggle(i)} className="flex-1 min-w-0 text-left">
-                            <span className="text-xs font-semibold uppercase tracking-wide" style={{color:ui.col}}>{m.time}</span>
-                            <div className={`text-sm font-medium truncate ${on?"line-through text-gray-300":"text-gray-700"}`}>{m.food}</div>
-                            <div className="flex items-center gap-1 mt-0.5">
-                              <Scale size={10} className="text-gray-400 shrink-0"/>
-                              <span className="text-xs text-gray-400 truncate">{m.qty}</span>
-                            </div>
-                          </button>
-                          <div className="flex flex-col items-end gap-1 shrink-0">
-                            <span className="text-xs font-semibold" style={{color:GREEN}}>{m.cal}</span>
-                            <div className="flex gap-1.5">
-                              {RECIPE_DB[m.food]&&(
-                                <button onClick={()=>setRecipeFor(m.food)} title="View recipe"
-                                  className="text-gray-300 hover:text-green-600 transition"><ChefHat size={14}/></button>
-                              )}
-                              <button onClick={()=>onSwap(sel,i)} title={t("swap")}
-                                className="text-gray-300 hover:text-green-600 transition"><RefreshCw size={14}/></button>
+                        <div key={i} className="w-full p-2.5 rounded-2xl hover:bg-gray-50 transition">
+                          <div className="flex items-center gap-3">
+                            <button onClick={()=>toggle(i)} className="shrink-0"><CheckCircle2 size={24} style={{color:on?GREEN:"#E5E7EB"}}/></button>
+                            <button onClick={()=>toggle(i)} className="flex-1 min-w-0 text-left">
+                              <span className="text-xs font-semibold uppercase tracking-wide" style={{color:ui.col}}>{m.time}</span>
+                              <div className={`text-sm font-medium ${on?"line-through text-gray-300":"text-gray-700"}`}>{m.food}</div>
+                              <div className="flex items-center gap-1 mt-0.5">
+                                <Scale size={10} className="text-gray-400 shrink-0"/>
+                                <span className={`text-xs text-gray-400 ${isExpanded?"":"truncate"}`}>{m.qty}</span>
+                              </div>
+                            </button>
+                            <div className="flex flex-col items-end gap-1 shrink-0">
+                              <span className="text-xs font-semibold" style={{color:GREEN}}>{m.cal}</span>
+                              <div className="flex gap-1.5">
+                                {RECIPE_DB[m.food]&&(
+                                  <button onClick={()=>setRecipeFor(m.food)} title="View recipe"
+                                    className="text-gray-300 hover:text-green-600 transition"><ChefHat size={14}/></button>
+                                )}
+                                <button onClick={()=>onSwap(sel,i)} title={t("swap")}
+                                  className="text-gray-300 hover:text-green-600 transition"><RefreshCw size={14}/></button>
+                              </div>
                             </div>
                           </div>
+                          {longQty&&!isExpanded&&(
+                            <button onClick={()=>setExpandedMeal(i)}
+                              className="ml-9 text-xs font-semibold mt-0.5" style={{color:GREEN}}>
+                              Read more
+                            </button>
+                          )}
+                          {isExpanded&&(
+                            <div className="ml-9 mt-2 rounded-xl px-3 py-2.5 text-xs space-y-1.5" style={{background:"#F0FDF4",border:"1px solid #BBF7D0"}}>
+                              <p className="text-gray-700 leading-relaxed">{m.qty}</p>
+                              <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1 border-t" style={{borderColor:"#BBF7D0"}}>
+                                <span className="text-gray-500">Calories: <strong className="text-gray-700">{m.cal} kcal</strong></span>
+                                {(m.p||0)>0&&<span className="text-gray-500">Protein: <strong className="text-gray-700">{m.p}g</strong></span>}
+                                {dbItem?.f!=null&&<span className="text-gray-500">Fat: <strong className="text-gray-700">{dbItem.f}g</strong></span>}
+                                {dbItem?.fi!=null&&<span className="text-gray-500">Fibre: <strong className="text-gray-700">{dbItem.fi}g</strong></span>}
+                              </div>
+                              {dbItem?.t&&dbItem.t.length>0&&(
+                                <div className="flex flex-wrap gap-1 pt-0.5">
+                                  {dbItem.t.filter(tag=>!["highgi","fried"].includes(tag)).map(tag=>(
+                                    <span key={tag} className="px-2 py-0.5 rounded-full text-white text-xs" style={{background:GREEN}}>{tag}</span>
+                                  ))}
+                                </div>
+                              )}
+                              <button onClick={()=>setExpandedMeal(null)}
+                                className="text-xs font-semibold" style={{color:"#6B7280"}}>
+                                Show less
+                              </button>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
