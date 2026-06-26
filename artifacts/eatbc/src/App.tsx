@@ -4851,22 +4851,24 @@ function ReminderToggle({t, compact, radio, token, label, sublabel}:{t:(k:keyof 
     </button>
   );
   if (radio) return (
-    <div className="flex items-center gap-3 cursor-pointer select-none"
-      onTouchEnd={e=>{ e.stopPropagation(); if(!loading) on?disable():enable(); }}
-      onClick={on?disable:enable}>
-      <div style={{
-        width:22,height:22,borderRadius:"50%",flexShrink:0,
-        border:on?"none":"2px solid rgba(255,255,255,0.5)",
-        background:on?"white":"transparent",
-        display:"flex",alignItems:"center",justifyContent:"center",
-        transition:"all 0.2s",
-      }}>
-        {on&&<div style={{width:10,height:10,borderRadius:"50%",background:"#1DAA61"}}/>}
-      </div>
-      <div>
-        <div className="text-sm font-bold text-white/90">Boss me around 🔔</div>
-        <div className="text-xs text-white/60">{loading?"…":on?"Nudges are on":"Tap to enable nudges"}</div>
-      </div>
+    <div className="flex items-center justify-between select-none"
+      onTouchEnd={e=>{ e.stopPropagation(); if(!loading) on?disable():enable(); }}>
+      <span className="text-sm font-bold text-white/90">Boss me around 🔔</span>
+      <button onClick={on?disable:enable} disabled={loading}
+        style={{
+          width:48,height:28,borderRadius:14,padding:3,
+          background:on?"white":"rgba(255,255,255,0.25)",
+          border:"none",cursor:"pointer",
+          display:"flex",alignItems:"center",
+          justifyContent:on?"flex-end":"flex-start",
+          transition:"background 0.25s",flexShrink:0,
+        }}>
+        <div style={{
+          width:22,height:22,borderRadius:"50%",
+          background:on?"#1DAA61":"rgba(255,255,255,0.7)",
+          transition:"all 0.25s",boxShadow:"0 1px 4px rgba(0,0,0,0.18)",
+        }}/>
+      </button>
     </div>
   );
   return (
