@@ -6000,6 +6000,7 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
   const [deleteLoading,setDeleteLoading]=useState(false);
 
   const [topSlide,setTopSlide]=useState<0|1|2>(0);
+  const touchStartX=useRef(0);
   const [tab,setTab]=useState<"today"|"train"|"progress"|"community">("today");
   const [showCalendar,setShowCalendar]=useState(false);
   const hasWorkout=!!plan?.workout;
@@ -6014,8 +6015,14 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
     <Shell wide>
       <div style={{animation:"eFade .4s ease both"}}>
         <div className="rounded-3xl text-white shadow-lg mb-4 overflow-hidden"
-          style={{background:"linear-gradient(135deg,#1DAA61 0%,#0E8A4D 60%,#0B6E40 100%)"}}>
-          {/* Top bar: always visible */}
+          style={{background:"linear-gradient(135deg,#1DAA61 0%,#0E8A4D 60%,#0B6E40 100%)"}}
+          onTouchStart={e=>{ touchStartX.current=e.touches[0].clientX; }}
+          onTouchEnd={e=>{
+            const dx=e.changedTouches[0].clientX-touchStartX.current;
+            if(dx<-48) setTopSlide(s=>Math.min(2,s+1) as 0|1|2);
+            else if(dx>48) setTopSlide(s=>Math.max(0,s-1) as 0|1|2);
+          }}>
+          {/* Top bar */}
           <div className="flex items-center justify-between px-6 pt-5 pb-2">
             <div className="flex items-center gap-2">
               <span className="font-bold text-sm">EatBC</span>
@@ -6036,123 +6043,117 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
             </div>
           </div>
 
-          {/* Slide 1: Main stats */}
-          {topSlide===0&&(
-            <div className="px-6 pb-5" style={{minHeight:192,animation:"eFade .3s ease both"}}>
-              <h2 className="text-2xl font-black mb-0.5">Hi {session.name}</h2>
-              <p className="text-white/70 text-sm mb-3">{session.id}</p>
-              <div className="flex items-start justify-between">
-                <div>
-                  <div className="flex gap-4 flex-wrap">
-                    <div><div className="text-2xl font-bold flex items-center gap-1"><Flame size={20}/>{streak}</div><div className="text-white/70 text-xs">{t("perfectDays")}</div></div>
-                    <div><div className="text-2xl font-bold">{doneCount}/{dp?.meals.length||0}</div><div className="text-white/70 text-xs">{t("todaysMeals")}</div></div>
-                    {proteinTargetVal>0&&<div><div className="text-2xl font-bold">{proteinConsumed}<span className="text-base font-normal text-white/60">/{proteinTargetVal}g</span></div><div className="text-white/70 text-xs">{t("protein")}</div></div>}
-                    <div><div className="text-2xl font-bold flex items-center gap-1"><Dumbbell size={18}/>{workoutBurned}</div><div className="text-white/70 text-xs">kcal burned</div></div>
+          {/* Sliding track — all 3 slides always mounted, translated by CSS */}
+          <div style={{overflow:"hidden"}}>
+            <div style={{
+              display:"flex",
+              transform:`translateX(${-topSlide*100}%)`,
+              transition:"transform 0.32s cubic-bezier(0.4,0,0.2,1)",
+            }}>
+              {/* Slide 1: Overview */}
+              <div style={{minWidth:"100%",height:210,padding:"0 24px 20px",boxSizing:"border-box",display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-black mb-0.5">Hi {session.name}</h2>
+                    <p className="text-white/60 text-xs truncate max-w-[140px]">{session.id}</p>
                   </div>
-                  {proteinTargetVal>0&&(
-                    <div className="mt-3 max-w-[190px]">
-                      <div className="flex justify-between text-xs text-white/60 mb-1">
-                        <span>{t("proteinTarget")}</span><span>{Math.round(Math.min(proteinConsumed/proteinTargetVal,1)*100)}%</span>
-                      </div>
-                      <div className="h-1.5 rounded-full" style={{background:"rgba(255,255,255,0.2)"}}>
-                        <div className="h-1.5 rounded-full transition-all duration-700" style={{width:`${Math.min(proteinConsumed/proteinTargetVal,1)*100}%`,background:"#86efac"}}/>
-                      </div>
+                  <CalRing pct={cal?consumed/cal:0} big={consumed} small={`/ ${cal}`} size={96}/>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-2xl py-3 text-center" style={{background:"rgba(255,255,255,0.15)"}}>
+                    <div className="font-black text-xl flex items-center justify-center gap-1"><Flame size={18}/>{streak}</div>
+                    <div className="text-xs text-white/70">{t("perfectDays")}</div>
+                  </div>
+                  <div className="rounded-2xl py-3 text-center" style={{background:"rgba(255,255,255,0.15)"}}>
+                    <div className="font-black text-xl">{doneCount}/{dp?.meals.length||0}</div>
+                    <div className="text-xs text-white/70">{t("todaysMeals")}</div>
+                  </div>
+                </div>
+                {showStreakRisk&&(
+                  <div className="rounded-xl px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5"
+                    style={{background:"rgba(251,191,36,0.2)",color:"#fef08a"}}>
+                    <Bell size={12}/>{t("streakRisk")}
+                  </div>
+                )}
+              </div>
+
+              {/* Slide 2: Nutrition */}
+              <div style={{minWidth:"100%",height:210,padding:"0 24px 20px",boxSizing:"border-box",display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-bold text-white/90">Nutrition</div>
+                    <div className="text-xs text-white/60">{cal>0?`${Math.max(0,cal-netConsumed)} kcal remaining`:"Set your plan"}</div>
+                  </div>
+                  <div className="rounded-2xl px-3 py-1.5 text-xs font-bold" style={{background:"rgba(255,255,255,0.15)"}}>
+                    <Dumbbell size={12} className="inline mr-1"/>{workoutBurned} burned
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="rounded-2xl py-2.5" style={{background:"rgba(255,255,255,0.15)"}}>
+                    <div className="font-black text-xl">{consumed}</div>
+                    <div className="text-xs text-white/70">eaten</div>
+                  </div>
+                  <div className="rounded-2xl py-2.5" style={{background:"rgba(255,255,255,0.15)"}}>
+                    <div className="font-black text-xl">{workoutBurned}</div>
+                    <div className="text-xs text-white/70">burned</div>
+                  </div>
+                  <div className="rounded-2xl py-2.5" style={{background:"rgba(255,255,255,0.15)"}}>
+                    <div className="font-black text-xl">{netConsumed}</div>
+                    <div className="text-xs text-white/70">net</div>
+                  </div>
+                </div>
+                {proteinTargetVal>0?(
+                  <div>
+                    <div className="flex justify-between text-xs text-white/60 mb-1">
+                      <span>{t("protein")}</span><span>{proteinConsumed}/{proteinTargetVal}g</span>
                     </div>
-                  )}
-                </div>
-                <CalRing pct={cal?consumed/cal:0} big={consumed} small={`/ ${cal}`} size={104}/>
-              </div>
-              {showStreakRisk&&(
-                <div className="mt-3 rounded-xl px-3 py-2 text-sm font-semibold flex items-center gap-2"
-                  style={{background:"rgba(251,191,36,0.2)",color:"#fef08a"}}>
-                  <Bell size={14}/> {t("streakRisk")}
-                </div>
-              )}
-              <div className="flex items-center gap-4 mt-4">
-                <button onClick={onLogout} className="text-white/80 inline-flex items-center gap-1 text-sm hover:text-white">
-                  <LogOut size={15}/> {t("logout")}
-                </button>
-                <button onClick={()=>setShowDeleteConfirm(true)} className="text-red-300/70 inline-flex items-center gap-1 text-xs hover:text-red-200">
-                  <X size={13}/> {t("deleteAccount")}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Slide 2: Calories */}
-          {topSlide===1&&(
-            <div className="px-6 pb-5" style={{minHeight:192,animation:"eFade .3s ease both"}}>
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <div className="font-bold text-white/90">Today's calories</div>
-                  <div className="text-xs text-white/60">{cal>0?`${Math.max(0,cal-netConsumed)} kcal remaining`:"Set your plan"}</div>
-                </div>
-                <CalRing pct={cal?consumed/cal:0} big={consumed} small={`/ ${cal}`} size={90}/>
-              </div>
-              <div className="grid grid-cols-3 gap-2 text-center mb-3">
-                <div className="rounded-2xl py-2.5" style={{background:"rgba(255,255,255,0.15)"}}>
-                  <div className="font-black text-xl">{consumed}</div>
-                  <div className="text-xs text-white/70">eaten</div>
-                </div>
-                <div className="rounded-2xl py-2.5" style={{background:"rgba(255,255,255,0.15)"}}>
-                  <div className="font-black text-xl">{workoutBurned}</div>
-                  <div className="text-xs text-white/70">burned</div>
-                </div>
-                <div className="rounded-2xl py-2.5" style={{background:"rgba(255,255,255,0.15)"}}>
-                  <div className="font-black text-xl">{netConsumed}</div>
-                  <div className="text-xs text-white/70">net</div>
-                </div>
-              </div>
-              {proteinTargetVal>0&&(
-                <div>
-                  <div className="flex justify-between text-xs text-white/60 mb-1">
-                    <span>Protein</span><span>{proteinConsumed}/{proteinTargetVal}g</span>
+                    <div className="h-2 rounded-full" style={{background:"rgba(255,255,255,0.2)"}}>
+                      <div className="h-2 rounded-full transition-all duration-700" style={{width:`${Math.min(proteinConsumed/proteinTargetVal,1)*100}%`,background:"#86efac"}}/>
+                    </div>
                   </div>
-                  <div className="h-1.5 rounded-full" style={{background:"rgba(255,255,255,0.2)"}}>
-                    <div className="h-1.5 rounded-full transition-all duration-700" style={{width:`${Math.min(proteinConsumed/proteinTargetVal,1)*100}%`,background:"#86efac"}}/>
+                ):(
+                  <div className="text-xs text-white/50 text-center">No protein target set</div>
+                )}
+              </div>
+
+              {/* Slide 3: Account + Settings */}
+              <div style={{minWidth:"100%",height:210,padding:"0 24px 20px",boxSizing:"border-box",display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-full flex items-center justify-center font-black text-xl shrink-0"
+                    style={{background:"rgba(255,255,255,0.2)"}}>{(session.name||"?")[0].toUpperCase()}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-white/90 text-sm truncate">{session.name}</div>
+                    {plan?.goal&&<div className="text-xs text-white/60 truncate">{plan.goal}</div>}
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="font-black text-xl">{points}</div>
+                    <div className="text-xs text-white/70">pts</div>
                   </div>
                 </div>
-              )}
-            </div>
-          )}
-
-          {/* Slide 3: Account — unique content only (no repeat of name/streak/logout) */}
-          {topSlide===2&&(
-            <div className="px-6 pb-5" style={{minHeight:192,animation:"eFade .3s ease both"}}>
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-12 h-12 rounded-full flex items-center justify-center font-black text-xl shrink-0"
-                  style={{background:"rgba(255,255,255,0.2)"}}>{(session.name||"?")[0].toUpperCase()}</div>
-                <div className="flex-1 min-w-0">
-                  {plan?.goal&&<div className="font-bold text-white/90 truncate">{plan.goal}</div>}
-                  {plan?.condition&&<div className="text-xs text-white/60 truncate">{plan.condition}</div>}
-                  {!plan?.goal&&<div className="font-bold text-white/80">No plan set</div>}
+                <div className="flex gap-2">
+                  {(["en","hi"] as const).map(l=>(
+                    <button key={l} onClick={()=>onLang(l)}
+                      className="px-4 py-1.5 rounded-xl text-xs font-bold transition flex-1"
+                      style={lang===l?{background:"white",color:"#1DAA61"}:{background:"rgba(255,255,255,0.15)",color:"rgba(255,255,255,0.85)"}}>
+                      {l==="en"?"English":"हिन्दी"}
+                    </button>
+                  ))}
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-center mb-5">
-                <div className="rounded-2xl py-3" style={{background:"rgba(255,255,255,0.15)"}}>
-                  <div className="font-black text-2xl">{points}</div>
-                  <div className="text-xs text-white/70">total points</div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white/80">Boss me around 🔔</span>
+                  <ReminderToggle t={t} compact token={session.token}/>
                 </div>
-                <div className="rounded-2xl py-3" style={{background:"rgba(255,255,255,0.15)"}}>
-                  <div className="font-black text-2xl">{daysActive}</div>
-                  <div className="text-xs text-white/70">days active</div>
-                </div>
-              </div>
-              <div className="flex gap-2 mb-3">
-                {(["en","hi"] as const).map(l=>(
-                  <button key={l} onClick={()=>onLang(l)}
-                    className="px-4 py-1.5 rounded-xl text-xs font-bold transition"
-                    style={lang===l?{background:"white",color:"#1DAA61"}:{background:"rgba(255,255,255,0.15)",color:"rgba(255,255,255,0.85)"}}>
-                    {l==="en"?"English":"हिन्दी"}
+                <div className="flex items-center gap-4">
+                  <button onClick={onLogout} className="text-white/80 inline-flex items-center gap-1 text-sm hover:text-white">
+                    <LogOut size={15}/>{t("logout")}
                   </button>
-                ))}
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-white/80">Boss me around 🔔</span>
-                <ReminderToggle t={t} compact token={session.token}/>
+                  <button onClick={()=>setShowDeleteConfirm(true)} className="text-red-300/70 inline-flex items-center gap-1 text-xs hover:text-red-200">
+                    <X size={13}/>{t("deleteAccount")}
+                  </button>
+                </div>
               </div>
             </div>
-          )}
+          </div>
         </div>
 
         {/* Nudge banner */}
