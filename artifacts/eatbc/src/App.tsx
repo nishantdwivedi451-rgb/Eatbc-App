@@ -3897,6 +3897,8 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet}:{
   const [bar,setBar]=useState(""); const [barBusy,setBarBusy]=useState(false); const [barErr,setBarErr]=useState("");
   const [photoSuggestions, setPhotoSuggestions] = useState<LogFood[]>([]);
   const [photoScanning, setPhotoScanning] = useState(false);
+  const [photoEditCals, setPhotoEditCals] = useState<Record<number,string>>({});
+  const [photoSelected, setPhotoSelected] = useState<Set<number>>(new Set());
   /* online search (Open Food Facts) */
   const [onlineResults,setOnlineResults]=useState<LogFood[]>([]);
   const [onlineBusy,setOnlineBusy]=useState(false);
@@ -3983,20 +3985,21 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet}:{
   async function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
     if (!e.target.files?.length) return;
     const file = e.target.files[0];
-    setPhotoScanning(true); setOpen(true); setMode("photo"); setPhotoSuggestions([]);
+    setPhotoScanning(true); setOpen(true); setMode("photo");
+    setPhotoSuggestions([]); setPhotoEditCals({}); setPhotoSelected(new Set());
     try {
-      // Resize to 512px on client to keep payload small
+      // Resize to 800px max — enough detail for gpt-4o vision
       const dataUrl = await new Promise<string>((resolve,reject)=>{
         const img = new Image();
         const objUrl = URL.createObjectURL(file);
         img.onload = ()=>{
-          const MAX=512;
+          const MAX=800;
           const r=Math.min(MAX/img.width,MAX/img.height,1);
           const canvas=document.createElement("canvas");
           canvas.width=Math.round(img.width*r); canvas.height=Math.round(img.height*r);
           canvas.getContext("2d")!.drawImage(img,0,0,canvas.width,canvas.height);
           URL.revokeObjectURL(objUrl);
-          resolve(canvas.toDataURL("image/jpeg",0.82));
+          resolve(canvas.toDataURL("image/jpeg",0.88));
         };
         img.onerror=reject; img.src=objUrl;
       });
@@ -4007,13 +4010,28 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet}:{
       });
       if(res.ok){
         const data=await res.json() as {foods:{n:string;q:string;c:number;p?:number}[]};
-        setPhotoSuggestions((data.foods||[]).map(f=>({n:f.n,q:f.q,c:f.c,p:f.p||0,cat:"AI Detected"})));
+        const foods=(data.foods||[]).map(f=>({n:f.n,q:f.q,c:f.c,p:f.p||0,cat:"AI Detected"}));
+        setPhotoSuggestions(foods);
+        setPhotoSelected(new Set(foods.map((_,i)=>i)));
+        setPhotoEditCals(Object.fromEntries(foods.map((f,i)=>[i,String(f.c)])));
       }
     } catch {
-      // empty suggestions — user can add manually
+      // empty — user can add manually
     } finally {
       setPhotoScanning(false);
     }
+  }
+
+  function addSelectedPhotos(){
+    const toAdd=photoSuggestions
+      .map((f,i)=>({...f,c:Math.round(Number(photoEditCals[i])||f.c)}))
+      .filter((_,i)=>photoSelected.has(i));
+    if(!toAdd.length) return;
+    const newLog=[...log,...toAdd.map(f=>({
+      n:f.n, cal:f.c, p:f.p||0, qty:f.q, servings:1,
+    }))];
+    onUpdate(newLog);
+    setOpen(false); setMode("search"); setPhotoSuggestions([]); setPhotoEditCals({}); setPhotoSelected(new Set());
   }
 
   return(
@@ -4163,37 +4181,75 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet}:{
               {mode==="photo"&&(
                 <div className="mt-3">
                   {photoScanning?(
-                    <div className="flex flex-col items-center py-8 gap-3">
-                      <Loader2 className="animate-spin" size={28} style={{color:"#8B5CF6"}}/>
-                      <p className="text-sm font-semibold text-gray-600">{t("photoAnalyzing")}</p>
-                      <div className="flex items-center gap-1.5 px-3 py-1 rounded-full" style={{background:"rgba(139,92,246,0.08)"}}>
-                        <Sparkles size={11} style={{color:"#8B5CF6"}}/>
-                        <span className="text-xs font-bold" style={{color:"#8B5CF6"}}>Veer AI is scanning your food…</span>
+                    <div className="flex flex-col items-center py-10 gap-3">
+                      <div className="relative">
+                        <Loader2 className="animate-spin" size={32} style={{color:"#8B5CF6"}}/>
+                        <Sparkles size={14} style={{color:"#8B5CF6",position:"absolute",top:-6,right:-6}}/>
                       </div>
+                      <p className="text-sm font-semibold text-gray-700">Veer AI is analysing…</p>
+                      <p className="text-xs text-gray-400 text-center">Identifying dishes and estimating calories</p>
                     </div>
                   ):photoSuggestions.length>0?(
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-1.5 mb-2">
-                        <Sparkles size={12} style={{color:"#8B5CF6"}}/>
-                        <p className="text-xs font-bold" style={{color:"#8B5CF6"}}>Veer AI detected:</p>
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-1">
+                          <Sparkles size={12} style={{color:"#8B5CF6"}}/>
+                          <span className="text-xs font-bold" style={{color:"#8B5CF6"}}>Veer AI detected {photoSuggestions.length} item{photoSuggestions.length>1?"s":""}</span>
+                        </div>
+                        <button className="text-xs text-gray-400 underline" onClick={()=>{
+                          setPhotoSelected(s=>{
+                            const all=new Set(photoSuggestions.map((_,i)=>i));
+                            return s.size===all.size?new Set():all;
+                          });
+                        }}>{photoSelected.size===photoSuggestions.length?"Deselect all":"Select all"}</button>
                       </div>
-                      {photoSuggestions.map((f,i)=>(
-                        <button key={i} onClick={()=>{setPending(f);setServings(1);setMode("search");}}
-                          className="w-full text-left px-4 py-3 rounded-2xl border-2 transition"
-                          style={{borderColor:"#E9D5FF"}} onMouseOver={e=>(e.currentTarget.style.borderColor="#8B5CF6")} onMouseOut={e=>(e.currentTarget.style.borderColor="#E9D5FF")}>
-                          <div className="font-semibold text-gray-800 text-sm">{f.n}</div>
-                          <div className="text-xs text-gray-400">{f.q} · <span className="font-bold" style={{color:GREEN}}>{f.c} kcal</span>{f.p?` · ${f.p}g protein`:""}</div>
-                        </button>
-                      ))}
-                      <p className="text-xs text-gray-400 text-center pt-1">Tap to add · Adjust servings next</p>
+                      <div className="space-y-2 mb-3">
+                        {photoSuggestions.map((f,i)=>{
+                          const selected=photoSelected.has(i);
+                          return(
+                            <div key={i} className="rounded-2xl border-2 p-3 transition"
+                              style={{borderColor:selected?"#8B5CF6":"#E5E7EB",background:selected?"rgba(139,92,246,0.04)":"#fff"}}>
+                              <div className="flex items-start gap-2">
+                                <button onClick={()=>setPhotoSelected(s=>{const n=new Set(s);selected?n.delete(i):n.add(i);return n;})}
+                                  className="mt-0.5 shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition"
+                                  style={{borderColor:selected?"#8B5CF6":"#D1D5DB",background:selected?"#8B5CF6":"transparent"}}>
+                                  {selected&&<Check size={11} color="white"/>}
+                                </button>
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-semibold text-gray-800 text-sm truncate">{f.n}</div>
+                                  <div className="text-xs text-gray-400">{f.q}{f.p?` · ${f.p}g protein`:""}</div>
+                                </div>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <input
+                                    type="number"
+                                    value={photoEditCals[i]??String(f.c)}
+                                    onChange={e=>setPhotoEditCals(ec=>({...ec,[i]:e.target.value}))}
+                                    className="w-16 text-right text-sm font-black rounded-lg border px-2 py-0.5 outline-none"
+                                    style={{color:GREEN,borderColor:"#E5E7EB"}}/>
+                                  <span className="text-xs text-gray-400">kcal</span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <button onClick={addSelectedPhotos} disabled={photoSelected.size===0}
+                        className="w-full py-2.5 rounded-2xl text-white font-bold text-sm disabled:opacity-40 mb-2"
+                        style={{background:"#8B5CF6"}}>
+                        Add {photoSelected.size} item{photoSelected.size!==1?"s":""} to diary
+                      </button>
+                      <label className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold text-gray-400 cursor-pointer hover:text-gray-600">
+                        <Camera size={12}/>Scan a different photo
+                        <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={handlePhoto}/>
+                      </label>
                     </div>
                   ):(
                     <div className="flex flex-col items-center py-8 gap-2 text-center">
                       <Camera size={28} className="text-gray-300"/>
-                      <p className="text-sm text-gray-500">No food detected.</p>
-                      <p className="text-xs text-gray-400">Try a clearer photo or add food manually.</p>
-                      <label className="mt-2 px-4 py-2 rounded-xl text-xs font-bold cursor-pointer" style={{background:"rgba(139,92,246,0.1)",color:"#8B5CF6"}}>
-                        <Camera size={12} className="inline mr-1"/>Try again
+                      <p className="text-sm text-gray-600">No food detected.</p>
+                      <p className="text-xs text-gray-400">Make sure the food is clearly visible and well-lit.</p>
+                      <label className="mt-3 px-5 py-2 rounded-xl text-sm font-bold cursor-pointer" style={{background:"rgba(139,92,246,0.1)",color:"#8B5CF6"}}>
+                        <Camera size={13} className="inline mr-1.5"/>Try again
                         <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={handlePhoto}/>
                       </label>
                     </div>
