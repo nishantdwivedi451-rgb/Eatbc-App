@@ -6180,26 +6180,44 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
               </div>
 
               {/* Slide 3: Account + Settings */}
-              <div style={{minWidth:"100%",height:210,padding:"0 24px 20px",boxSizing:"border-box",display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
+              <div style={{minWidth:"100%",height:210,padding:"0 24px 20px",boxSizing:"border-box",display:"flex",flexDirection:"column",gap:12}}>
+                {/* Avatar row */}
                 <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-full flex items-center justify-center font-black text-xl shrink-0"
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center font-black text-lg shrink-0"
                     style={{background:"rgba(255,255,255,0.2)"}}>{(session.name||"?")[0].toUpperCase()}</div>
                   <div className="flex-1 min-w-0">
                     <div className="font-bold text-white/90 text-sm truncate">{session.name}</div>
-                    {plan?.goal&&<div className="text-xs text-white/60 truncate">{plan.goal}</div>}
+                    <div className="text-xs text-white/60 truncate">{plan?.goal||"No goal set"}</div>
                   </div>
                   <div className="text-right shrink-0">
-                    <div className="font-black text-xl">{points}</div>
-                    <div className="text-xs text-white/70">pts</div>
+                    <div className="font-black text-lg leading-none">{points}</div>
+                    <div className="text-xs text-white/60">pts</div>
                   </div>
                 </div>
+                {/* Stats mini-grid */}
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="rounded-2xl py-2" style={{background:"rgba(255,255,255,0.15)"}}>
+                    <div className="font-black text-base flex items-center justify-center gap-0.5"><Flame size={14}/>{streak}</div>
+                    <div className="text-[10px] text-white/70">streak</div>
+                  </div>
+                  <div className="rounded-2xl py-2" style={{background:"rgba(255,255,255,0.15)"}}>
+                    <div className="font-black text-base">{daysActive}</div>
+                    <div className="text-[10px] text-white/70">days active</div>
+                  </div>
+                  <div className="rounded-2xl py-2" style={{background:"rgba(255,255,255,0.15)"}}>
+                    <div className="font-black text-base">{points}</div>
+                    <div className="text-[10px] text-white/70">total pts</div>
+                  </div>
+                </div>
+                {/* Nudge toggle */}
                 <ReminderToggle t={t} radio token={session.token}/>
+                {/* Logout / Delete */}
                 <div className="flex items-center gap-4">
                   <button onClick={onLogout} className="text-white/80 inline-flex items-center gap-1 text-sm hover:text-white">
-                    <LogOut size={15}/>{t("logout")}
+                    <LogOut size={14}/>{t("logout")}
                   </button>
                   <button onClick={()=>setShowDeleteConfirm(true)} className="text-red-300/70 inline-flex items-center gap-1 text-xs hover:text-red-200">
-                    <X size={13}/>{t("deleteAccount")}
+                    <X size={12}/>{t("deleteAccount")}
                   </button>
                 </div>
               </div>
