@@ -2272,14 +2272,6 @@ function AtomOrb({accent}:{accent:string}) {
             transition={{duration:5+i*2.2,repeat:Infinity,ease:"linear"}}
           />
         ))}
-        {/* 3 orbiting electron dots */}
-        {([0,1,2] as number[]).map(i=>(
-          <motion.circle key={`e${i}`} cx="55" cy="6" r="5.5" fill={accent}
-            style={{transformOrigin:"55px 55px",filter:`drop-shadow(0 0 4px ${accent})`}}
-            animate={{rotate:[i*120,i*120+360]}}
-            transition={{duration:4.5,repeat:Infinity,ease:"linear",delay:-i*1.5}}
-          />
-        ))}
         {/* Nucleus glow */}
         <circle cx="55" cy="55" r="16" fill={accent} opacity="0.25"/>
         <circle cx="55" cy="55" r="11" fill={accent} opacity="0.85"/>
@@ -6007,39 +5999,114 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
   const [showDeleteConfirm,setShowDeleteConfirm]=useState(false);
   const [deleteLoading,setDeleteLoading]=useState(false);
 
-  const [slide,setSlide]=useState<0|1|2>(0);
+  const [topSlide,setTopSlide]=useState<0|1|2>(0);
+  const [tab,setTab]=useState<"today"|"train"|"progress"|"community">("today");
   const [showCalendar,setShowCalendar]=useState(false);
   const hasWorkout=!!plan?.workout;
+  const TABS:[typeof tab,string,React.ElementType][]=[
+    ["today","Today",Utensils],
+    ...(hasWorkout?[["train","Train",Dumbbell] as [typeof tab,string,React.ElementType]]:[]),
+    ["progress","Stats",BarChart3],["community","Squad",Users],
+  ];
 
   return (
     <>
     <Shell wide>
       <div style={{animation:"eFade .4s ease both"}}>
-        <div className="rounded-3xl p-6 text-white shadow-lg mb-4"
+        <div className="rounded-3xl text-white shadow-lg mb-4 overflow-hidden"
           style={{background:"linear-gradient(135deg,#1DAA61 0%,#0E8A4D 60%,#0B6E40 100%)"}}>
-          <div className="flex justify-between items-start">
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <span className="font-bold text-sm">EatBC</span>
-                <button onClick={()=>setShowCalendar(true)}
-                  className="flex items-center gap-1 px-2 py-0.5 rounded-full transition active:scale-95"
-                  style={{background:"rgba(255,255,255,0.15)",border:"1px solid rgba(255,255,255,0.25)"}}>
-                  <CalendarDays size={12} style={{color:"rgba(255,255,255,0.85)"}}/>
-                  <span style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.85)"}}>Month</span>
+          {/* Top bar: always visible */}
+          <div className="flex items-center justify-between px-6 pt-5 pb-2">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-sm">EatBC</span>
+              <button onClick={()=>setShowCalendar(true)}
+                className="flex items-center gap-1 px-2 py-0.5 rounded-full transition active:scale-95"
+                style={{background:"rgba(255,255,255,0.15)",border:"1px solid rgba(255,255,255,0.25)"}}>
+                <CalendarDays size={12} style={{color:"rgba(255,255,255,0.85)"}}/>
+                <span style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.85)"}}>Month</span>
+              </button>
+            </div>
+            <div className="flex items-center gap-1.5">
+              {([0,1,2] as const).map(i=>(
+                <button key={i} onClick={()=>setTopSlide(i)}
+                  className="rounded-full transition-all duration-300"
+                  style={{width:topSlide===i?20:8,height:8,
+                    background:topSlide===i?"white":"rgba(255,255,255,0.4)"}}/>
+              ))}
+            </div>
+          </div>
+
+          {/* Slide 1: Main stats */}
+          {topSlide===0&&(
+            <div className="px-6 pb-5" style={{animation:"eFade .3s ease both"}}>
+              <h2 className="text-2xl font-black mb-0.5">Hi {session.name}</h2>
+              <p className="text-white/70 text-sm mb-3">{session.id}</p>
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="flex gap-4 flex-wrap">
+                    <div><div className="text-2xl font-bold flex items-center gap-1"><Flame size={20}/>{streak}</div><div className="text-white/70 text-xs">{t("perfectDays")}</div></div>
+                    <div><div className="text-2xl font-bold">{doneCount}/{dp?.meals.length||0}</div><div className="text-white/70 text-xs">{t("todaysMeals")}</div></div>
+                    {proteinTargetVal>0&&<div><div className="text-2xl font-bold">{proteinConsumed}<span className="text-base font-normal text-white/60">/{proteinTargetVal}g</span></div><div className="text-white/70 text-xs">{t("protein")}</div></div>}
+                    <div><div className="text-2xl font-bold flex items-center gap-1"><Dumbbell size={18}/>{workoutBurned}</div><div className="text-white/70 text-xs">kcal burned</div></div>
+                  </div>
+                  {proteinTargetVal>0&&(
+                    <div className="mt-3 max-w-[190px]">
+                      <div className="flex justify-between text-xs text-white/60 mb-1">
+                        <span>{t("proteinTarget")}</span><span>{Math.round(Math.min(proteinConsumed/proteinTargetVal,1)*100)}%</span>
+                      </div>
+                      <div className="h-1.5 rounded-full" style={{background:"rgba(255,255,255,0.2)"}}>
+                        <div className="h-1.5 rounded-full transition-all duration-700" style={{width:`${Math.min(proteinConsumed/proteinTargetVal,1)*100}%`,background:"#86efac"}}/>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <CalRing pct={cal?consumed/cal:0} big={consumed} small={`/ ${cal}`} size={104}/>
+              </div>
+              {showStreakRisk&&(
+                <div className="mt-3 rounded-xl px-3 py-2 text-sm font-semibold flex items-center gap-2"
+                  style={{background:"rgba(251,191,36,0.2)",color:"#fef08a"}}>
+                  <Bell size={14}/> {t("streakRisk")}
+                </div>
+              )}
+              <div className="flex items-center gap-4 mt-4">
+                <button onClick={onLogout} className="text-white/80 inline-flex items-center gap-1 text-sm hover:text-white">
+                  <LogOut size={15}/> {t("logout")}
+                </button>
+                <button onClick={()=>setShowDeleteConfirm(true)} className="text-red-300/70 inline-flex items-center gap-1 text-xs hover:text-red-200">
+                  <X size={13}/> {t("deleteAccount")}
                 </button>
               </div>
-              <h2 className="text-2xl font-black">Hi {session.name}</h2>
-              <p className="text-white/70 text-sm">{session.id}</p>
-              <div className="flex gap-4 mt-4">
-                <div><div className="text-2xl font-bold flex items-center gap-1"><Flame size={20}/>{streak}</div><div className="text-white/70 text-xs">{t("perfectDays")}</div></div>
-                <div><div className="text-2xl font-bold">{doneCount}/{dp?.meals.length||0}</div><div className="text-white/70 text-xs">{t("todaysMeals")}</div></div>
-                {proteinTargetVal>0&&<div><div className="text-2xl font-bold">{proteinConsumed}<span className="text-base font-normal text-white/60">/{proteinTargetVal}g</span></div><div className="text-white/70 text-xs">{t("protein")}</div></div>}
-                <div><div className="text-2xl font-bold flex items-center gap-1"><Dumbbell size={18}/>{workoutBurned}</div><div className="text-white/70 text-xs">kcal burned</div></div>
+            </div>
+          )}
+
+          {/* Slide 2: Calories */}
+          {topSlide===1&&(
+            <div className="px-6 pb-5" style={{animation:"eFade .3s ease both"}}>
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <div className="font-bold text-white/90">Today's calories</div>
+                  <div className="text-xs text-white/60">{cal>0?`${Math.max(0,cal-netConsumed)} kcal remaining`:"Set your plan"}</div>
+                </div>
+                <CalRing pct={cal?consumed/cal:0} big={consumed} small={`/ ${cal}`} size={90}/>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-center mb-3">
+                <div className="rounded-2xl py-2.5" style={{background:"rgba(255,255,255,0.15)"}}>
+                  <div className="font-black text-xl">{consumed}</div>
+                  <div className="text-xs text-white/70">eaten</div>
+                </div>
+                <div className="rounded-2xl py-2.5" style={{background:"rgba(255,255,255,0.15)"}}>
+                  <div className="font-black text-xl">{workoutBurned}</div>
+                  <div className="text-xs text-white/70">burned</div>
+                </div>
+                <div className="rounded-2xl py-2.5" style={{background:"rgba(255,255,255,0.15)"}}>
+                  <div className="font-black text-xl">{netConsumed}</div>
+                  <div className="text-xs text-white/70">net</div>
+                </div>
               </div>
               {proteinTargetVal>0&&(
-                <div className="mt-3">
+                <div>
                   <div className="flex justify-between text-xs text-white/60 mb-1">
-                    <span>{t("proteinTarget")}</span><span>{Math.round(Math.min(proteinConsumed/proteinTargetVal,1)*100)}%</span>
+                    <span>Protein</span><span>{proteinConsumed}/{proteinTargetVal}g</span>
                   </div>
                   <div className="h-1.5 rounded-full" style={{background:"rgba(255,255,255,0.2)"}}>
                     <div className="h-1.5 rounded-full transition-all duration-700" style={{width:`${Math.min(proteinConsumed/proteinTargetVal,1)*100}%`,background:"#86efac"}}/>
@@ -6047,22 +6114,55 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
                 </div>
               )}
             </div>
-            <CalRing pct={cal?consumed/cal:0} big={consumed} small={`/ ${cal}`} size={104}/>
-          </div>
-          {showStreakRisk&&(
-            <div className="mt-3 rounded-xl px-3 py-2 text-sm font-semibold flex items-center gap-2"
-              style={{background:"rgba(251,191,36,0.2)",color:"#fef08a"}}>
-              <Bell size={14}/> {t("streakRisk")}
+          )}
+
+          {/* Slide 3: Account */}
+          {topSlide===2&&(
+            <div className="px-6 pb-5" style={{animation:"eFade .3s ease both"}}>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center font-black text-lg shrink-0"
+                  style={{background:"rgba(255,255,255,0.2)"}}>{(session.name||"?")[0].toUpperCase()}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-black text-lg leading-tight truncate">{session.name}</div>
+                  <div className="text-xs text-white/60 truncate">{session.id}</div>
+                  {plan?.goal&&<div className="text-xs font-semibold text-white/80 truncate">{plan.goal}</div>}
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-center mb-4">
+                <div className="rounded-2xl py-2.5" style={{background:"rgba(255,255,255,0.15)"}}>
+                  <div className="font-black text-xl flex items-center justify-center gap-0.5"><Flame size={14}/>{streak}</div>
+                  <div className="text-xs text-white/70">streak</div>
+                </div>
+                <div className="rounded-2xl py-2.5" style={{background:"rgba(255,255,255,0.15)"}}>
+                  <div className="font-black text-xl">{points}</div>
+                  <div className="text-xs text-white/70">points</div>
+                </div>
+                <div className="rounded-2xl py-2.5" style={{background:"rgba(255,255,255,0.15)"}}>
+                  <div className="font-black text-xl">{daysActive}</div>
+                  <div className="text-xs text-white/70">days active</div>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex gap-2">
+                  {(["en","hi"] as const).map(l=>(
+                    <button key={l} onClick={()=>onLang(l)}
+                      className="px-3 py-1 rounded-lg text-xs font-bold transition"
+                      style={lang===l?{background:"white",color:"#1DAA61"}:{background:"rgba(255,255,255,0.15)",color:"rgba(255,255,255,0.85)"}}>
+                      {l==="en"?"EN":"हि"}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-3">
+                  <button onClick={onLogout} className="text-white/80 inline-flex items-center gap-1 text-xs hover:text-white">
+                    <LogOut size={13}/> {t("logout")}
+                  </button>
+                  <button onClick={()=>setShowDeleteConfirm(true)} className="text-red-300/70 inline-flex items-center gap-1 text-xs hover:text-red-200">
+                    <X size={12}/> {t("deleteAccount")}
+                  </button>
+                </div>
+              </div>
             </div>
           )}
-          <div className="flex items-center gap-4 mt-4">
-            <button onClick={onLogout} className="text-white/80 inline-flex items-center gap-1 text-sm hover:text-white">
-              <LogOut size={15}/> {t("logout")}
-            </button>
-            <button onClick={()=>setShowDeleteConfirm(true)} className="text-red-300/70 inline-flex items-center gap-1 text-xs hover:text-red-200">
-              <X size={13}/> {t("deleteAccount")}
-            </button>
-          </div>
         </div>
 
         {/* Nudge banner */}
@@ -6075,22 +6175,19 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
           </div>
         )}
 
-        {/* Carousel slide indicators */}
-        <div className="flex gap-2 mb-4">
-          {(["🏠 Main","🔥 Calories","👤 Account"] as const).map((label,i)=>(
-            <button key={i} onClick={()=>setSlide(i as 0|1|2)}
-              className="flex-1 py-2.5 rounded-2xl text-xs font-bold transition active:scale-95"
-              style={slide===i
-                ?{background:GREEN,color:"white",boxShadow:"0 2px 12px rgba(29,170,97,0.35)"}
-                :{background:"#F3F4F6",color:"#9CA3AF"}}>
-              {label}
+        {/* Section tabs */}
+        <div className="flex gap-2 mb-4 bg-white rounded-2xl p-1 border border-gray-100">
+          {TABS.map(([id,label,Icon])=>(
+            <button key={id} onClick={()=>setTab(id)}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold transition ${tab===id?"text-white shadow":"text-gray-500"}`}
+              style={tab===id?{background:GREEN}:{}}>
+              <Icon size={15}/> {label}
             </button>
           ))}
         </div>
 
-        {/* Slide 1: Main */}
-        {slide===0&&(
-          <div style={{animation:"eFade .3s ease both"}}>
+        {tab==="today"&&(
+          <>
             <AdaptiveRecalcBanner
               weights={tracking.weights||{}}
               lastRecalcDate={tracking.lastRecalcDate}
@@ -6192,7 +6289,7 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
                   onUpdate={updated=>onUpdate({...tracking,[sel]:updated})}
                 />
                 <div className="flex items-center justify-between mb-2 mt-1 px-1">
-                  <span className="text-xs text-gray-400">Stay on track with reminders</span>
+                  <span className="text-xs font-semibold text-gray-500">Boss me around 🔔</span>
                   <ReminderToggle t={t} compact token={session.token}/>
                 </div>
                 <Card className="p-5 mb-4">
@@ -6213,123 +6310,31 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
             ):(
               <Card className="p-8 text-center text-gray-400">No plan loaded for this session.</Card>
             )}
-            {hasWorkout&&plan?.workout&&<WorkoutTab workout={plan.workout} tracking={tracking} onUpdate={onUpdate}/>}
-          </div>
+          </>
         )}
 
-        {/* Slide 2: Calories */}
-        {slide===1&&(
-          <div style={{animation:"eFade .3s ease both"}}>
-            <Card className="p-6 mb-4">
-              <h3 className="font-bold text-gray-800 mb-5 flex items-center gap-2">
-                <Flame size={18} style={{color:GREEN}}/> Calorie Breakdown
-              </h3>
-              <div className="flex items-center justify-center mb-5">
-                <CalRing pct={cal?consumed/cal:0} big={consumed} small={`/ ${cal} kcal`} size={160}
-                  color={GREEN} track="rgba(29,170,97,0.12)"/>
-              </div>
-              <div className="grid grid-cols-3 gap-2 text-center mb-4">
-                <div className="p-3 rounded-2xl" style={{background:"#F0FDF4"}}>
-                  <div className="font-black text-lg" style={{color:GREEN}}>{consumed}</div>
-                  <div className="text-xs text-gray-500">eaten</div>
-                </div>
-                <div className="p-3 rounded-2xl" style={{background:"#FEF3C7"}}>
-                  <div className="font-black text-lg text-amber-600">{workoutBurned}</div>
-                  <div className="text-xs text-gray-500">burned</div>
-                </div>
-                <div className="p-3 rounded-2xl" style={{background:netConsumed>cal&&cal>0?"#FEF2F2":"#F0FDF4"}}>
-                  <div className="font-black text-lg" style={{color:netConsumed>cal&&cal>0?"#DC2626":GREEN}}>{netConsumed}</div>
-                  <div className="text-xs text-gray-500">net</div>
-                </div>
-              </div>
-              {proteinTarget>0&&(
-                <div>
-                  <div className="flex justify-between text-xs text-gray-500 mb-1.5">
-                    <span className="font-semibold">Protein</span>
-                    <span>{proteinConsumed}g / {proteinTarget}g</span>
-                  </div>
-                  <div className="h-2 rounded-full overflow-hidden" style={{background:"#E5E7EB"}}>
-                    <div className="h-2 rounded-full transition-all duration-700"
-                      style={{width:`${Math.min(proteinConsumed/proteinTarget,1)*100}%`,background:"#22C55E"}}/>
-                  </div>
-                </div>
-              )}
-            </Card>
+        {tab==="train"&&plan?.workout&&(
+          <WorkoutTab workout={plan.workout} tracking={tracking} onUpdate={onUpdate}/>
+        )}
+
+        {tab==="progress"&&(
+          <>
             <TrendsCard history={history} calTarget={cal} proteinTarget={proteinTargetVal} weights={tracking.weights||{}} t={t}/>
             <EatingWindowCard mealTimes={tracking.mealTimes||{}} today={today}/>
             <InsightsCard history={history} proteinTarget={proteinTargetVal} t={t}/>
             <WeightLog t={tracking} onLog={logW}/>
             <div className="mb-4"/>
-          </div>
-        )}
-
-        {/* Slide 3: Account */}
-        {slide===2&&(
-          <div style={{animation:"eFade .3s ease both"}}>
-            <Card className="p-5 mb-4">
-              <div className="flex items-center gap-4 mb-5">
-                <div className="w-14 h-14 rounded-full flex items-center justify-center font-black text-xl text-white"
-                  style={{background:GREEN}}>{(session.name||"?")[0].toUpperCase()}</div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-black text-gray-900 text-lg leading-tight truncate">{session.name}</div>
-                  <div className="text-xs text-gray-400 truncate">{session.id}</div>
-                  {plan?.goal&&<div className="text-xs font-bold mt-0.5" style={{color:GREEN}}>{plan.goal}</div>}
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="p-3 rounded-2xl" style={{background:"#FFF7ED"}}>
-                  <div className="font-black text-xl flex items-center justify-center gap-0.5" style={{color:"#EA580C"}}>
-                    <Flame size={16}/>{streak}
-                  </div>
-                  <div className="text-xs text-gray-500 mt-0.5">day streak</div>
-                </div>
-                <div className="p-3 rounded-2xl" style={{background:"#F5F3FF"}}>
-                  <div className="font-black text-xl" style={{color:"#7C3AED"}}>{points}</div>
-                  <div className="text-xs text-gray-500 mt-0.5">points</div>
-                </div>
-                <div className="p-3 rounded-2xl" style={{background:"#EFF6FF"}}>
-                  <div className="font-black text-xl" style={{color:"#2563EB"}}>{daysActive}</div>
-                  <div className="text-xs text-gray-500 mt-0.5">days active</div>
-                </div>
-              </div>
-            </Card>
             <ReminderToggle t={t} token={session.token}
               label="Boss me around 🔔"
               sublabel="Poke me when I go AWOL from my diet plan"/>
-            <Card className="p-5 mb-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-bold text-gray-800">Language</div>
-                  <div className="text-xs text-gray-400 mt-0.5">Display language</div>
-                </div>
-                <div className="flex gap-2">
-                  {(["en","hi"] as const).map(l=>(
-                    <button key={l} onClick={()=>onLang(l)}
-                      className="px-4 py-1.5 rounded-xl text-sm font-bold transition"
-                      style={lang===l?{background:GREEN,color:"white"}:{background:"#F3F4F6",color:"#6B7280"}}>
-                      {l==="en"?"EN":"हि"}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </Card>
+          </>
+        )}
+
+        {tab==="community"&&(
+          <>
             <Leaderboard session={session} points={points} streak={streak} t={t}/>
             <ChallengesCard history={history} joined={joined} onToggle={toggleChallenge} t={t}/>
-            <Card className="p-4 mb-6">
-              <div className="flex gap-3">
-                <button onClick={onLogout}
-                  className="flex-1 py-3 rounded-2xl flex items-center justify-center gap-2 font-semibold text-sm transition active:scale-95"
-                  style={{background:"#F0FDF4",color:"#16A34A",border:"1.5px solid #BBF7D0"}}>
-                  <LogOut size={16}/> {t("logout")}
-                </button>
-                <button onClick={()=>setShowDeleteConfirm(true)}
-                  className="flex-1 py-3 rounded-2xl flex items-center justify-center gap-2 font-semibold text-sm transition active:scale-95"
-                  style={{background:"#FEF2F2",color:"#DC2626",border:"1.5px solid #FECACA"}}>
-                  <X size={16}/> {t("deleteAccount")}
-                </button>
-              </div>
-            </Card>
-          </div>
+          </>
         )}
       </div>
       {recipeFor&&<RecipeSheet name={recipeFor} onClose={()=>setRecipeFor(null)}/>}
