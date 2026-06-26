@@ -202,7 +202,7 @@ interface Plan {
   tips: string[]; days: PlanDay[]; workout?: WorkoutPlan | null;
 }
 interface Session { id: string; name: string; token: string; }
-interface FoodLog { n: string; cal: number; p?: number; qty: string; servings: number; }
+interface FoodLog { n: string; cal: number; p?: number; qty: string; servings: number; mealBucket?: string; }
 interface ExerciseLog { n: string; sets: number; reps: string; cat: string; ts: string; weight?: number; weightLabel?: string; cal?: number; }
 interface DayTracking { meals: Record<number, boolean>; water: number; log?: FoodLog[]; cheatLog?: FoodLog[]; }
 /* Date-keyed daily snapshot — powers real streaks, trends and insights. */
@@ -347,22 +347,22 @@ const DB: FoodItem[] = [
   {n:"2 roti, rajma & small rice",       c:560,p:22,q:"2 rotis (60g each) + 1 cup rajma + ½ cup cooked rice",           slot:["l","d"],reg:["n"],t:["fiber","protein"]},
   {n:"2 roti, chole & salad",            c:540,p:20,q:"2 rotis (60g each) + 1 cup chole + 1 cup salad",                slot:["l","d"],reg:["n"],t:["fiber","protein"]},
   {n:"Palak paneer with 2 roti",         c:540,p:22,q:"2 rotis (60g each) + 1 cup palak paneer (80g paneer)",          slot:["l","d"],reg:["n"],dairy:1,t:["fiber","protein"]},
-  {n:"Dal makhani with jeera rice",      c:600,p:20,q:"1 cup dal makhani + 1 cup jeera rice (180g cooked)",            slot:["l","d"],reg:["n"],dairy:1,t:["protein"]},
+  {n:"Dal makhani with jeera rice",      c:600,p:20,q:"1 cup dal makhani + 1 cup jeera rice (180g cooked)",            slot:["l","d"],reg:["n"],dairy:1,t:["protein","highgi"]},
   {n:"Mixed veg, dal & 2 roti",          c:500,p:15,q:"2 rotis (60g each) + 1 cup dal + 1 cup mixed veg",             slot:["l","d"],reg:["all"],jain:1,t:["fiber"]},
-  {n:"Soya chunk curry with rice",       c:520,p:30,q:"1 cup curry (80g soya chunks) + 1 cup cooked rice",            slot:["l","d"],reg:["all"],t:["protein","fiber","goitrogen"]},
-  {n:"Rice, sambar, rasam, poriyal & curd", c:540,p:16,q:"1½ cups rice + 1 cup sambar + 1 cup poriyal + ½ cup curd", slot:["l","d"],reg:["s"],dairy:1,t:["fiber"]},
+  {n:"Soya chunk curry with rice",       c:520,p:30,q:"1 cup curry (80g soya chunks) + 1 cup cooked rice",            slot:["l","d"],reg:["all"],t:["protein","fiber","goitrogen","highgi"]},
+  {n:"Rice, sambar, rasam, poriyal & curd", c:540,p:16,q:"1½ cups rice + 1 cup sambar + 1 cup poriyal + ½ cup curd", slot:["l","d"],reg:["s"],dairy:1,t:["fiber","highgi"]},
   {n:"Curd rice with pickle",            c:420,p:10,q:"1½ cups curd rice (300g) + 1 tsp pickle",                       slot:["l","d"],reg:["s"],dairy:1,simple:1,t:["highsalt","highgi"]},
   {n:"Lemon rice with papad & salad",   c:460,p:8, q:"1½ cups lemon rice + 1 papad + 1 cup salad",                    slot:["l","d"],reg:["s"],simple:1,t:["highsalt","highgi"]},
-  {n:"Bisi bele bath",                   c:520,p:14,q:"1½ cups (300g)",                                                  slot:["l","d"],reg:["s"],dairy:1,t:["fiber","protein"]},
-  {n:"Rice, kootu & thoran",             c:500,p:12,q:"1½ cups rice + 1 cup kootu + ½ cup thoran",                     slot:["l","d"],reg:["s"],jain:1,t:["fiber"]},
-  {n:"Avial with rice",                  c:480,p:10,q:"1½ cups rice + 1 cup avial (200g)",                              slot:["l","d"],reg:["s"],dairy:1,jain:1,t:["fiber"]},
-  {n:"Fish curry with rice",             c:560,p:28,q:"1½ cups rice + 1 cup curry (100g fish)",                        slot:["l","d"],reg:["s","e"],fish:1,t:["protein"]},
-  {n:"Chicken Chettinad with rice",      c:620,p:32,q:"1½ cups rice + 1 cup curry (120g chicken)",                     slot:["l","d"],reg:["s"],meat:1,t:["protein"]},
-  {n:"Egg curry with rice",              c:540,p:24,q:"1½ cups rice + 1 cup curry (2 eggs)",                            slot:["l","d"],reg:["all"],egg:1,t:["protein"]},
-  {n:"Rice, cholar dal, aloo posto & curd", c:540,p:16,q:"1½ cups rice + 1 cup cholar dal + ½ cup aloo posto + ½ cup curd", slot:["l","d"],reg:["e"],dairy:1,t:["fiber"]},
-  {n:"Rice with macher jhol",            c:560,p:28,q:"1½ cups rice + 1 cup jhol (120g fish)",                         slot:["l","d"],reg:["e"],fish:1,t:["protein"]},
-  {n:"Shukto with rice",                 c:460,p:8, q:"1½ cups rice + 1 cup shukto (200g)",                            slot:["l","d"],reg:["e"],dairy:1,t:["fiber"]},
-  {n:"Rice, dal & begun bhaja",          c:500,p:12,q:"1½ cups rice + 1 cup dal + 2 begun bhaja",                      slot:["l","d"],reg:["e"],jain:1,simple:1,t:["fried"]},
+  {n:"Bisi bele bath",                   c:520,p:14,q:"1½ cups (300g)",                                                  slot:["l","d"],reg:["s"],dairy:1,t:["fiber","protein","highgi"]},
+  {n:"Rice, kootu & thoran",             c:500,p:12,q:"1½ cups rice + 1 cup kootu + ½ cup thoran",                     slot:["l","d"],reg:["s"],jain:1,t:["fiber","highgi"]},
+  {n:"Avial with rice",                  c:480,p:10,q:"1½ cups rice + 1 cup avial (200g)",                              slot:["l","d"],reg:["s"],dairy:1,jain:1,t:["fiber","highgi"]},
+  {n:"Fish curry with rice",             c:560,p:28,q:"1½ cups rice + 1 cup curry (100g fish)",                        slot:["l","d"],reg:["s","e"],fish:1,t:["protein","highgi"]},
+  {n:"Chicken Chettinad with rice",      c:620,p:32,q:"1½ cups rice + 1 cup curry (120g chicken)",                     slot:["l","d"],reg:["s"],meat:1,t:["protein","highgi"]},
+  {n:"Egg curry with rice",              c:540,p:24,q:"1½ cups rice + 1 cup curry (2 eggs)",                            slot:["l","d"],reg:["all"],egg:1,t:["protein","highgi"]},
+  {n:"Rice, cholar dal, aloo posto & curd", c:540,p:16,q:"1½ cups rice + 1 cup cholar dal + ½ cup aloo posto + ½ cup curd", slot:["l","d"],reg:["e"],dairy:1,t:["fiber","highgi"]},
+  {n:"Rice with macher jhol",            c:560,p:28,q:"1½ cups rice + 1 cup jhol (120g fish)",                         slot:["l","d"],reg:["e"],fish:1,t:["protein","highgi"]},
+  {n:"Shukto with rice",                 c:460,p:8, q:"1½ cups rice + 1 cup shukto (200g)",                            slot:["l","d"],reg:["e"],dairy:1,t:["fiber","highgi"]},
+  {n:"Rice, dal & begun bhaja",          c:500,p:12,q:"1½ cups rice + 1 cup dal + 2 begun bhaja",                      slot:["l","d"],reg:["e"],jain:1,simple:1,t:["fried","highgi"]},
   {n:"Gujarati thali (roti, dal, shaak, rice, curd)", c:560,p:18,q:"2 rotis + 1 cup dal + ½ cup shaak + ½ cup rice + ½ cup curd", slot:["l","d"],reg:["w"],dairy:1,jain:1,t:["fiber"]},
   {n:"Bajra roti, baingan bharta & chaas", c:480,p:14,q:"2 bajra rotis (80g each) + 1 cup bharta + 1 glass chaas",   slot:["l","d"],reg:["w"],dairy:1,t:["fiber","lowgi"]},
   {n:"Pithla bhakri",                    c:460,p:16,q:"2 bhakris (100g each) + ¾ cup pithla",                          slot:["l","d"],reg:["w"],jain:1,t:["fiber"]},
@@ -375,10 +375,10 @@ const DB: FoodItem[] = [
   {n:"Grilled chicken with sautéed veg", c:480,p:38,q:"150g chicken + 1½ cups sautéed veg",                           slot:["l","d"],reg:["all"],meat:1,simple:1,t:["protein","lowgi"]},
   {n:"Grilled fish with salad",          c:420,p:32,q:"150g fish + 1½ cups salad",                                      slot:["l","d"],reg:["all"],fish:1,simple:1,t:["protein","lowgi"]},
   {n:"Paneer tikka with salad",          c:420,p:22,q:"100g paneer tikka + 1½ cups salad",                             slot:["l","d"],reg:["all"],dairy:1,simple:1,t:["protein","lowgi"]},
-  {n:"Tofu stir-fry with rice",         c:460,p:16,q:"120g tofu + 1 cup cooked rice (180g)",                          slot:["l","d"],reg:["all"],simple:1,t:["protein","goitrogen"]},
+  {n:"Tofu stir-fry with rice",         c:460,p:16,q:"120g tofu + 1 cup cooked rice (180g)",                          slot:["l","d"],reg:["all"],simple:1,t:["protein","goitrogen","highgi"]},
   {n:"Dal with 2 roti & salad",         c:460,p:16,q:"2 rotis (60g each) + 1 cup dal + 1 cup salad",                  slot:["l","d"],reg:["all"],jain:1,simple:1,t:["fiber","protein"]},
   {n:"Missi roti with seasonal sabzi",  c:440,p:14,q:"2 missi rotis (70g each) + 1 cup sabzi",                        slot:["l","d"],reg:["n","all"],jain:1,simple:1,t:["fiber"]},
-  {n:"Veg pulao with raita",            c:480,p:14,q:"1½ cups pulao (280g) + ½ cup raita",                             slot:["l","d"],reg:["all"],dairy:1,jain:1,simple:1,t:["fiber"]},
+  {n:"Veg pulao with raita",            c:480,p:14,q:"1½ cups pulao (280g) + ½ cup raita",                             slot:["l","d"],reg:["all"],dairy:1,jain:1,simple:1,t:["fiber","highgi"]},
   {n:"Grilled paneer & quinoa bowl",    c:480,p:26,q:"100g paneer + 1 cup quinoa + 1 cup veggies",                     slot:["l","d"],reg:["all"],dairy:1,jain:1,simple:1,t:["protein","lowgi","fiber"]},
   {n:"Bajra khichdi with veggies",      c:440,p:14,q:"1½ cups (300g) bajra-moong khichdi",                            slot:["l","d"],reg:["w","all"],jain:1,simple:1,t:["lowgi","fiber","protein"]},
   {n:"Sprout, chickpea & flax salad",   c:340,p:18,q:"1½ cups sprouts+chickpea + 1 tsp flaxseed + lemon",            slot:["l","d","es"],reg:["all"],jain:1,simple:1,t:["protein","lowgi","fiber"]},
@@ -1128,16 +1128,19 @@ const PARTY_PICKS: LogFood[] = [
   {n:"Dark chocolate (1–2 squares)", c:110, p:1,  q:"2 squares",       cat:"Party"},
 ];
 
-function CheatDayZone({dd, plan, dayCalTarget, onUpdate}: {
-  dd: DayTracking; plan?: Plan|null; dayCalTarget: number;
+function CheatDayZone({dd, plan, dayCalTarget, consumed, onUpdate}: {
+  dd: DayTracking; plan?: Plan|null; dayCalTarget: number; consumed?: number;
   onUpdate: (dd: DayTracking) => void;
 }) {
   const GREEN="#1DAA61";
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState(Object.keys(CHEAT_PACKS)[0]);
+  const [partyMode, setPartyMode] = useState(false);
+  const [drinks, setDrinks] = useState(0);
   const cheatLog = dd.cheatLog || [];
   const cheatTotal = cheatLog.reduce((s, x) => s + x.cal, 0);
   const recovery = cheatRecoveryPlan(cheatTotal, plan);
+  const budget = dayCalTarget - (consumed||0) - cheatTotal;
 
   function addCheat(f: LogFood) {
     onUpdate({...dd, cheatLog: [...cheatLog, {n:f.n, cal:f.c, p:f.p||0, qty:f.q, servings:1}]});
@@ -1170,6 +1173,68 @@ function CheatDayZone({dd, plan, dayCalTarget, onUpdate}: {
 
       {open&&(
         <div className="px-4 pb-4">
+          {/* Party Mode toggle */}
+          <button onClick={()=>setPartyMode(p=>!p)}
+            className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl mb-3 font-bold text-sm transition"
+            style={partyMode?{background:"rgba(255,179,71,0.22)",color:"#FFB347",border:"1px solid rgba(255,179,71,0.5)"}:{background:"rgba(255,179,71,0.08)",color:"rgba(255,179,71,0.6)",border:"1px solid rgba(255,179,71,0.15)"}}>
+            <span>🎉 I'm at the party NOW</span>
+            <span className="text-xs font-normal opacity-70">{partyMode?"tap to exit live mode":"tap to enter live mode"}</span>
+          </button>
+
+          {partyMode?(
+            <div>
+              {/* Live budget */}
+              <div className="rounded-xl px-4 py-3 mb-3 text-center" style={{background:"rgba(255,179,71,0.12)"}}>
+                <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{color:"rgba(255,179,71,0.6)"}}>Calorie budget remaining</div>
+                <div className="text-3xl font-black" style={{color:budget>=0?"#FFB347":"#EF4444"}}>{Math.abs(budget)}</div>
+                <div className="text-xs" style={{color:"rgba(255,255,255,0.4)"}}>{budget>=0?"kcal left today":"kcal over budget"}</div>
+              </div>
+
+              {/* Drink tracker */}
+              <div className="rounded-xl px-4 py-3 mb-3" style={{background:"rgba(0,0,0,0.25)"}}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-bold text-white/80">🍹 Drink Tracker</span>
+                  <span className="text-xs font-bold" style={{color:"#FFB347"}}>{drinks} drink{drinks!==1?"s":""} · {drinks*100} kcal</span>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={()=>{setDrinks(d=>d+1);addCheat({n:"1 alcoholic drink",c:100,p:0,q:"1 drink (30ml spirit or 330ml beer)",cat:"Drinks"});}}
+                    className="flex-1 py-2 rounded-xl text-xs font-black transition"
+                    style={{background:"rgba(255,179,71,0.2)",color:"#FFB347"}}>+ 1 Drink (100 kcal)</button>
+                  <button onClick={()=>setDrinks(d=>Math.max(0,d-1))}
+                    className="px-4 py-2 rounded-xl text-xs font-black transition"
+                    style={{background:"rgba(255,255,255,0.08)",color:"rgba(255,255,255,0.5)"}}>−</button>
+                </div>
+                {drinks>=2&&<p className="text-xs mt-2 text-center" style={{color:"rgba(255,179,71,0.7)"}}>💧 Have a glass of water between drinks to stay hydrated</p>}
+              </div>
+
+              {/* Smart party picks */}
+              <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{color:"rgba(255,179,71,0.5)"}}>Smart picks at the party</div>
+              <div className="grid grid-cols-1 gap-1.5 mb-3">
+                {PARTY_PICKS.map((f,i)=>(
+                  <button key={i} onClick={()=>addCheat(f)}
+                    className="flex items-center justify-between px-3 py-2.5 rounded-xl transition-all active:scale-[0.98]"
+                    style={{background:"rgba(255,179,71,0.08)",border:"1px solid rgba(255,179,71,0.14)"}}>
+                    <div className="text-left">
+                      <div className="text-sm font-semibold text-white">{f.n}</div>
+                      <div className="text-xs" style={{color:"rgba(255,255,255,0.38)"}}>{f.q}</div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="font-black text-sm" style={{color:"#FFB347"}}>{f.c}</span>
+                      <span className="text-xs" style={{color:"rgba(255,179,71,0.5)"}}>kcal</span>
+                      <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-black" style={{background:"rgba(255,179,71,0.20)",color:"#FFB347"}}>+</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Tomorrow recovery tip */}
+              <div className="rounded-xl px-4 py-3" style={{background:"rgba(29,170,97,0.1)",border:"1px solid rgba(29,170,97,0.2)"}}>
+                <p className="text-xs font-bold mb-1" style={{color:"#1DAA61"}}>Tomorrow's recovery plan</p>
+                <p className="text-xs" style={{color:"rgba(255,255,255,0.6)"}}>🍳 Eat light — soups, eggs, fruits · 💪 Extra protein to prevent muscle loss · 🚫 Skip alcohol · 💧 3L+ water</p>
+              </div>
+            </div>
+          ):(
+            <>
           {/* Category tabs */}
           <div className="flex gap-1.5 overflow-x-auto pb-2 mb-3">
             {Object.keys(CHEAT_PACKS).map(k=>(
@@ -1233,6 +1298,8 @@ function CheatDayZone({dd, plan, dayCalTarget, onUpdate}: {
                 </div>
               </div>
             </div>
+          )}
+            </>
           )}
         </div>
       )}
@@ -1357,9 +1424,12 @@ function calcStats(d: Profile) {
       /* PCOS: max 400 kcal deficit to avoid hormonal disruption */
       const condCap = (cond === "Breastfeeding" && isFemale) ? 500
         : cond === "PCOS / PCOD" ? 400 : 1000;
+      /* Delta-driven cap: small goals don't need aggressive deficits */
+      const kgToLose = Math.max(0, w - target);
+      const deltaCap = kgToLose <= 2 ? 300 : kgToLose <= 5 ? 500 : 1000;
       /* Don't deficit below the floor */
       const roomToDeficit = Math.max(0, maintenanceTdee - absFloor);
-      const appliedDeficit = Math.min(desiredDeficit, condCap, roomToDeficit);
+      const appliedDeficit = Math.min(desiredDeficit, condCap, deltaCap, roomToDeficit);
       tdee = maintenanceTdee - appliedDeficit;
     }
   } else if (effectiveGoal === "Muscle gain" || effectiveGoal === "Weight gain") {
@@ -3921,6 +3991,17 @@ function Signup({profile,plan,onDone,onBack,onLogin}:{profile:Profile;plan:Plan|
   );
 }
 
+/* Returns meal bucket label based on current hour */
+function getMealBucket(): string {
+  const h = new Date().getHours() + new Date().getMinutes()/60;
+  if (h >= 5   && h < 10.5) return "Breakfast";
+  if (h >= 10.5 && h < 13)  return "Morning Snack";
+  if (h >= 13  && h < 15.5) return "Lunch";
+  if (h >= 15.5 && h < 17.5) return "Afternoon Snack";
+  if (h >= 17.5 && h < 21)  return "Dinner";
+  return "Late Night";
+}
+
 /* ─────────────── Food Logger ─────────────── */
 function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet,token,yesterdayLog,fastMode,onSetFastMode}:{
   log:FoodLog[];customFoods:LogFood[];onSaveCustom:(f:LogFood)=>void;
@@ -4017,13 +4098,13 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet,token,yesterda
     const cal=Math.round(pending.c*servings);
     const p=Math.round((pending.p||0)*servings);
     const s=servings===1?"":`${servings}× `;
-    onUpdate([...log,{n:pending.n,cal,p,qty:`${s}${pending.q}`,servings}]);
+    onUpdate([...log,{n:pending.n,cal,p,qty:`${s}${pending.q}`,servings,mealBucket:getMealBucket()}]);
     rememberRecent({n:pending.n,c:pending.c,p:pending.p||0,q:pending.q,cat:pending.cat});
     setPending(null); setServings(1); setSearch(""); setOpen(false); setMode("search");
   }
   /* One-tap log a food straight from the Recently-used shelf (B3). */
   function quickLog(f:LogFood){
-    onUpdate([...log,{n:f.n,cal:f.c,p:f.p||0,qty:f.q,servings:1}]);
+    onUpdate([...log,{n:f.n,cal:f.c,p:f.p||0,qty:f.q,servings:1,mealBucket:getMealBucket()}]);
     rememberRecent(f);
   }
   /* Copy yesterday's diary entries into today (B4). */
@@ -4106,7 +4187,7 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet,token,yesterda
       .filter((_,i)=>photoSelected.has(i));
     if(!toAdd.length) return;
     const newLog=[...log,...toAdd.map(f=>({
-      n:f.n, cal:f.c, p:f.p||0, qty:f.q, servings:1,
+      n:f.n, cal:f.c, p:f.p||0, qty:f.q, servings:1, mealBucket:getMealBucket(),
     }))];
     onUpdate(newLog);
     setOpen(false); setMode("search"); setPhotoSuggestions([]); setPhotoEditCals({}); setPhotoSelected(new Set());
@@ -4155,16 +4236,38 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet,token,yesterda
 
       {log.length>0?(
         <div className="space-y-1.5 mb-3">
-          {log.map((item,i)=>(
-            <div key={i} className="flex items-center gap-2 py-2 px-3 rounded-xl bg-gray-50">
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold text-gray-700 truncate">{item.n}</div>
-                <div className="text-xs text-gray-400">{item.qty}</div>
+          {(()=>{
+            const BUCKET_ICONS:Record<string,string>={Breakfast:"🌅",  "Morning Snack":"🍵","Lunch":"☀️","Afternoon Snack":"🫖","Dinner":"🌙","Late Night":"🌛"};
+            const hasBuckets=log.some(x=>x.mealBucket);
+            if(!hasBuckets) return log.map((item,i)=>(
+              <div key={i} className="flex items-center gap-2 py-2 px-3 rounded-xl bg-gray-50">
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold text-gray-700 truncate">{item.n}</div>
+                  <div className="text-xs text-gray-400">{item.qty}</div>
+                </div>
+                <span className="text-xs font-bold shrink-0 mr-1" style={{color:GREEN}}>{item.cal} kcal</span>
+                <button onClick={()=>remove(i)} className="text-gray-300 hover:text-red-400 transition text-base leading-none">✕</button>
               </div>
-              <span className="text-xs font-bold shrink-0 mr-1" style={{color:GREEN}}>{item.cal} kcal</span>
-              <button onClick={()=>remove(i)} className="text-gray-300 hover:text-red-400 transition text-base leading-none">✕</button>
-            </div>
-          ))}
+            ));
+            const ORDER=["Breakfast","Morning Snack","Lunch","Afternoon Snack","Dinner","Late Night",""];
+            const groups:Record<string,{item:FoodLog;idx:number}[]>={};
+            log.forEach((item,idx)=>{ const b=item.mealBucket||""; (groups[b]=groups[b]||[]).push({item,idx}); });
+            return ORDER.filter(b=>groups[b]).map(b=>(
+              <div key={b}>
+                {b&&<div className="flex items-center gap-1.5 mt-2 mb-1 px-1"><span className="text-sm">{BUCKET_ICONS[b]||""}</span><span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{b}</span></div>}
+                {groups[b].map(({item,idx})=>(
+                  <div key={idx} className="flex items-center gap-2 py-2 px-3 rounded-xl bg-gray-50 mb-1">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold text-gray-700 truncate">{item.n}</div>
+                      <div className="text-xs text-gray-400">{item.qty}</div>
+                    </div>
+                    <span className="text-xs font-bold shrink-0 mr-1" style={{color:GREEN}}>{item.cal} kcal</span>
+                    <button onClick={()=>remove(idx)} className="text-gray-300 hover:text-red-400 transition text-base leading-none">✕</button>
+                  </div>
+                ))}
+              </div>
+            ));
+          })()}
         </div>
       ):(
         <div>
@@ -4406,9 +4509,9 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet,token,yesterda
 }
 
 /* ─────────────── Weekly trends ─────────────── */
-function TrendsCard({history,calTarget,proteinTarget,weights,t}:{
+function TrendsCard({history,calTarget,proteinTarget,weights,weeklyLoss,t}:{
   history:Record<string,HistEntry>;calTarget:number;proteinTarget:number;
-  weights:Record<string,number>;t:(k:keyof typeof STR)=>string;
+  weights:Record<string,number>;weeklyLoss?:string;t:(k:keyof typeof STR)=>string;
 }) {
   const days=[...Array(7)].map((_,i)=>{
     const iso=isoShift(-(6-i));
@@ -4458,22 +4561,35 @@ function TrendsCard({history,calTarget,proteinTarget,weights,t}:{
       ):(
         <p className="text-sm text-gray-400">Start ticking meals and logging food — your weekly trends will appear here.</p>
       )}
-      {wEntries.length>=2&&(
-        <>
-          <div className="text-xs text-gray-400 mt-3 mb-1">Weight (kg)</div>
-          <div style={{width:"100%",height:120}}>
+      {wEntries.length>=2&&(()=>{
+        const rate=parseFloat((weeklyLoss||"0").replace(/[^\d.]/g,""))||0;
+        const startW=wEntries[0].w; const startLabel=wEntries[0].label;
+        const startDate=Object.entries(weights).sort()[0]?.[0]||"";
+        const startMs=startDate?new Date(startDate).getTime():0;
+        const combined=wEntries.map(entry=>{
+          const entryDate=Object.entries(weights).sort().find(([,v])=>v===entry.w)?.[0]||"";
+          const weeksElapsed=entryDate&&startMs?(new Date(entryDate).getTime()-startMs)/(7*86400000):0;
+          const expected=rate>0?Math.round((startW-weeksElapsed*rate)*10)/10:undefined;
+          return {...entry,expected};
+        });
+        const onTrack=combined.every(e=>e.expected===undefined||e.w<=e.expected+0.5);
+        return (<>
+          <div className="text-xs text-gray-400 mt-3 mb-1">Weight (kg) — actual vs expected{!startLabel&&""}</div>
+          <div style={{width:"100%",height:130}}>
             <ResponsiveContainer>
-              <LineChart data={wEntries} margin={{top:4,right:8,left:-18,bottom:0}}>
+              <LineChart data={combined} margin={{top:4,right:8,left:-18,bottom:0}}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef1f4"/>
                 <XAxis dataKey="label" tick={{fontSize:10,fill:"#9ca3af"}} axisLine={false} tickLine={false}/>
                 <YAxis domain={["dataMin-1","dataMax+1"]} tick={{fontSize:10,fill:"#9ca3af"}} axisLine={false} tickLine={false}/>
                 <RTooltip contentStyle={{borderRadius:12,border:"1px solid #eee",fontSize:12}}/>
-                <Line type="monotone" dataKey="w" stroke="#0E8A4D" strokeWidth={2.5} dot={{r:3}}/>
+                <Line type="monotone" dataKey="w" name="Actual" stroke={onTrack?"#0E8A4D":"#F59E0B"} strokeWidth={2.5} dot={{r:3}}/>
+                {rate>0&&<Line type="monotone" dataKey="expected" name="Expected" stroke="#D1D5DB" strokeWidth={1.5} dot={false} strokeDasharray="4 4"/>}
               </LineChart>
             </ResponsiveContainer>
           </div>
-        </>
-      )}
+          {rate>0&&<div className="flex gap-3 mt-1 text-xs text-gray-400"><span className="flex items-center gap-1"><span style={{width:10,height:2,background:onTrack?"#0E8A4D":"#F59E0B",display:"inline-block",borderRadius:1}}/> Actual</span><span className="flex items-center gap-1"><span style={{width:10,height:2,background:"#D1D5DB",display:"inline-block",borderRadius:1}}/> Expected</span></div>}
+        </>);
+      })()}
     </Card>
   );
 }
@@ -5448,7 +5564,25 @@ function WorkoutTab({workout,tracking,onUpdate}:{
     const next=cur.includes(i)?cur.filter(x=>x!==i):[...cur,i];
     onUpdate({...tracking,workoutSets:{...sets,[iso]:next}});
   };
-  const markDone=()=>onUpdate({...tracking,workouts:{...workouts,[iso]:!completedToday}});
+  const markDone=()=>{
+    const nowDone=!completedToday;
+    const CAL_PER_SET:Record<string,number>={push:4,pull:4,legs:6,core:3,cardio:8,restore:2};
+    const estCal=session?Math.round(session.items.reduce((s,it)=>{
+      const cat=Object.keys(CAL_PER_SET).find(k=>session.focus.toLowerCase().includes(k)||it.name.toLowerCase().includes("cardio")||it.name.toLowerCase().includes("run")||it.name.toLowerCase().includes("jump")?k==="cardio":k===session.focus.toLowerCase().split(" ")[0])||"core";
+      return s+(it.sets*(CAL_PER_SET[cat]||4));
+    },0)):0;
+    const wLog=tracking.workoutLog||{};
+    const existing=wLog[iso]||[];
+    const alreadyHasEstimate=existing.some(e=>e.n==="Workout (estimated)");
+    if(nowDone&&estCal>0&&!alreadyHasEstimate){
+      const newEntry:ExerciseLog={n:"Workout (estimated)",sets:1,reps:"session",cat:session?.label||"Workout",ts:new Date().toISOString(),cal:estCal};
+      onUpdate({...tracking,workouts:{...workouts,[iso]:true},workoutLog:{...wLog,[iso]:[...existing,newEntry]}});
+    } else if(!nowDone&&alreadyHasEstimate){
+      onUpdate({...tracking,workouts:{...workouts,[iso]:false},workoutLog:{...wLog,[iso]:existing.filter(e=>e.n!=="Workout (estimated)")}});
+    } else {
+      onUpdate({...tracking,workouts:{...workouts,[iso]:nowDone}});
+    }
+  };
 
   const DOW=["M","T","W","T","F","S","S"];
   return (
@@ -5876,6 +6010,10 @@ function VeerBot({session,planCondition,plan,tracking,profile}:{
     const hist=tracking.history||{};
     const streakCount=Object.keys(hist).filter(k=>hist[k]?.onTrack).length;
     if(streakCount>0) lines.push(`Current streak: ${streakCount} active days`);
+    // Foods often skipped/swapped
+    const swaps=tracking.swapCounts||{};
+    const topSwaps=Object.entries(swaps).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([food,count])=>`${food} (${count}×)`);
+    if(topSwaps.length) lines.push(`Foods often skipped/swapped: ${topSwaps.join(", ")}`);
     return lines.join("\n");
   }
 
@@ -6188,9 +6326,10 @@ function VeerBot({session,planCondition,plan,tracking,profile}:{
   );
 }
 
-function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogout,onDeleteAccount,onRecalc}:{
+function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogout,onDeleteAccount,onRecalc,calAdjustMsg}:{
   session:Session;plan:Plan|null;tracking:Tracking;profile:Profile;lang:Lang;onLang:(l:Lang)=>void;
   onUpdate:(t:Tracking)=>void;onSwap:(day:DayName,mealIdx:number)=>void;onLogout:()=>void;onDeleteAccount:()=>void;onRecalc:(activity?:string,overrideWeight?:number)=>void;
+  calAdjustMsg?:string|null;
 }) {
   const t=makeT(lang);
   const today=WEEK[(new Date().getDay()+6)%7];
@@ -6617,6 +6756,7 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
                   dd={dd}
                   plan={plan}
                   dayCalTarget={cal}
+                  consumed={consumed}
                   onUpdate={updated=>onUpdate({...tracking,[sel]:updated})}
                 />
                 <div className="flex items-center justify-between mb-2 mt-1 px-1">
@@ -6650,7 +6790,7 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
 
         {tab==="progress"&&(
           <>
-            <TrendsCard history={history} calTarget={cal} proteinTarget={proteinTargetVal} weights={tracking.weights||{}} t={t}/>
+            <TrendsCard history={history} calTarget={cal} proteinTarget={proteinTargetVal} weights={tracking.weights||{}} weeklyLoss={plan?.weeklyLoss} t={t}/>
             <EatingWindowCard mealTimes={tracking.mealTimes||{}} today={today}/>
             <InsightsCard history={history} proteinTarget={proteinTargetVal} t={t}/>
             <WeightLog t={tracking} onLog={logW}/>
@@ -6678,6 +6818,13 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-2xl px-5 py-3 shadow-lg text-sm font-semibold text-white flex items-center gap-2"
           style={{background:"#1DAA61",animation:"eFade .3s ease both"}}>
           <CheckCircle2 size={16}/> {t("retiredFood")}
+        </div>
+      )}
+      {/* Adaptive calorie adjustment toast */}
+      {calAdjustMsg&&(
+        <div className="fixed bottom-6 left-4 right-4 z-50 rounded-2xl px-4 py-3 shadow-lg text-sm font-semibold text-white flex items-center gap-2"
+          style={{background:"#0E8A4D",animation:"eFade .3s ease both"}}>
+          <Zap size={16}/> Plan auto-adjusted: {calAdjustMsg}
         </div>
       )}
 
@@ -6736,6 +6883,7 @@ export default function App() {
   const [tracking,setTracking]=useState<Tracking>({});
   const [lang,setLang]=useState<Lang>(()=>(sget<Lang>("eatbc:lang")||"en"));
   const [qErr,setQErr]=useState("");
+  const [calAdjustMsg,setCalAdjustMsg]=useState<string|null>(null);
   const t=makeT(lang);
   const quoteRef=useRef(pickQuote());
 
@@ -6954,6 +7102,29 @@ export default function App() {
     quoteRef.current=pickQuote();
   }
 
+  function analyzeWeightTrend(): { adjustKcal: number; message: string } | null {
+    if (!plan || plan.goal !== "Weight loss") return null;
+    const wEntries = Object.entries(tracking.weights||{}).sort();
+    if (wEntries.length < 3) return null;
+    const firstDate = new Date(wEntries[0][0]).getTime();
+    const lastDate  = new Date(wEntries[wEntries.length-1][0]).getTime();
+    const daySpan   = (lastDate - firstDate) / 86400000;
+    if (daySpan < 10) return null;
+    const weeks = daySpan / 7;
+    const firstW = wEntries[0][1];
+    const lastW  = wEntries[wEntries.length-1][1];
+    const actualLoss = firstW - lastW;  // positive = losing
+    const actualRate = actualLoss / weeks;
+    const expectedRate = parseFloat((plan.weeklyLoss||"0.5").replace(/[^\d.]/g,"")) || 0.5;
+    if (actualRate < 0.3 * expectedRate) {
+      return { adjustKcal: -75, message: "Your weight hasn't moved as expected — reducing daily target by 75 kcal to break the plateau" };
+    }
+    if (actualRate > 1.5 * expectedRate) {
+      return { adjustKcal: +50, message: "Great progress! Adding 50 kcal to protect muscle mass" };
+    }
+    return null;
+  }
+
   function recalcPlan(activity?: string, overrideWeight?: number) {
     if (!plan) return;
     let newWeight: number;
@@ -6967,7 +7138,11 @@ export default function App() {
     const effectiveActivity = activity || profile.activity;
     const newProfile = {...profile, weight: String(newWeight), ...(effectiveActivity ? {activity: effectiveActivity} : {})};
     try {
-      const newPlan = buildPlan(newProfile);
+      const basePlan = buildPlan(newProfile);
+      const trend = analyzeWeightTrend();
+      const newPlan: Plan = trend
+        ? { ...basePlan, dailyCalories: Math.max(1200, basePlan.dailyCalories + trend.adjustKcal) }
+        : basePlan;
       const newTracking:Tracking = {
         ...tracking,
         lastRecalcDate: isoDate(),
@@ -6976,6 +7151,10 @@ export default function App() {
       setProfile(newProfile);
       setPlan(newPlan);
       setTracking(newTracking);
+      if (trend) {
+        setCalAdjustMsg(trend.message);
+        setTimeout(()=>setCalAdjustMsg(null), 5000);
+      }
       if (session?.token) {
         apiPost("/api/plan", {plan:newPlan, profile:newProfile}, session.token).catch(()=>{});
         apiPost("/api/tracking", {tracking:newTracking}, session.token).catch(()=>{});
@@ -7198,7 +7377,8 @@ export default function App() {
       onSwap={swapMeal}
       onLogout={logout}
       onDeleteAccount={deleteAccount}
-      onRecalc={(activity?:string,w?:number)=>recalcPlan(activity,w)}/>
+      onRecalc={(activity?:string,w?:number)=>recalcPlan(activity,w)}
+      calAdjustMsg={calAdjustMsg}/>
   );
 
   return <Shell><Card className="p-10 text-center text-gray-400">Loading…</Card></Shell>;
