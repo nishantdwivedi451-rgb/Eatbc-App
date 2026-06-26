@@ -4767,7 +4767,7 @@ async function fireNudge() {
   scheduleNextNudge();
 }
 
-function ReminderToggle({t, compact, token, label, sublabel}:{t:(k:keyof typeof STR)=>string; compact?:boolean; token?:string; label?:string; sublabel?:string}) {
+function ReminderToggle({t, compact, radio, token, label, sublabel}:{t:(k:keyof typeof STR)=>string; compact?:boolean; radio?:boolean; token?:string; label?:string; sublabel?:string}) {
   const [on,setOn]=useState<boolean>(()=>!!sget<boolean>("eatbc:reminders"));
   const [loading,setLoading]=useState(false);
   const supported=typeof window!=="undefined"&&("Notification"in window||"PushManager"in window);
@@ -4806,6 +4806,25 @@ function ReminderToggle({t, compact, token, label, sublabel}:{t:(k:keyof typeof 
         :{background:"#FFFBEB",color:"#92400E",border:"1.5px solid #FDE68A"}}>
       <Bell size={12}/>{loading?"…":on?"Nudges on":"Enable nudges"}
     </button>
+  );
+  if (radio) return (
+    <div className="flex items-center gap-3 cursor-pointer select-none"
+      onTouchEnd={e=>{ e.stopPropagation(); if(!loading) on?disable():enable(); }}
+      onClick={on?disable:enable}>
+      <div style={{
+        width:22,height:22,borderRadius:"50%",flexShrink:0,
+        border:on?"none":"2px solid rgba(255,255,255,0.5)",
+        background:on?"white":"transparent",
+        display:"flex",alignItems:"center",justifyContent:"center",
+        transition:"all 0.2s",
+      }}>
+        {on&&<div style={{width:10,height:10,borderRadius:"50%",background:"#1DAA61"}}/>}
+      </div>
+      <div>
+        <div className="text-sm font-bold text-white/90">Boss me around 🔔</div>
+        <div className="text-xs text-white/60">{loading?"…":on?"Nudges are on":"Tap to enable nudges"}</div>
+      </div>
+    </div>
   );
   return (
     <Card className="p-5 mb-4">
@@ -6055,7 +6074,6 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="text-2xl font-black mb-0.5">Hi {session.name}</h2>
-                    <p className="text-white/60 text-xs truncate max-w-[140px]">{session.id}</p>
                   </div>
                   <CalRing pct={cal?consumed/cal:0} big={consumed} small={`/ ${cal}`} size={96}/>
                 </div>
@@ -6130,19 +6148,7 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
                     <div className="text-xs text-white/70">pts</div>
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  {(["en","hi"] as const).map(l=>(
-                    <button key={l} onClick={()=>onLang(l)}
-                      className="px-4 py-1.5 rounded-xl text-xs font-bold transition flex-1"
-                      style={lang===l?{background:"white",color:"#1DAA61"}:{background:"rgba(255,255,255,0.15)",color:"rgba(255,255,255,0.85)"}}>
-                      {l==="en"?"English":"हिन्दी"}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-white/80">Boss me around 🔔</span>
-                  <ReminderToggle t={t} compact token={session.token}/>
-                </div>
+                <ReminderToggle t={t} radio token={session.token}/>
                 <div className="flex items-center gap-4">
                   <button onClick={onLogout} className="text-white/80 inline-flex items-center gap-1 text-sm hover:text-white">
                     <LogOut size={15}/>{t("logout")}
