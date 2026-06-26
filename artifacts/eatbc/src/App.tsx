@@ -178,7 +178,7 @@ interface Profile {
   weight?: string; target?: string;
   timeline?: string;
   goal?: string; condition?: string; diet?: string; region: string[];
-  activity?: string; exercise?: string; meals?: string;
+  activity?: string; exercise?: string[]; meals?: string;
   cooktime?: string; avoid?: string; weekend?: string[]; foodPicks?: string[];
   foodAvoid?: string[];  // auto-blacklisted foods from repeated swaps
   wantWorkout?: string; workoutPlace?: string; workoutFocus?: string; workoutDays?: string;
@@ -270,8 +270,8 @@ const Q: Question[] = [
   { k:"wantWorkout", label:"Want a workout plan with your diet?",        type:"pick",
     sub:"We'll build a weekly training schedule with a tracker.",
     opts:["Yes, build my workout plan","No thanks, just the diet"] },
-  { k:"exercise",  label:"How do you like to exercise?",                type:"pick",
-    sub:"Pick whatever fits your lifestyle — we'll build around it.",
+  { k:"exercise",  label:"How do you like to exercise?",                type:"multi",
+    sub:"Pick all that apply — we'll build your plan around your favourite activities.",
     opts:["Running / jogging","HYROX","Gym (weights)","Home workouts","Yoga","Pilates","Cycling","Swimming","Sports / games","HIIT / CrossFit"],
     showIf:(p)=>!!p.wantWorkout && p.wantWorkout.startsWith("Yes") },
   { k:"workoutDays", label:"How many days a week can you train?",       type:"pick",
@@ -1320,8 +1320,8 @@ function mapRegions(arr: string[]): string[] {
   return [...mapped,"all"];
 }
 
-/* Map new lifestyle exercise options to WHO/FAO PAL tier keys */
-function normExercise(ex: string | undefined): string {
+/* Map new lifestyle exercise options to WHO/FAO PAL tier keys — handles multi-select array */
+function normExercise(ex: string | string[] | undefined): string {
   const m: Record<string,string> = {
     "Running / jogging":         "Gym 3x week",
     "Cycling":                   "Gym 3x week",
@@ -1335,7 +1335,14 @@ function normExercise(ex: string | undefined): string {
     "HIIT / CrossFit":           "Gym 5x+ / sports",
     "HYROX":                     "Gym 5x+ / sports",
   };
-  return m[ex || ""] || ex || "None";
+  const tiers = ["Gym 5x+ / sports","Gym 3x week","Walks / light","None"];
+  const arr = Array.isArray(ex) ? ex : ex ? [ex] : [];
+  let best = "None";
+  for (const e of arr) {
+    const tier = m[e] || "None";
+    if (tiers.indexOf(tier) < tiers.indexOf(best)) best = tier;
+  }
+  return best;
 }
 
 function calcStats(d: Profile) {
@@ -1802,7 +1809,8 @@ const WSCHED: Record<number,number[]> = {
 
 function buildWorkout(p: Profile): WorkoutPlan | null {
   if (!p.wantWorkout || !p.wantWorkout.startsWith("Yes")) return null;
-  const inferredPlace = EXERCISE_TO_PLACE[p.exercise||""] || "Home — no equipment";
+  const exArr = Array.isArray(p.exercise) ? p.exercise : p.exercise ? [p.exercise] : [];
+  const inferredPlace = exArr.map(e => EXERCISE_TO_PLACE[e]).find(Boolean) || "Home — no equipment";
   const placeKey = PLACE_KEY[p.workoutPlace || inferredPlace] || "home";
   const pool = EX[placeKey];
   const focus = p.workoutFocus || GOAL_TO_FOCUS[p.goal||""] || "Stay fit & mobile";
@@ -3392,7 +3400,9 @@ function QuizTeaser({profile}:{profile:Profile}) {
     "Yoga / Pilates":"Walks / light","Home workouts":"Gym 3x week","Gym (weights)":"Gym 3x week",
     "Sports / games":"Gym 5x+ / sports","HIIT / CrossFit":"Gym 5x+ / sports","HYROX":"Gym 5x+ / sports",
   };
-  const teaserExKey = teaserNormEx[profile.exercise||""] || "None";
+  const teaserExArr = Array.isArray(profile.exercise) ? profile.exercise : profile.exercise ? [profile.exercise] : [];
+  const teaserExTiers = ["Gym 5x+ / sports","Gym 3x week","Walks / light","None"];
+  const teaserExKey = teaserExArr.map(e=>teaserNormEx[e]).filter(Boolean).sort((a,b)=>teaserExTiers.indexOf(a)-teaserExTiers.indexOf(b))[0] || "None";
   const teaserPalRow = teaserPalMatrix[profile.activity||"Mostly desk job"] || teaserPalMatrix["Mostly desk job"];
   const teaserPal = teaserPalRow[teaserExKey] ?? 1.375;
   const roughTdee = Math.round(bmr*teaserPal/50)*50;
@@ -6278,7 +6288,7 @@ function VeerBot({session,planCondition,plan,tracking,profile}:{
     if(profile.name) lines.push(`User: ${profile.name}`);
     if(profile.sex||profile.age) lines.push(`${profile.sex||""}${profile.age?`, age ${profile.age}`:""}${profile.weight?`, ${profile.weight}kg`:""}${profile.heightFt?`, ${profile.heightFt}'${profile.heightIn||0}"`:""}`.trim());
     if(profile.goal) lines.push(`Goal: ${profile.goal}`);
-    if(profile.activity) lines.push(`Activity: ${profile.activity}${profile.exercise?` / ${profile.exercise}`:""}`);
+    if(profile.activity) lines.push(`Activity: ${profile.activity}${profile.exercise?.length?` / ${profile.exercise.join(", ")}`:""}`);
     if(profile.diet) lines.push(`Diet: ${profile.diet}`);
     if(profile.condition) lines.push(`Health condition: ${profile.condition}`);
     if(plan){lines.push(`Daily calories: ${plan.dailyCalories} kcal`);if(plan.weeklyLoss)lines.push(`Target: ${plan.weeklyLoss}`);}
