@@ -2283,7 +2283,6 @@ function AtomOrb({accent}:{accent:string}) {
         {/* Nucleus glow */}
         <circle cx="55" cy="55" r="16" fill={accent} opacity="0.25"/>
         <circle cx="55" cy="55" r="11" fill={accent} opacity="0.85"/>
-        <circle cx="55" cy="55" r="6" fill="white" opacity="0.55"/>
       </svg>
     </motion.div>
   );
@@ -4776,7 +4775,7 @@ async function fireNudge() {
   scheduleNextNudge();
 }
 
-function ReminderToggle({t, compact, token}:{t:(k:keyof typeof STR)=>string; compact?:boolean; token?:string}) {
+function ReminderToggle({t, compact, token, label, sublabel}:{t:(k:keyof typeof STR)=>string; compact?:boolean; token?:string; label?:string; sublabel?:string}) {
   const [on,setOn]=useState<boolean>(()=>!!sget<boolean>("eatbc:reminders"));
   const [loading,setLoading]=useState(false);
   const supported=typeof window!=="undefined"&&("Notification"in window||"PushManager"in window);
@@ -4823,8 +4822,8 @@ function ReminderToggle({t, compact, token}:{t:(k:keyof typeof STR)=>string; com
           <Bell size={18} style={{color:"#F59E0B"}}/>
         </div>
         <div className="flex-1 min-w-0">
-          <div className="font-bold text-gray-800 text-sm">Smart nudges</div>
-          <div className="text-xs text-gray-400">Water, meals &amp; workouts — every 3 hours, even when the app is closed.</div>
+          <div className="font-bold text-gray-800 text-sm">{label||"Smart nudges"}</div>
+          <div className="text-xs text-gray-400">{sublabel||"Water, meals & workouts — every 3 hours, even when the app is closed."}</div>
         </div>
         <button onClick={on?disable:enable} disabled={loading}
           className="text-xs font-bold px-4 py-2 rounded-xl shrink-0 transition"
@@ -5896,8 +5895,8 @@ function VeerBot({session,planCondition,plan,tracking,profile}:{
   );
 }
 
-function Dash({session,plan,tracking,profile,lang,onUpdate,onSwap,onLogout,onDeleteAccount,onRecalc}:{
-  session:Session;plan:Plan|null;tracking:Tracking;profile:Profile;lang:Lang;
+function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogout,onDeleteAccount,onRecalc}:{
+  session:Session;plan:Plan|null;tracking:Tracking;profile:Profile;lang:Lang;onLang:(l:Lang)=>void;
   onUpdate:(t:Tracking)=>void;onSwap:(day:DayName,mealIdx:number)=>void;onLogout:()=>void;onDeleteAccount:()=>void;onRecalc:(activity?:string,overrideWeight?:number)=>void;
 }) {
   const t=makeT(lang);
@@ -6008,14 +6007,9 @@ function Dash({session,plan,tracking,profile,lang,onUpdate,onSwap,onLogout,onDel
   const [showDeleteConfirm,setShowDeleteConfirm]=useState(false);
   const [deleteLoading,setDeleteLoading]=useState(false);
 
-  const [tab,setTab]=useState<"today"|"train"|"progress"|"community">("today");
+  const [slide,setSlide]=useState<0|1|2>(0);
   const [showCalendar,setShowCalendar]=useState(false);
   const hasWorkout=!!plan?.workout;
-  const TABS:[typeof tab,string,React.ElementType][]=[
-    ["today","Today",Utensils],
-    ...(hasWorkout?[["train","Train",Dumbbell] as [typeof tab,string,React.ElementType]]:[]),
-    ["progress","Stats",BarChart3],["community","Squad",Users],
-  ];
 
   return (
     <>
@@ -6081,19 +6075,22 @@ function Dash({session,plan,tracking,profile,lang,onUpdate,onSwap,onLogout,onDel
           </div>
         )}
 
-        {/* Section tabs */}
-        <div className="flex gap-2 mb-4 bg-white rounded-2xl p-1 border border-gray-100">
-          {TABS.map(([id,label,Icon])=>(
-            <button key={id} onClick={()=>setTab(id)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold transition ${tab===id?"text-white shadow":"text-gray-500"}`}
-              style={tab===id?{background:GREEN}:{}}>
-              <Icon size={15}/> {label}
+        {/* Carousel slide indicators */}
+        <div className="flex gap-2 mb-4">
+          {(["🏠 Main","🔥 Calories","👤 Account"] as const).map((label,i)=>(
+            <button key={i} onClick={()=>setSlide(i as 0|1|2)}
+              className="flex-1 py-2.5 rounded-2xl text-xs font-bold transition active:scale-95"
+              style={slide===i
+                ?{background:GREEN,color:"white",boxShadow:"0 2px 12px rgba(29,170,97,0.35)"}
+                :{background:"#F3F4F6",color:"#9CA3AF"}}>
+              {label}
             </button>
           ))}
         </div>
 
-        {tab==="today"&&(
-          <>
+        {/* Slide 1: Main */}
+        {slide===0&&(
+          <div style={{animation:"eFade .3s ease both"}}>
             <AdaptiveRecalcBanner
               weights={tracking.weights||{}}
               lastRecalcDate={tracking.lastRecalcDate}
@@ -6216,29 +6213,123 @@ function Dash({session,plan,tracking,profile,lang,onUpdate,onSwap,onLogout,onDel
             ):(
               <Card className="p-8 text-center text-gray-400">No plan loaded for this session.</Card>
             )}
-          </>
+            {hasWorkout&&plan?.workout&&<WorkoutTab workout={plan.workout} tracking={tracking} onUpdate={onUpdate}/>}
+          </div>
         )}
 
-        {tab==="train"&&plan?.workout&&(
-          <WorkoutTab workout={plan.workout} tracking={tracking} onUpdate={onUpdate}/>
-        )}
-
-        {tab==="progress"&&(
-          <>
+        {/* Slide 2: Calories */}
+        {slide===1&&(
+          <div style={{animation:"eFade .3s ease both"}}>
+            <Card className="p-6 mb-4">
+              <h3 className="font-bold text-gray-800 mb-5 flex items-center gap-2">
+                <Flame size={18} style={{color:GREEN}}/> Calorie Breakdown
+              </h3>
+              <div className="flex items-center justify-center mb-5">
+                <CalRing pct={cal?consumed/cal:0} big={consumed} small={`/ ${cal} kcal`} size={160}
+                  color={GREEN} track="rgba(29,170,97,0.12)"/>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-center mb-4">
+                <div className="p-3 rounded-2xl" style={{background:"#F0FDF4"}}>
+                  <div className="font-black text-lg" style={{color:GREEN}}>{consumed}</div>
+                  <div className="text-xs text-gray-500">eaten</div>
+                </div>
+                <div className="p-3 rounded-2xl" style={{background:"#FEF3C7"}}>
+                  <div className="font-black text-lg text-amber-600">{workoutBurned}</div>
+                  <div className="text-xs text-gray-500">burned</div>
+                </div>
+                <div className="p-3 rounded-2xl" style={{background:netConsumed>cal&&cal>0?"#FEF2F2":"#F0FDF4"}}>
+                  <div className="font-black text-lg" style={{color:netConsumed>cal&&cal>0?"#DC2626":GREEN}}>{netConsumed}</div>
+                  <div className="text-xs text-gray-500">net</div>
+                </div>
+              </div>
+              {proteinTarget>0&&(
+                <div>
+                  <div className="flex justify-between text-xs text-gray-500 mb-1.5">
+                    <span className="font-semibold">Protein</span>
+                    <span>{proteinConsumed}g / {proteinTarget}g</span>
+                  </div>
+                  <div className="h-2 rounded-full overflow-hidden" style={{background:"#E5E7EB"}}>
+                    <div className="h-2 rounded-full transition-all duration-700"
+                      style={{width:`${Math.min(proteinConsumed/proteinTarget,1)*100}%`,background:"#22C55E"}}/>
+                  </div>
+                </div>
+              )}
+            </Card>
             <TrendsCard history={history} calTarget={cal} proteinTarget={proteinTargetVal} weights={tracking.weights||{}} t={t}/>
             <EatingWindowCard mealTimes={tracking.mealTimes||{}} today={today}/>
             <InsightsCard history={history} proteinTarget={proteinTargetVal} t={t}/>
             <WeightLog t={tracking} onLog={logW}/>
             <div className="mb-4"/>
-            <ReminderToggle t={t} token={session.token}/>
-          </>
+          </div>
         )}
 
-        {tab==="community"&&(
-          <>
+        {/* Slide 3: Account */}
+        {slide===2&&(
+          <div style={{animation:"eFade .3s ease both"}}>
+            <Card className="p-5 mb-4">
+              <div className="flex items-center gap-4 mb-5">
+                <div className="w-14 h-14 rounded-full flex items-center justify-center font-black text-xl text-white"
+                  style={{background:GREEN}}>{(session.name||"?")[0].toUpperCase()}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-black text-gray-900 text-lg leading-tight truncate">{session.name}</div>
+                  <div className="text-xs text-gray-400 truncate">{session.id}</div>
+                  {plan?.goal&&<div className="text-xs font-bold mt-0.5" style={{color:GREEN}}>{plan.goal}</div>}
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="p-3 rounded-2xl" style={{background:"#FFF7ED"}}>
+                  <div className="font-black text-xl flex items-center justify-center gap-0.5" style={{color:"#EA580C"}}>
+                    <Flame size={16}/>{streak}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-0.5">day streak</div>
+                </div>
+                <div className="p-3 rounded-2xl" style={{background:"#F5F3FF"}}>
+                  <div className="font-black text-xl" style={{color:"#7C3AED"}}>{points}</div>
+                  <div className="text-xs text-gray-500 mt-0.5">points</div>
+                </div>
+                <div className="p-3 rounded-2xl" style={{background:"#EFF6FF"}}>
+                  <div className="font-black text-xl" style={{color:"#2563EB"}}>{daysActive}</div>
+                  <div className="text-xs text-gray-500 mt-0.5">days active</div>
+                </div>
+              </div>
+            </Card>
+            <ReminderToggle t={t} token={session.token}
+              label="Boss me around 🔔"
+              sublabel="Poke me when I go AWOL from my diet plan"/>
+            <Card className="p-5 mb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="font-bold text-gray-800">Language</div>
+                  <div className="text-xs text-gray-400 mt-0.5">Display language</div>
+                </div>
+                <div className="flex gap-2">
+                  {(["en","hi"] as const).map(l=>(
+                    <button key={l} onClick={()=>onLang(l)}
+                      className="px-4 py-1.5 rounded-xl text-sm font-bold transition"
+                      style={lang===l?{background:GREEN,color:"white"}:{background:"#F3F4F6",color:"#6B7280"}}>
+                      {l==="en"?"EN":"हि"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </Card>
             <Leaderboard session={session} points={points} streak={streak} t={t}/>
             <ChallengesCard history={history} joined={joined} onToggle={toggleChallenge} t={t}/>
-          </>
+            <Card className="p-4 mb-6">
+              <div className="flex gap-3">
+                <button onClick={onLogout}
+                  className="flex-1 py-3 rounded-2xl flex items-center justify-center gap-2 font-semibold text-sm transition active:scale-95"
+                  style={{background:"#F0FDF4",color:"#16A34A",border:"1.5px solid #BBF7D0"}}>
+                  <LogOut size={16}/> {t("logout")}
+                </button>
+                <button onClick={()=>setShowDeleteConfirm(true)}
+                  className="flex-1 py-3 rounded-2xl flex items-center justify-center gap-2 font-semibold text-sm transition active:scale-95"
+                  style={{background:"#FEF2F2",color:"#DC2626",border:"1.5px solid #FECACA"}}>
+                  <X size={16}/> {t("deleteAccount")}
+                </button>
+              </div>
+            </Card>
+          </div>
         )}
       </div>
       {recipeFor&&<RecipeSheet name={recipeFor} onClose={()=>setRecipeFor(null)}/>}
@@ -6766,7 +6857,7 @@ export default function App() {
   if (screen==="signup") return <Signup profile={profile} plan={plan} onDone={doSignup} onBack={()=>setScreen("plan")} onLogin={()=>setScreen("login")}/>;
 
   if (screen==="dash"&&session) return (
-    <Dash session={session} plan={plan} tracking={tracking} profile={profile} lang={lang}
+    <Dash session={session} plan={plan} tracking={tracking} profile={profile} lang={lang} onLang={changeLang}
       onUpdate={(tr)=>{setTracking(tr);if(session?.token)apiPost("/api/tracking",{tracking:tr},session.token).catch(()=>{});}}
       onSwap={swapMeal}
       onLogout={logout}
