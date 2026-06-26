@@ -1,32 +1,119 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-IN">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover" />
-    <title>EatBC — Eat Better. Count.</title>
-    <meta name="description" content="EatBC is a free community app helping Indians eat healthier — personalised diet plans, a food diary, streaks and challenges." />
-    <meta name="robots" content="index, follow" />
-    <meta property="og:title" content="EatBC — Eat Better. Count." />
-    <meta property="og:description" content="Free community app for healthier eating, built for India — personalised plans, food diary, streaks and challenges." />
+
+    <!-- ── Primary SEO ── -->
+    <title>EatBC — Free Indian Diet Plan & Calorie Tracker App</title>
+    <meta name="description" content="EatBC is India's free personalised diet plan and calorie tracker app. Get a custom Indian meal plan, log food, track streaks, and join a community — all in one app. Try EatBC free." />
+    <meta name="keywords" content="EatBC, eatbc app, Indian diet plan app, free calorie tracker India, Indian meal plan, diet plan for Indians, healthy eating India, weight loss app India, calorie counter India, food diary India" />
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+    <meta name="author" content="EatBC" />
+    <link rel="canonical" href="https://eatbc.in/" />
+
+    <!-- ── Open Graph / Facebook ── -->
+    <meta property="og:site_name" content="EatBC" />
+    <meta property="og:title" content="EatBC — Free Indian Diet Plan & Calorie Tracker" />
+    <meta property="og:description" content="Get a personalised Indian diet plan, log your meals, track streaks and join India's healthy-eating community — all free on EatBC." />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://eatbc.in" />
+    <meta property="og:url" content="https://eatbc.in/" />
     <meta property="og:image" content="https://eatbc.in/opengraph.jpg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="EatBC — Indian diet plan and calorie tracker app" />
+    <meta property="og:locale" content="en_IN" />
+
+    <!-- ── Twitter / X ── -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="EatBC — Eat Better. Count." />
-    <meta name="twitter:description" content="Free community app for healthier eating, built for India." />
+    <meta name="twitter:site" content="@eatbc_in" />
+    <meta name="twitter:title" content="EatBC — Free Indian Diet Plan & Calorie Tracker" />
+    <meta name="twitter:description" content="Personalised Indian meal plans, food diary, streaks and a community — all free. Start your journey on EatBC." />
     <meta name="twitter:image" content="https://eatbc.in/opengraph.jpg" />
+    <meta name="twitter:image:alt" content="EatBC app screenshot" />
+
+    <!-- ── PWA / Mobile ── -->
     <meta name="theme-color" content="#1DAA61" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="EatBC" />
+    <meta name="application-name" content="EatBC" />
+    <meta name="mobile-web-app-capable" content="yes" />
+
+    <!-- ── Icons & Manifest ── -->
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/icon.svg" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!-- ── Performance hints ── -->
+    <link rel="preconnect" href="https://world.openfoodfacts.org" />
+    <link rel="dns-prefetch" href="https://world.openfoodfacts.org" />
+
+    <!-- ── Structured Data: WebApplication ── -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "EatBC",
+      "alternateName": ["Eat Better Change", "EatBC App"],
+      "url": "https://eatbc.in",
+      "description": "EatBC is a free personalised diet plan and calorie tracker app built for Indians. It generates custom Indian meal plans, lets you log food, track protein and calories, maintain streaks, and connect with a healthy-eating community.",
+      "applicationCategory": "HealthApplication",
+      "operatingSystem": "Any",
+      "browserRequirements": "Requires a modern browser with JavaScript enabled",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "INR"
+      },
+      "featureList": [
+        "Personalised Indian diet plan",
+        "Calorie and protein tracker",
+        "Food diary with 500+ Indian foods",
+        "Streak tracking and gamification",
+        "Workout plan generator",
+        "Community leaderboard",
+        "Barcode food scanner",
+        "AI food photo scan",
+        "Body measurement tracker",
+        "CSV data export"
+      ],
+      "screenshot": "https://eatbc.in/opengraph.jpg",
+      "inLanguage": ["en-IN", "hi"],
+      "audience": {
+        "@type": "Audience",
+        "geographicArea": {
+          "@type": "Country",
+          "name": "India"
+        }
+      }
+    }
+    </script>
+
+    <!-- ── Structured Data: Organization ── -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "EatBC",
+      "url": "https://eatbc.in",
+      "logo": "https://eatbc.in/icon.svg",
+      "description": "EatBC helps Indians eat healthier through personalised diet plans, calorie tracking, and community challenges.",
+      "foundingLocation": {
+        "@type": "Place",
+        "addressCountry": "IN"
+      },
+      "sameAs": []
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>
+    <!-- Fallback content for search engine crawlers that don't run JS -->
+    <noscript>
+      <h1>EatBC — Free Indian Diet Plan &amp; Calorie Tracker App</h1>
+      <p>EatBC gives you a personalised Indian meal plan, food diary, calorie tracker, streak challenges and a community leaderboard — all free. Please enable JavaScript to use the app.</p>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
