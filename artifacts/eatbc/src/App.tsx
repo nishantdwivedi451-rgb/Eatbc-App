@@ -202,13 +202,14 @@ interface Plan {
   tips: string[]; days: PlanDay[]; workout?: WorkoutPlan | null;
 }
 interface Session { id: string; name: string; token: string; }
-interface FoodLog { n: string; cal: number; p?: number; qty: string; servings: number; mealBucket?: string; }
+interface FoodLog { n: string; cal: number; p?: number; f?: number; fi?: number; qty: string; servings: number; mealBucket?: string; }
 interface ExerciseLog { n: string; sets: number; reps: string; cat: string; ts: string; weight?: number; weightLabel?: string; cal?: number; }
 interface DayTracking { meals: Record<number, boolean>; water: number; log?: FoodLog[]; cheatLog?: FoodLog[]; }
 /* Date-keyed daily snapshot — powers real streaks, trends and insights. */
 interface HistEntry { onTrack: boolean; cal: number; protein: number; meals: number; total: number; water: number; }
+type MeasurementEntry = {waist?: number; hip?: number; chest?: number; neck?: number};
 interface Tracking {
-  [day: string]: DayTracking | Record<string, number> | Record<string, HistEntry> | Record<string, boolean> | Record<string, number[]> | Record<string, Record<string, string>> | Record<string, ExerciseLog[]> | LogFood[] | string[] | string | number | undefined;
+  [day: string]: DayTracking | Record<string, number> | Record<string, HistEntry> | Record<string, boolean> | Record<string, number[]> | Record<string, Record<string, string>> | Record<string, ExerciseLog[]> | Record<string, MeasurementEntry> | LogFood[] | string[] | string | number | undefined;
   weights?: Record<string, number>;
   history?: Record<string, HistEntry>;
   customFoods?: LogFood[];     // user-saved foods
@@ -223,6 +224,7 @@ interface Tracking {
   joinDate?: string;            // ISO date of first tracked day
   lastRecalcDate?: string;      // ISO date when plan was last recalculated
   lastRecalcWeight?: number;    // weight (kg) at last recalc
+  measurements?: Record<string, MeasurementEntry>;
 }
 type Screen = "welcome" | "quiz" | "foodgame" | "plan" | "login" | "signup" | "dash" | "onboarding" | "intro" | "quote";
 
@@ -277,7 +279,7 @@ const Q: Question[] = [
 
 /* ─────────────── food database (with quantities) ─────────────── */
 interface FoodItem {
-  n: string; c: number; p?: number; q: string;
+  n: string; c: number; p?: number; f?: number; fi?: number; q: string;
   slot: string[]; reg: string[];
   simple?: number; jain?: number; egg?: number; meat?: number; fish?: number; dairy?: number;
   t: string[];
@@ -434,104 +436,104 @@ const CHALLENGES: Challenge[] = [
 ];
 
 /* ─────────────── Food diary reference database ─────────────── */
-interface LogFood { n: string; c: number; p?: number; q: string; cat: string; }
+interface LogFood { n: string; c: number; p?: number; f?: number; fi?: number; q: string; cat: string; }
 const LOG_DB: LogFood[] = [
-  /* Grains & Staples */
-  {n:"Steamed rice",p:5, c:260,q:"1 cup cooked (180g)",cat:"Grains"},
-  {n:"Basmati rice",p:5, c:240,q:"1 cup cooked (180g)",cat:"Grains"},
-  {n:"Brown rice",p:5, c:215,q:"1 cup cooked (180g)",cat:"Grains"},
-  {n:"Whole wheat roti / chapati",p:3, c:80,q:"1 roti (30g)",cat:"Grains"},
-  {n:"Multigrain roti",p:3, c:75,q:"1 roti (30g)",cat:"Grains"},
-  {n:"Plain paratha",p:4, c:180,q:"1 paratha (60g)",cat:"Grains"},
-  {n:"Stuffed aloo paratha",p:6, c:300,q:"1 paratha (90g)",cat:"Grains"},
-  {n:"Naan",p:8, c:260,q:"1 naan (80g)",cat:"Grains"},
-  {n:"Puri",p:3, c:150,q:"2 puris (50g)",cat:"Grains"},
-  {n:"White bread",p:2, c:70,q:"1 slice (30g)",cat:"Grains"},
-  {n:"Brown/whole wheat bread",p:2, c:65,q:"1 slice (30g)",cat:"Grains"},
-  {n:"Poha (cooked)",p:5, c:300,q:"1.5 cups (220g)",cat:"Grains"},
-  {n:"Upma",p:5, c:230,q:"1 cup (180g)",cat:"Grains"},
-  {n:"Oats (cooked)",p:5, c:150,q:"1 cup (180g)",cat:"Grains"},
-  {n:"Daliya / broken wheat porridge",p:6, c:220,q:"1 cup (190g)",cat:"Grains"},
-  {n:"Semolina / suji upma",p:5, c:230,q:"1 cup (180g)",cat:"Grains"},
-  {n:"Idli",p:2, c:80,q:"1 idli (50g)",cat:"Grains"},
-  {n:"Dosa (plain)",p:4, c:175,q:"1 medium dosa (75g)",cat:"Grains"},
-  {n:"Uttapam",p:6, c:220,q:"1 medium (100g)",cat:"Grains"},
+  /* Grains & Staples — fat (g) / fibre (g) from ICMR NIN 2020 */
+  {n:"Steamed rice",          p:5, f:0.5,fi:0.4,c:260,q:"1 cup cooked (180g)",cat:"Grains"},
+  {n:"Basmati rice",          p:5, f:0.5,fi:0.3,c:240,q:"1 cup cooked (180g)",cat:"Grains"},
+  {n:"Brown rice",            p:5, f:2,  fi:3.5,c:215,q:"1 cup cooked (180g)",cat:"Grains"},
+  {n:"Whole wheat roti / chapati",p:3,f:0.5,fi:1.5,c:80,q:"1 roti (30g)",cat:"Grains"},
+  {n:"Multigrain roti",       p:3, f:1,  fi:2,  c:75, q:"1 roti (30g)",cat:"Grains"},
+  {n:"Plain paratha",         p:4, f:8,  fi:1.5,c:180,q:"1 paratha (60g)",cat:"Grains"},
+  {n:"Stuffed aloo paratha",  p:6, f:10, fi:2,  c:300,q:"1 paratha (90g)",cat:"Grains"},
+  {n:"Naan",                  p:8, f:6,  fi:1,  c:260,q:"1 naan (80g)",cat:"Grains"},
+  {n:"Puri",                  p:3, f:8,  fi:0.5,c:150,q:"2 puris (50g)",cat:"Grains"},
+  {n:"White bread",           p:2, f:1,  fi:0.3,c:70, q:"1 slice (30g)",cat:"Grains"},
+  {n:"Brown/whole wheat bread",p:2,f:1,  fi:1.5,c:65, q:"1 slice (30g)",cat:"Grains"},
+  {n:"Poha (cooked)",         p:5, f:1,  fi:2,  c:300,q:"1.5 cups (220g)",cat:"Grains"},
+  {n:"Upma",                  p:5, f:4,  fi:2,  c:230,q:"1 cup (180g)",cat:"Grains"},
+  {n:"Oats (cooked)",         p:5, f:2.5,fi:4,  c:150,q:"1 cup (180g)",cat:"Grains"},
+  {n:"Daliya / broken wheat porridge",p:6,f:1,fi:2.5,c:220,q:"1 cup (190g)",cat:"Grains"},
+  {n:"Semolina / suji upma",  p:5, f:4,  fi:1,  c:230,q:"1 cup (180g)",cat:"Grains"},
+  {n:"Idli",                  p:2, f:0.3,fi:0.3,c:80, q:"1 idli (50g)",cat:"Grains"},
+  {n:"Dosa (plain)",          p:4, f:4,  fi:0.5,c:175,q:"1 medium dosa (75g)",cat:"Grains"},
+  {n:"Uttapam",               p:6, f:3,  fi:1,  c:220,q:"1 medium (100g)",cat:"Grains"},
   /* Dal & Legumes */
-  {n:"Dal tadka (yellow dal)",p:10,c:180,q:"1 cup (200g)",cat:"Dal & Legumes"},
-  {n:"Dal makhani",p:12,c:320,q:"1 cup (200g)",cat:"Dal & Legumes"},
-  {n:"Rajma curry",p:12,c:230,q:"1 cup (200g)",cat:"Dal & Legumes"},
-  {n:"Chana masala",p:12,c:280,q:"1 cup (200g)",cat:"Dal & Legumes"},
-  {n:"Moong dal",p:12,c:200,q:"1 cup (200g)",cat:"Dal & Legumes"},
-  {n:"Sambar",p:6, c:130,q:"1 cup (200g)",cat:"Dal & Legumes"},
-  {n:"Kadhi",p:5, c:160,q:"1 cup (200g)",cat:"Dal & Legumes"},
-  {n:"Chole",p:12,c:260,q:"1 cup (200g)",cat:"Dal & Legumes"},
-  {n:"Lobia / black-eyed peas",p:12,c:200,q:"1 cup (200g)",cat:"Dal & Legumes"},
+  {n:"Dal tadka (yellow dal)",p:10,f:4,  fi:4,  c:180,q:"1 cup (200g)",cat:"Dal & Legumes"},
+  {n:"Dal makhani",           p:12,f:16, fi:4,  c:320,q:"1 cup (200g)",cat:"Dal & Legumes"},
+  {n:"Rajma curry",           p:12,f:4,  fi:6,  c:230,q:"1 cup (200g)",cat:"Dal & Legumes"},
+  {n:"Chana masala",          p:12,f:6,  fi:8,  c:280,q:"1 cup (200g)",cat:"Dal & Legumes"},
+  {n:"Moong dal",             p:12,f:1,  fi:4,  c:200,q:"1 cup (200g)",cat:"Dal & Legumes"},
+  {n:"Sambar",                p:6, f:3,  fi:4,  c:130,q:"1 cup (200g)",cat:"Dal & Legumes"},
+  {n:"Kadhi",                 p:5, f:6,  fi:1,  c:160,q:"1 cup (200g)",cat:"Dal & Legumes"},
+  {n:"Chole",                 p:12,f:4,  fi:8,  c:260,q:"1 cup (200g)",cat:"Dal & Legumes"},
+  {n:"Lobia / black-eyed peas",p:12,f:2, fi:6,  c:200,q:"1 cup (200g)",cat:"Dal & Legumes"},
   /* Vegetables */
-  {n:"Aloo sabzi",p:3, c:200,q:"1 cup (180g)",cat:"Vegetables"},
-  {n:"Palak paneer",p:12,c:280,q:"1 cup (180g)",cat:"Vegetables"},
-  {n:"Paneer bhurji",p:14,c:250,q:"1 cup (150g)",cat:"Vegetables"},
-  {n:"Shahi paneer",p:14,c:340,q:"1 cup (180g)",cat:"Vegetables"},
-  {n:"Mixed veg sabzi",p:3, c:120,q:"1 cup (180g)",cat:"Vegetables"},
-  {n:"Gobi / cauliflower sabzi",p:3, c:130,q:"1 cup (180g)",cat:"Vegetables"},
-  {n:"Baingan bharta",p:3, c:150,q:"1 cup (180g)",cat:"Vegetables"},
-  {n:"Bhindi sabzi",p:2, c:130,q:"1 cup (180g)",cat:"Vegetables"},
-  {n:"Lauki / bottle gourd sabzi",p:2, c:80,q:"1 cup (180g)",cat:"Vegetables"},
-  {n:"Palak / spinach sabzi",p:3, c:100,q:"1 cup (180g)",cat:"Vegetables"},
-  {n:"Aloo matar",p:5, c:220,q:"1 cup (180g)",cat:"Vegetables"},
-  {n:"Raita",p:4, c:80,q:"1 cup (150g)",cat:"Vegetables"},
+  {n:"Aloo sabzi",            p:3, f:6,  fi:3,  c:200,q:"1 cup (180g)",cat:"Vegetables"},
+  {n:"Palak paneer",          p:12,f:16, fi:4,  c:280,q:"1 cup (180g)",cat:"Vegetables"},
+  {n:"Paneer bhurji",         p:14,f:18, fi:1,  c:250,q:"1 cup (150g)",cat:"Vegetables"},
+  {n:"Shahi paneer",          p:14,f:24, fi:1,  c:340,q:"1 cup (180g)",cat:"Vegetables"},
+  {n:"Mixed veg sabzi",       p:3, f:4,  fi:3,  c:120,q:"1 cup (180g)",cat:"Vegetables"},
+  {n:"Gobi / cauliflower sabzi",p:3,f:4, fi:3,  c:130,q:"1 cup (180g)",cat:"Vegetables"},
+  {n:"Baingan bharta",        p:3, f:6,  fi:4,  c:150,q:"1 cup (180g)",cat:"Vegetables"},
+  {n:"Bhindi sabzi",          p:2, f:4,  fi:4,  c:130,q:"1 cup (180g)",cat:"Vegetables"},
+  {n:"Lauki / bottle gourd sabzi",p:2,f:2,fi:2, c:80, q:"1 cup (180g)",cat:"Vegetables"},
+  {n:"Palak / spinach sabzi", p:3, f:4,  fi:4,  c:100,q:"1 cup (180g)",cat:"Vegetables"},
+  {n:"Aloo matar",            p:5, f:6,  fi:4,  c:220,q:"1 cup (180g)",cat:"Vegetables"},
+  {n:"Raita",                 p:4, f:3,  fi:0.5,c:80, q:"1 cup (150g)",cat:"Vegetables"},
   /* Protein */
-  {n:"Paneer (plain)",p:18,c:265,q:"100g",cat:"Protein"},
-  {n:"Egg — boiled",p:6, c:78,q:"1 large egg (50g)",cat:"Protein"},
-  {n:"Egg — omelette (2-egg)",p:14,c:190,q:"2-egg omelette (100g)",cat:"Protein"},
-  {n:"Egg bhurji (2-egg)",p:14,c:200,q:"2-egg scramble (100g)",cat:"Protein"},
-  {n:"Chicken curry",p:25,c:300,q:"1 cup (200g)",cat:"Protein"},
-  {n:"Chicken breast — grilled",p:31,c:165,q:"100g",cat:"Protein"},
-  {n:"Chicken — tandoori",p:26,c:220,q:"2 pieces (150g)",cat:"Protein"},
-  {n:"Fish curry",p:22,c:280,q:"1 cup (200g)",cat:"Protein"},
-  {n:"Fish — grilled / steamed",p:25,c:140,q:"100g",cat:"Protein"},
-  {n:"Mutton curry",p:25,c:380,q:"1 cup (200g)",cat:"Protein"},
-  {n:"Prawns — cooked",p:24,c:160,q:"100g",cat:"Protein"},
-  {n:"Tofu — plain",p:8, c:76,q:"100g",cat:"Protein"},
-  {n:"Soya chunks (dry)",p:26,c:345,q:"50g dry",cat:"Protein"},
+  {n:"Paneer (plain)",        p:18,f:21, fi:0,  c:265,q:"100g",cat:"Protein"},
+  {n:"Egg — boiled",          p:6, f:5,  fi:0,  c:78, q:"1 large egg (50g)",cat:"Protein"},
+  {n:"Egg — omelette (2-egg)",p:14,f:14, fi:0,  c:190,q:"2-egg omelette (100g)",cat:"Protein"},
+  {n:"Egg bhurji (2-egg)",    p:14,f:14, fi:0,  c:200,q:"2-egg scramble (100g)",cat:"Protein"},
+  {n:"Chicken curry",         p:25,f:12, fi:0,  c:300,q:"1 cup (200g)",cat:"Protein"},
+  {n:"Chicken breast — grilled",p:31,f:4,fi:0,  c:165,q:"100g",cat:"Protein"},
+  {n:"Chicken — tandoori",    p:26,f:6,  fi:0,  c:220,q:"2 pieces (150g)",cat:"Protein"},
+  {n:"Fish curry",            p:22,f:10, fi:0,  c:280,q:"1 cup (200g)",cat:"Protein"},
+  {n:"Fish — grilled / steamed",p:25,f:3,fi:0,  c:140,q:"100g",cat:"Protein"},
+  {n:"Mutton curry",          p:25,f:22, fi:0,  c:380,q:"1 cup (200g)",cat:"Protein"},
+  {n:"Prawns — cooked",       p:24,f:2,  fi:0,  c:160,q:"100g",cat:"Protein"},
+  {n:"Tofu — plain",          p:8, f:4.5,fi:0.3,c:76, q:"100g",cat:"Protein"},
+  {n:"Soya chunks (dry)",     p:26,f:8,  fi:5,  c:345,q:"50g dry",cat:"Protein"},
   /* Dairy */
-  {n:"Full fat milk",p:8, c:150,q:"1 glass (250ml)",cat:"Dairy"},
-  {n:"Toned milk",p:6, c:120,q:"1 glass (250ml)",cat:"Dairy"},
-  {n:"Dahi / curd",p:7, c:120,q:"1 cup (200g)",cat:"Dairy"},
-  {n:"Greek yogurt",p:10,c:100,q:"150g",cat:"Dairy"},
-  {n:"Butter",p:0, c:35,q:"1 tsp (5g)",cat:"Dairy"},
-  {n:"Ghee",p:0, c:45,q:"1 tsp (5g)",cat:"Dairy"},
-  {n:"Cheese slice",p:5, c:70,q:"1 slice (20g)",cat:"Dairy"},
-  {n:"Lassi — sweet",p:8, c:230,q:"1 glass (250ml)",cat:"Dairy"},
-  {n:"Lassi — salted",p:6, c:150,q:"1 glass (250ml)",cat:"Dairy"},
-  {n:"Buttermilk / chaas",p:3, c:70,q:"1 glass (250ml)",cat:"Dairy"},
-  {n:"Paneer (50g)",p:9, c:132,q:"50g",cat:"Dairy"},
+  {n:"Full fat milk",         p:8, f:8,  fi:0,  c:150,q:"1 glass (250ml)",cat:"Dairy"},
+  {n:"Toned milk",            p:6, f:3,  fi:0,  c:120,q:"1 glass (250ml)",cat:"Dairy"},
+  {n:"Dahi / curd",           p:7, f:5,  fi:0,  c:120,q:"1 cup (200g)",cat:"Dairy"},
+  {n:"Greek yogurt",          p:10,f:2,  fi:0,  c:100,q:"150g",cat:"Dairy"},
+  {n:"Butter",                p:0, f:4,  fi:0,  c:35, q:"1 tsp (5g)",cat:"Dairy"},
+  {n:"Ghee",                  p:0, f:5,  fi:0,  c:45, q:"1 tsp (5g)",cat:"Dairy"},
+  {n:"Cheese slice",          p:5, f:5,  fi:0,  c:70, q:"1 slice (20g)",cat:"Dairy"},
+  {n:"Lassi — sweet",         p:8, f:8,  fi:0,  c:230,q:"1 glass (250ml)",cat:"Dairy"},
+  {n:"Lassi — salted",        p:6, f:5,  fi:0,  c:150,q:"1 glass (250ml)",cat:"Dairy"},
+  {n:"Buttermilk / chaas",    p:3, f:2,  fi:0,  c:70, q:"1 glass (250ml)",cat:"Dairy"},
+  {n:"Paneer (50g)",          p:9, f:10.5,fi:0, c:132,q:"50g",cat:"Dairy"},
   /* Snacks & Street Food */
-  {n:"Samosa",p:4, c:260,q:"1 medium samosa",cat:"Snacks"},
-  {n:"Pakoda / bhajiya (4 pcs)",p:4, c:200,q:"4 pieces (80g)",cat:"Snacks"},
-  {n:"Vada pav",p:5, c:250,q:"1 piece",cat:"Snacks"},
-  {n:"Pav bhaji (2 pav)",p:10,c:450,q:"2 pav + bhaji",cat:"Snacks"},
-  {n:"Pani puri (6 pcs)",p:4, c:180,q:"6 pieces",cat:"Snacks"},
-  {n:"Bhel puri",p:4, c:180,q:"1 cup (120g)",cat:"Snacks"},
-  {n:"Dhokla (4 pcs)",p:8, c:200,q:"4 pieces (150g)",cat:"Snacks"},
-  {n:"Roasted chana",p:10,c:190,q:"50g",cat:"Snacks"},
-  {n:"Makhana / fox nuts",p:3, c:100,q:"30g",cat:"Snacks"},
-  {n:"Namkeen mixture",p:4, c:140,q:"30g",cat:"Snacks"},
-  {n:"Potato chips",p:2, c:160,q:"1 small pack (30g)",cat:"Snacks"},
-  {n:"Biscuits — Marie (4)",p:2, c:120,q:"4 biscuits (28g)",cat:"Snacks"},
-  {n:"Biscuits — digestive (2)",p:2, c:140,q:"2 biscuits (30g)",cat:"Snacks"},
+  {n:"Samosa",                p:4, f:14, fi:2,  c:260,q:"1 medium samosa",cat:"Snacks"},
+  {n:"Pakoda / bhajiya (4 pcs)",p:4,f:12,fi:1,  c:200,q:"4 pieces (80g)",cat:"Snacks"},
+  {n:"Vada pav",              p:5, f:10, fi:2,  c:250,q:"1 piece",cat:"Snacks"},
+  {n:"Pav bhaji (2 pav)",     p:10,f:16, fi:4,  c:450,q:"2 pav + bhaji",cat:"Snacks"},
+  {n:"Pani puri (6 pcs)",     p:4, f:4,  fi:2,  c:180,q:"6 pieces",cat:"Snacks"},
+  {n:"Bhel puri",             p:4, f:3,  fi:2,  c:180,q:"1 cup (120g)",cat:"Snacks"},
+  {n:"Dhokla (4 pcs)",        p:8, f:4,  fi:2,  c:200,q:"4 pieces (150g)",cat:"Snacks"},
+  {n:"Roasted chana",         p:10,f:5,  fi:8,  c:190,q:"50g",cat:"Snacks"},
+  {n:"Makhana / fox nuts",    p:3, f:1,  fi:0.5,c:100,q:"30g",cat:"Snacks"},
+  {n:"Namkeen mixture",       p:4, f:8,  fi:1,  c:140,q:"30g",cat:"Snacks"},
+  {n:"Potato chips",          p:2, f:10, fi:1,  c:160,q:"1 small pack (30g)",cat:"Snacks"},
+  {n:"Biscuits — Marie (4)",  p:2, f:3,  fi:0.5,c:120,q:"4 biscuits (28g)",cat:"Snacks"},
+  {n:"Biscuits — digestive (2)",p:2,f:6, fi:1,  c:140,q:"2 biscuits (30g)",cat:"Snacks"},
   /* Fruits */
-  {n:"Banana",p:1, c:90,q:"1 medium (100g)",cat:"Fruits"},
-  {n:"Apple",p:0, c:80,q:"1 medium (150g)",cat:"Fruits"},
-  {n:"Mango (Alfonso/Langra)",p:1, c:100,q:"1 cup chunks (150g)",cat:"Fruits"},
-  {n:"Papaya",p:1, c:55,q:"1 cup (150g)",cat:"Fruits"},
-  {n:"Watermelon",p:2, c:80,q:"2 cups (300g)",cat:"Fruits"},
-  {n:"Grapes",p:1, c:110,q:"1 cup (150g)",cat:"Fruits"},
-  {n:"Orange",p:1, c:62,q:"1 medium (130g)",cat:"Fruits"},
-  {n:"Guava",p:1, c:68,q:"1 medium (100g)",cat:"Fruits"},
-  {n:"Pineapple",p:1, c:82,q:"1 cup chunks (150g)",cat:"Fruits"},
-  {n:"Pomegranate",p:2, c:105,q:"1 cup arils (150g)",cat:"Fruits"},
-  {n:"Chickoo / sapota",p:1, c:120,q:"1 medium (100g)",cat:"Fruits"},
-  {n:"Dates",p:1, c:110,q:"3 pieces (30g)",cat:"Fruits"},
+  {n:"Banana",                p:1, f:0.3,fi:2.6,c:90, q:"1 medium (100g)",cat:"Fruits"},
+  {n:"Apple",                 p:0, f:0.3,fi:2.4,c:80, q:"1 medium (150g)",cat:"Fruits"},
+  {n:"Mango (Alfonso/Langra)",p:1, f:0.4,fi:1.6,c:100,q:"1 cup chunks (150g)",cat:"Fruits"},
+  {n:"Papaya",                p:1, f:0.3,fi:1.8,c:55, q:"1 cup (150g)",cat:"Fruits"},
+  {n:"Watermelon",            p:2, f:0.2,fi:0.6,c:80, q:"2 cups (300g)",cat:"Fruits"},
+  {n:"Grapes",                p:1, f:0.2,fi:0.9,c:110,q:"1 cup (150g)",cat:"Fruits"},
+  {n:"Orange",                p:1, f:0.1,fi:2.3,c:62, q:"1 medium (130g)",cat:"Fruits"},
+  {n:"Guava",                 p:1, f:1,  fi:5.4,c:68, q:"1 medium (100g)",cat:"Fruits"},
+  {n:"Pineapple",             p:1, f:0.2,fi:2.3,c:82, q:"1 cup chunks (150g)",cat:"Fruits"},
+  {n:"Pomegranate",           p:2, f:1.2,fi:4,  c:105,q:"1 cup arils (150g)",cat:"Fruits"},
+  {n:"Chickoo / sapota",      p:1, f:1.1,fi:5.3,c:120,q:"1 medium (100g)",cat:"Fruits"},
+  {n:"Dates",                 p:1, f:0.2,fi:2,  c:110,q:"3 pieces (30g)",cat:"Fruits"},
   /* Beverages */
   {n:"Chai — milk + sugar",p:2, c:80,q:"1 cup (200ml)",cat:"Beverages"},
   {n:"Black tea / green tea",p:0, c:5,q:"1 cup (200ml)",cat:"Beverages"},
@@ -2336,6 +2338,115 @@ function WeightLog({t,onLog}:{t:Tracking;onLog:(w:number)=>void}) {
   );
 }
 
+/* ─────────────── Body Measurements Card ─────────────── */
+type MeasurementKey = "waist"|"hip"|"chest"|"neck";
+const MEASURE_LABELS: Record<MeasurementKey,string> = {waist:"Waist",hip:"Hip",chest:"Chest",neck:"Neck"};
+
+function MeasurementsCard({tracking,onUpdate}:{tracking:Tracking;onUpdate:(t:Tracking)=>void}) {
+  const today=isoDate();
+  const measurements=tracking.measurements||{};
+  const todayM=(measurements[today] as MeasurementEntry)||{};
+  const [vals,setVals]=useState<Partial<Record<MeasurementKey,string>>>({
+    waist:todayM.waist?String(todayM.waist):"",
+    hip:todayM.hip?String(todayM.hip):"",
+    chest:todayM.chest?String(todayM.chest):"",
+    neck:todayM.neck?String(todayM.neck):"",
+  });
+  const [saved,setSaved]=useState(false);
+
+  function save(){
+    const entry:Record<string,number>={};
+    (["waist","hip","chest","neck"] as MeasurementKey[]).forEach(k=>{
+      const v=parseFloat(vals[k]||"");
+      if(!isNaN(v)&&v>0) entry[k]=v;
+    });
+    if(!Object.keys(entry).length) return;
+    onUpdate({...tracking,measurements:{...measurements,[today]:entry}});
+    setSaved(true); setTimeout(()=>setSaved(false),2000);
+  }
+
+  /* Show last 5 entries for a quick trend */
+  const history=Object.entries(measurements).sort(([a],[b])=>a<b?-1:1).slice(-5) as [string,MeasurementEntry][];
+
+  return (
+    <Card className="p-5 mt-4">
+      <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-3">
+        <Scale size={18} style={{color:GREEN}}/> Body measurements <span className="text-xs font-normal text-gray-400">(cm)</span>
+      </h3>
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        {(["waist","hip","chest","neck"] as MeasurementKey[]).map(k=>(
+          <div key={k}>
+            <label className="text-xs text-gray-500 font-medium mb-1 block">{MEASURE_LABELS[k]}</label>
+            <input type="number" value={vals[k]||""} placeholder="—"
+              onChange={e=>setVals(v=>({...v,[k]:e.target.value}))}
+              className="w-full px-3 py-2 rounded-xl border-2 border-gray-200 outline-none focus:border-green-500 text-sm"
+              aria-label={`${MEASURE_LABELS[k]} in cm`}/>
+          </div>
+        ))}
+      </div>
+      <button onClick={save}
+        className="w-full py-2.5 rounded-2xl text-white font-semibold text-sm transition"
+        style={{background:saved?"#6B7280":GREEN}}
+        aria-label="Save body measurements">
+        {saved?"Saved ✓":"Save measurements"}
+      </button>
+      {history.length>1&&(
+        <div className="mt-3 space-y-1">
+          <div className="text-xs font-semibold text-gray-500 mb-1">Recent history</div>
+          {history.slice(-3).reverse().map(([date,m])=>(
+            <div key={date} className="flex items-center gap-2 text-xs text-gray-600">
+              <span className="text-gray-400 shrink-0">{date.slice(5)}</span>
+              {(["waist","hip","chest","neck"] as MeasurementKey[]).filter(k=>m[k]!=null).map(k=>(
+                <span key={k} className="px-1.5 py-0.5 rounded-lg bg-gray-100">{MEASURE_LABELS[k][0]}: {m[k]}</span>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/* ─────────────── CSV export ─────────────── */
+function exportCSV(tracking: Tracking, planName?: string) {
+  const history = tracking.history || {};
+  const weights = tracking.weights || {};
+  const measurements = tracking.measurements || {};
+
+  const allDates = Array.from(new Set([
+    ...Object.keys(history),
+    ...Object.keys(weights),
+    ...Object.keys(measurements),
+  ])).sort();
+
+  const header = "Date,On Track,Calories,Protein (g),Water (glasses),Weight (kg),Waist (cm),Hip (cm),Chest (cm),Neck (cm)";
+  const rows = allDates.map(d => {
+    const h = history[d] || {} as Partial<HistEntry>;
+    const m = measurements[d] || {};
+    return [
+      d,
+      h.onTrack ? "Yes" : "No",
+      h.cal || "",
+      h.protein || "",
+      h.water || "",
+      weights[d] || "",
+      m.waist || "",
+      m.hip || "",
+      m.chest || "",
+      m.neck || "",
+    ].join(",");
+  });
+
+  const csv = [header, ...rows].join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `eatbc-data-${isoDate()}${planName ? "-" + planName.replace(/[^a-z0-9]/gi, "_") : ""}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 /* ─────────────── 3D parallax (pointer + gyroscope) ─────────────── */
 function use3DParallax() {
   const [tilt,setTilt]=useState({x:0,y:0});
@@ -4105,14 +4216,16 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet,token,yesterda
     if(!pending)return;
     const cal=Math.round(pending.c*servings);
     const p=Math.round((pending.p||0)*servings);
+    const f=pending.f!=null?Math.round(pending.f*servings*10)/10:undefined;
+    const fi=pending.fi!=null?Math.round(pending.fi*servings*10)/10:undefined;
     const s=servings===1?"":`${servings}× `;
-    onUpdate([...log,{n:pending.n,cal,p,qty:`${s}${pending.q}`,servings,mealBucket:getMealBucket()}]);
-    rememberRecent({n:pending.n,c:pending.c,p:pending.p||0,q:pending.q,cat:pending.cat});
+    onUpdate([...log,{n:pending.n,cal,p,...(f!=null?{f}:{}),...(fi!=null?{fi}:{}),qty:`${s}${pending.q}`,servings,mealBucket:getMealBucket()}]);
+    rememberRecent({n:pending.n,c:pending.c,p:pending.p||0,f:pending.f,fi:pending.fi,q:pending.q,cat:pending.cat});
     setPending(null); setServings(1); setSearch(""); setOpen(false); setMode("search");
   }
   /* One-tap log a food straight from the Recently-used shelf (B3). */
   function quickLog(f:LogFood){
-    onUpdate([...log,{n:f.n,cal:f.c,p:f.p||0,qty:f.q,servings:1,mealBucket:getMealBucket()}]);
+    onUpdate([...log,{n:f.n,cal:f.c,p:f.p||0,...(f.f!=null?{f:f.f}:{}),...(f.fi!=null?{fi:f.fi}:{}),qty:f.q,servings:1,mealBucket:getMealBucket()}]);
     rememberRecent(f);
   }
   /* Copy yesterday's diary entries into today (B4). */
@@ -4130,23 +4243,68 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet,token,yesterda
     setCName("");setCQty("");setCCal("");setCProt("");setMode("search");
   }
 
-  async function lookupBarcode(){
-    if(!bar.trim()) return;
+  async function lookupBarcode(code?: string){
+    const target=(code||bar).trim();
+    if(!target) return;
     setBarBusy(true); setBarErr("");
     try {
-      const r=await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(bar.trim())}.json?fields=product_name,nutriments,serving_size`);
+      const r=await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(target)}.json?fields=product_name,nutriments,serving_size`);
       const d=await r.json();
       if(d.status!==1||!d.product){ setBarErr("Product not found. Try entering it manually."); return; }
       const pr=d.product;
-      const kcal=pr.nutriments?.["energy-kcal_serving"]??pr.nutriments?.["energy-kcal_100g"];
-      const prot=pr.nutriments?.["proteins_serving"]??pr.nutriments?.["proteins_100g"];
+      const nu=pr.nutriments||{};
+      const kcal=nu["energy-kcal_serving"]??nu["energy-kcal_100g"];
+      const prot=nu["proteins_serving"]??nu["proteins_100g"];
+      const fat=nu["fat_serving"]??nu["fat_100g"];
+      const fiber=nu["fiber_serving"]??nu["fiber_100g"];
       setCName(pr.product_name||"Scanned product");
       setCQty(pr.serving_size||"per 100g");
       setCCal(kcal?String(Math.round(kcal)):"");
       setCProt(prot?String(Math.round(prot)):"");
+      /* pre-fill fat/fiber if available so the pending food carries them */
+      if(fat!=null) (window as unknown as Record<string,unknown>)["__pendingFat"]=Math.round(fat*10)/10;
+      if(fiber!=null) (window as unknown as Record<string,unknown>)["__pendingFiber"]=Math.round(fiber*10)/10;
       setMode("custom");
     } catch { setBarErr("Lookup failed — check your connection."); }
     finally { setBarBusy(false); }
+  }
+
+  /* Camera-based barcode scanning using BarcodeDetector API (Chrome 83+). */
+  const barcodeVideoRef=useRef<HTMLVideoElement|null>(null);
+  const barcodeStreamRef=useRef<MediaStream|null>(null);
+  const [cameraActive,setCameraActive]=useState(false);
+
+  async function startBarcodeCamera(){
+    if(!("BarcodeDetector" in window)){setBarErr("Camera barcode scanning not supported on this browser. Enter barcode manually.");return;}
+    try{
+      const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
+      barcodeStreamRef.current=stream;
+      setCameraActive(true);
+      await new Promise(r=>setTimeout(r,100));
+      if(barcodeVideoRef.current){barcodeVideoRef.current.srcObject=stream;await barcodeVideoRef.current.play();}
+      // @ts-expect-error BarcodeDetector not yet in TS lib
+      const detector=new BarcodeDetector({formats:["ean_13","ean_8","upc_a","upc_e","code_128","qr_code"]});
+      const scan=async()=>{
+        if(!barcodeVideoRef.current||!barcodeStreamRef.current) return;
+        try{
+          const codes=await detector.detect(barcodeVideoRef.current);
+          if(codes.length>0){
+            stopBarcodeCamera();
+            setBar(codes[0].rawValue);
+            await lookupBarcode(codes[0].rawValue);
+            return;
+          }
+        }catch{}
+        if(barcodeStreamRef.current) requestAnimationFrame(scan);
+      };
+      requestAnimationFrame(scan);
+    }catch{setBarErr("Could not access camera.");}
+  }
+
+  function stopBarcodeCamera(){
+    barcodeStreamRef.current?.getTracks().forEach(t=>t.stop());
+    barcodeStreamRef.current=null;
+    setCameraActive(false);
   }
 
   async function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
@@ -4412,16 +4570,41 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet,token,yesterda
 
               {mode==="barcode"&&(
                 <div className="space-y-2.5">
-                  <p className="text-xs text-gray-500">Enter the barcode number from a packaged product — we'll fetch its nutrition from the OpenFoodFacts database.</p>
+                  {cameraActive?(
+                    <div className="relative rounded-2xl overflow-hidden bg-black" style={{aspectRatio:"4/3"}}>
+                      <video ref={barcodeVideoRef} className="w-full h-full object-cover" playsInline muted aria-label="Barcode scanner viewfinder"/>
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="w-56 h-32 border-4 border-green-400 rounded-xl opacity-70"/>
+                      </div>
+                      <button onClick={stopBarcodeCamera}
+                        className="absolute top-2 right-2 w-8 h-8 bg-black/60 rounded-full flex items-center justify-center text-white"
+                        aria-label="Stop camera">
+                        <X size={16}/>
+                      </button>
+                      <p className="absolute bottom-2 inset-x-0 text-center text-xs text-white/80">Point at barcode</p>
+                    </div>
+                  ):(
+                    <>
+                      <button onClick={startBarcodeCamera}
+                        className="w-full py-3 rounded-2xl font-bold text-sm flex items-center justify-center gap-2"
+                        style={{background:"#F0FAF4",color:GREEN}}
+                        aria-label="Scan barcode with camera">
+                        <Camera size={16}/> Scan with camera
+                      </button>
+                      <div className="flex items-center gap-2 text-xs text-gray-400"><div className="flex-1 h-px bg-gray-200"/><span>or enter manually</span><div className="flex-1 h-px bg-gray-200"/></div>
+                    </>
+                  )}
                   <div className="flex gap-2">
                     <input value={bar} onChange={e=>setBar(e.target.value)} inputMode="numeric" placeholder="e.g. 8901058000016"
-                      className="flex-1 px-4 py-2.5 rounded-2xl border-2 border-gray-200 outline-none focus:border-green-500 text-sm"/>
-                    <button onClick={lookupBarcode} disabled={barBusy||!bar.trim()}
-                      className="px-5 rounded-2xl text-white font-bold text-sm disabled:opacity-50" style={{background:GREEN}}>
+                      className="flex-1 px-4 py-2.5 rounded-2xl border-2 border-gray-200 outline-none focus:border-green-500 text-sm"
+                      aria-label="Enter barcode number"/>
+                    <button onClick={()=>lookupBarcode()} disabled={barBusy||!bar.trim()}
+                      className="px-5 rounded-2xl text-white font-bold text-sm disabled:opacity-50" style={{background:GREEN}}
+                      aria-label="Look up barcode">
                       {barBusy?<Loader2 className="animate-spin" size={16}/>:"Look up"}
                     </button>
                   </div>
-                  {barErr&&<div className="flex items-center gap-2 text-red-500 text-xs"><AlertCircle size={14}/>{barErr}</div>}
+                  {barErr&&<div className="flex items-center gap-2 text-red-500 text-xs" role="alert"><AlertCircle size={14}/>{barErr}</div>}
                 </div>
               )}
 
@@ -6458,6 +6641,8 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
   const proteinTarget=plan?.proteinTarget||0;
   const fatTarget=plan?.fatTarget||0;
   const fiberTarget=plan?.fiberTarget||0;
+  const fatConsumed=Math.round(((dd.log||[]).reduce((s,x)=>s+(x.f||0),0))*10)/10;
+  const fiberConsumed=Math.round(((dd.log||[]).reduce((s,x)=>s+(x.fi||0),0))*10)/10;
   const doneCount=dp?dp.meals.filter((_,i)=>dd.meals[i]).length:0;
 
   const history=tracking.history||{};
@@ -6664,20 +6849,20 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
                     {fatTarget>0&&(
                       <div>
                         <div className="flex justify-between text-xs text-white/50 mb-1">
-                          <span>Fat target</span><span>–/{fatTarget}g</span>
+                          <span>Fat</span><span>{fatConsumed}/{fatTarget}g</span>
                         </div>
                         <div className="h-1.5 rounded-full" style={{background:"rgba(255,255,255,0.15)"}}>
-                          <div className="h-1.5 rounded-full" style={{width:"0%",background:"#fbbf24"}}/>
+                          <div className="h-1.5 rounded-full transition-all duration-700" style={{width:`${Math.min(fatConsumed/fatTarget,1)*100}%`,background:"#fbbf24"}}/>
                         </div>
                       </div>
                     )}
                     {fiberTarget>0&&(
                       <div>
                         <div className="flex justify-between text-xs text-white/50 mb-1">
-                          <span>Fibre target</span><span>–/{fiberTarget}g</span>
+                          <span>Fibre</span><span>{fiberConsumed}/{fiberTarget}g</span>
                         </div>
                         <div className="h-1.5 rounded-full" style={{background:"rgba(255,255,255,0.15)"}}>
-                          <div className="h-1.5 rounded-full" style={{width:"0%",background:"#60a5fa"}}/>
+                          <div className="h-1.5 rounded-full transition-all duration-700" style={{width:`${Math.min(fiberConsumed/fiberTarget,1)*100}%`,background:"#60a5fa"}}/>
                         </div>
                       </div>
                     )}
@@ -6721,10 +6906,10 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
                 <ReminderToggle t={t} radio token={session.token}/>
                 {/* Logout / Delete */}
                 <div className="flex items-center gap-4">
-                  <button onClick={onLogout} className="text-white/80 inline-flex items-center gap-1 text-sm hover:text-white">
+                  <button onClick={onLogout} aria-label="Log out of your account" className="text-white/80 inline-flex items-center gap-1 text-sm hover:text-white">
                     <LogOut size={14}/>{t("logout")}
                   </button>
-                  <button onClick={()=>setShowDeleteConfirm(true)} className="text-red-300/70 inline-flex items-center gap-1 text-xs hover:text-red-200">
+                  <button onClick={()=>setShowDeleteConfirm(true)} aria-label="Delete your account" className="text-red-300/70 inline-flex items-center gap-1 text-xs hover:text-red-200">
                     <X size={12}/>{t("deleteAccount")}
                   </button>
                 </div>
@@ -6747,6 +6932,7 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
         <div className="flex gap-2 mb-4 bg-white rounded-2xl p-1 border border-gray-100">
           {TABS.map(([id,label,Icon])=>(
             <button key={id} onClick={()=>setTab(id)}
+              role="tab" aria-selected={tab===id} aria-label={`Switch to ${label} tab`}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold transition ${tab===id?"text-white shadow":"text-gray-500"}`}
               style={tab===id?{background:GREEN}:{}}>
               <Icon size={15}/> {label}
@@ -6890,6 +7076,8 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
                   <div className="flex gap-1.5">
                     {[...Array(wt)].map((_,i)=>(
                       <button key={i} onClick={()=>setWater(i+1===dd.water?i:i+1)}
+                        aria-label={`${i+1===dd.water?"Remove":"Mark"} glass ${i+1} of water`}
+                        aria-pressed={i<dd.water}
                         className="flex-1 h-9 rounded-lg transition" style={{background:i<dd.water?GREEN:"#E5E7EB"}}/>
                     ))}
                   </div>
@@ -6912,7 +7100,14 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
             <EatingWindowCard mealTimes={tracking.mealTimes||{}} today={today}/>
             <InsightsCard history={history} proteinTarget={proteinTargetVal} t={t}/>
             <WeightLog t={tracking} onLog={logW}/>
+            <MeasurementsCard tracking={tracking} onUpdate={onUpdate}/>
             <div className="mb-4"/>
+            <button onClick={()=>exportCSV(tracking, plan?.goal)}
+              className="w-full py-3 rounded-2xl font-semibold text-sm flex items-center justify-center gap-2 mb-4"
+              style={{background:"#F0FAF4",color:GREEN}}
+              aria-label="Export all data as CSV">
+              <FileText size={16}/> Export data as CSV
+            </button>
             <ReminderToggle t={t} token={session.token}
               label="Boss me around 🔔"
               sublabel="Poke me when I go AWOL from my diet plan"/>

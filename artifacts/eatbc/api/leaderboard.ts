@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { sql, ensureDb } from "./_lib/db.js";
 import { verifyToken } from "./_lib/auth.js";
 import { decrypt } from "./_lib/crypto.js";
+import { allow, clientIp } from "./_lib/ratelimit.js";
 
 /* Replicate client-side streak/points logic so values can't be spoofed. */
 function isoShift(days: number): string {
@@ -35,7 +36,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const userId = await verifyToken(req.headers.authorization);
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
+  const ip = clientIp(req);
+
   if (req.method === "GET") {
+    if (!(await allow(`lb:get:${ip}`, 30, 60)))
+      return res.status(429).json({ error: "Too many requests — slow down." });
     const rows = await sql`
       SELECT name, streak, points FROM community
       ORDER BY points DESC, streak DESC
@@ -45,6 +50,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   if (req.method === "POST") {
+    if (!(await allow(`lb:post:${ip}:${userId}`, 5, 60)))
+      return res.status(429).json({ error: "Too many updates — please wait." });
     const { name } = req.body ?? {};
     const safeName = String(name ?? "Warrior").slice(0, 40);
 
