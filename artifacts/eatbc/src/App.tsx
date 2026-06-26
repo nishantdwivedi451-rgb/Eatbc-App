@@ -4136,7 +4136,7 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet,token,yesterda
   const [cat,setCat]=useState("All");
   const [mode,setMode]=useState<"search"|"custom"|"barcode"|"photo">("search");
   /* custom food form */
-  const [cName,setCName]=useState(""); const [cQty,setCQty]=useState(""); const [cCal,setCCal]=useState(""); const [cProt,setCProt]=useState("");
+  const [cName,setCName]=useState(""); const [cQty,setCQty]=useState(""); const [cCal,setCCal]=useState(""); const [cProt,setCProt]=useState(""); const [cFat,setCFat]=useState(""); const [cFiber,setCFiber]=useState("");
   /* barcode lookup */
   const [bar,setBar]=useState(""); const [barBusy,setBarBusy]=useState(false); const [barErr,setBarErr]=useState("");
   const [photoSuggestions, setPhotoSuggestions] = useState<LogFood[]>([]);
@@ -4238,9 +4238,16 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet,token,yesterda
 
   function saveCustom(){
     if(!cName.trim()||!cCal) return;
-    const f:LogFood={n:cName.trim(),c:Math.round(+cCal),p:cProt?Math.round(+cProt):0,q:cQty.trim()||"1 serving",cat:"My Foods"};
+    const fatV=cFat?parseFloat(cFat):undefined;
+    const fiberV=cFiber?parseFloat(cFiber):undefined;
+    const f:LogFood={
+      n:cName.trim(),c:Math.round(+cCal),p:cProt?Math.round(+cProt):0,
+      ...(fatV!=null&&!isNaN(fatV)?{f:fatV}:{}),
+      ...(fiberV!=null&&!isNaN(fiberV)?{fi:fiberV}:{}),
+      q:cQty.trim()||"1 serving",cat:"My Foods",
+    };
     onSaveCustom(f); setPending(f); setServings(1);
-    setCName("");setCQty("");setCCal("");setCProt("");setMode("search");
+    setCName("");setCQty("");setCCal("");setCProt("");setCFat("");setCFiber("");setMode("search");
   }
 
   async function lookupBarcode(code?: string){
@@ -4261,9 +4268,8 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet,token,yesterda
       setCQty(pr.serving_size||"per 100g");
       setCCal(kcal?String(Math.round(kcal)):"");
       setCProt(prot?String(Math.round(prot)):"");
-      /* pre-fill fat/fiber if available so the pending food carries them */
-      if(fat!=null) (window as unknown as Record<string,unknown>)["__pendingFat"]=Math.round(fat*10)/10;
-      if(fiber!=null) (window as unknown as Record<string,unknown>)["__pendingFiber"]=Math.round(fiber*10)/10;
+      if(fat!=null) setCFat(String(Math.round(fat*10)/10));
+      if(fiber!=null) setCFiber(String(Math.round(fiber*10)/10));
       setMode("custom");
     } catch { setBarErr("Lookup failed — check your connection."); }
     finally { setBarBusy(false); }
@@ -4558,6 +4564,12 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet,token,yesterda
                     <input value={cCal} onChange={e=>setCCal(e.target.value)} type="number" placeholder="Calories"
                       className="flex-1 px-4 py-2.5 rounded-2xl border-2 border-gray-200 outline-none focus:border-green-500 text-sm"/>
                     <input value={cProt} onChange={e=>setCProt(e.target.value)} type="number" placeholder="Protein (g)"
+                      className="flex-1 px-4 py-2.5 rounded-2xl border-2 border-gray-200 outline-none focus:border-green-500 text-sm"/>
+                  </div>
+                  <div className="flex gap-2.5">
+                    <input value={cFat} onChange={e=>setCFat(e.target.value)} type="number" placeholder="Fat (g)"
+                      className="flex-1 px-4 py-2.5 rounded-2xl border-2 border-gray-200 outline-none focus:border-green-500 text-sm"/>
+                    <input value={cFiber} onChange={e=>setCFiber(e.target.value)} type="number" placeholder="Fibre (g)"
                       className="flex-1 px-4 py-2.5 rounded-2xl border-2 border-gray-200 outline-none focus:border-green-500 text-sm"/>
                   </div>
                   <button onClick={saveCustom} disabled={!cName.trim()||!cCal}
