@@ -179,6 +179,7 @@ interface Profile {
   timeline?: string;
   goal?: string; condition?: string; diet?: string; region: string[];
   activity?: string; exercise?: string[]; meals?: string;
+  nonVegTypes?: string[];
   cooktime?: string; avoid?: string; weekend?: string[]; foodPicks?: string[];
   foodAvoid?: string[];  // auto-blacklisted foods from repeated swaps
   wantWorkout?: string; workoutPlace?: string; workoutFocus?: string; workoutDays?: string;
@@ -255,6 +256,10 @@ const Q: Question[] = [
   { k:"condition", label:"Any health condition we should know about?",  type:"pick",
     opts:["None","Diabetes / pre-diabetes","High BP (hypertension)","High cholesterol","Thyroid (hypothyroid)","PCOS / PCOD","Pregnant","Breastfeeding","Other"] },
   { k:"diet",      label:"Your food preference",                        type:"pick",   opts:["Pure veg","Egg + veg","Non-veg","Vegan","Jain"] },
+  { k:"nonVegTypes", label:"What non-veg do you eat?",                type:"multi",
+    sub:"Pick all that apply — we'll only include these in your plan.",
+    opts:["Chicken","Mutton / Lamb","Seafood / Fish","Eggs"],
+    showIf:(p)=>p.diet==="Non-veg" },
   { k:"activity",  label:"How active is your daily life?",              type:"pick",
     sub:"Think work, commute and chores — not gym or sport.",
     opts:["Mostly desk job","On feet / moderate","Physically active"] },
@@ -284,7 +289,7 @@ const Q: Question[] = [
 interface FoodItem {
   n: string; c: number; p?: number; f?: number; fi?: number; q: string;
   slot: string[]; reg: string[];
-  simple?: number; jain?: number; egg?: number; meat?: number; fish?: number; dairy?: number;
+  simple?: number; jain?: number; egg?: number; meat?: number; chicken?: number; mutton?: number; fish?: number; dairy?: number;
   t: string[];
 }
 
@@ -362,7 +367,7 @@ const DB: FoodItem[] = [
   {n:"Rice, kootu & thoran",             c:500,p:12,q:"1½ cups rice + 1 cup kootu + ½ cup thoran",                     slot:["l","d"],reg:["s"],jain:1,t:["fiber","highgi"]},
   {n:"Avial with rice",                  c:480,p:10,q:"1½ cups rice + 1 cup avial (200g)",                              slot:["l","d"],reg:["s"],dairy:1,jain:1,t:["fiber","highgi"]},
   {n:"Fish curry with rice",             c:560,p:28,q:"1½ cups rice + 1 cup curry (100g fish)",                        slot:["l","d"],reg:["s","e"],fish:1,t:["protein","highgi"]},
-  {n:"Chicken Chettinad with rice",      c:620,p:32,q:"1½ cups rice + 1 cup curry (120g chicken)",                     slot:["l","d"],reg:["s"],meat:1,t:["protein","highgi"]},
+  {n:"Chicken Chettinad with rice",      c:620,p:32,q:"1½ cups rice + 1 cup curry (120g chicken)",                     slot:["l","d"],reg:["s"],meat:1,chicken:1,t:["protein","highgi"]},
   {n:"Egg curry with rice",              c:540,p:24,q:"1½ cups rice + 1 cup curry (2 eggs)",                            slot:["l","d"],reg:["all"],egg:1,t:["protein","highgi"]},
   {n:"Rice, cholar dal, aloo posto & curd", c:540,p:16,q:"1½ cups rice + 1 cup cholar dal + ½ cup aloo posto + ½ cup curd", slot:["l","d"],reg:["e"],dairy:1,t:["fiber","highgi"]},
   {n:"Rice with macher jhol",            c:560,p:28,q:"1½ cups rice + 1 cup jhol (120g fish)",                         slot:["l","d"],reg:["e"],fish:1,t:["protein","highgi"]},
@@ -373,11 +378,11 @@ const DB: FoodItem[] = [
   {n:"Pithla bhakri",                    c:460,p:16,q:"2 bhakris (100g each) + ¾ cup pithla",                          slot:["l","d"],reg:["w"],jain:1,t:["fiber"]},
   {n:"Dal dhokli",                       c:520,p:15,q:"2 cups (350g)",                                                   slot:["l","d"],reg:["w"],jain:1,t:["fiber","protein"]},
   {n:"Undhiyu with roti",               c:540,p:12,q:"2 rotis (60g each) + 1½ cups undhiyu (300g)",                   slot:["l","d"],reg:["w"],t:["fiber"]},
-  {n:"Chicken sukka with bhakri",        c:640,p:38,q:"2 bhakris (100g each) + 1 cup sukka (150g chicken)",            slot:["l","d"],reg:["w"],meat:1,t:["protein"]},
+  {n:"Chicken sukka with bhakri",        c:640,p:38,q:"2 bhakris (100g each) + 1 cup sukka (150g chicken)",            slot:["l","d"],reg:["w"],meat:1,chicken:1,t:["protein"]},
   {n:"Moong dal khichdi with curd",      c:420,p:14,q:"1½ cups khichdi (280g) + ½ cup curd",                           slot:["l","d"],reg:["all"],dairy:1,jain:1,simple:1,t:["lowgi","fiber"]},
   {n:"Moong dal khichdi (light)",        c:360,p:12,q:"1½ cups khichdi (250g)",                                         slot:["l","d"],reg:["all"],jain:1,simple:1,t:["lowgi","fiber"]},
   {n:"Vegetable soup with 2 multigrain toast", c:320,p:10,q:"1½ cups soup + 2 toast slices",                           slot:["d"],reg:["all"],jain:1,simple:1,t:["lowgi","fiber"]},
-  {n:"Grilled chicken with sautéed veg", c:480,p:38,q:"150g chicken + 1½ cups sautéed veg",                           slot:["l","d"],reg:["all"],meat:1,simple:1,t:["protein","lowgi"]},
+  {n:"Grilled chicken with sautéed veg", c:480,p:38,q:"150g chicken + 1½ cups sautéed veg",                           slot:["l","d"],reg:["all"],meat:1,chicken:1,simple:1,t:["protein","lowgi"]},
   {n:"Grilled fish with salad",          c:420,p:32,q:"150g fish + 1½ cups salad",                                      slot:["l","d"],reg:["all"],fish:1,simple:1,t:["protein","lowgi"]},
   {n:"Paneer tikka with salad",          c:420,p:22,q:"100g paneer tikka + 1½ cups salad",                             slot:["l","d"],reg:["all"],dairy:1,simple:1,t:["protein","lowgi"]},
   {n:"Tofu stir-fry with rice",         c:460,p:16,q:"120g tofu + 1 cup cooked rice (180g)",                          slot:["l","d"],reg:["all"],simple:1,t:["protein","goitrogen","highgi"]},
@@ -387,7 +392,19 @@ const DB: FoodItem[] = [
   {n:"Grilled paneer & quinoa bowl",    c:480,p:26,q:"100g paneer + 1 cup quinoa + 1 cup veggies",                     slot:["l","d"],reg:["all"],dairy:1,jain:1,simple:1,t:["protein","lowgi","fiber"]},
   {n:"Bajra khichdi with veggies",      c:440,p:14,q:"1½ cups (300g) bajra-moong khichdi",                            slot:["l","d"],reg:["w","all"],jain:1,simple:1,t:["lowgi","fiber","protein"]},
   {n:"Sprout, chickpea & flax salad",   c:340,p:18,q:"1½ cups sprouts+chickpea + 1 tsp flaxseed + lemon",            slot:["l","d","es"],reg:["all"],jain:1,simple:1,t:["protein","lowgi","fiber"]},
-  {n:"Grilled chicken & millet bowl",   c:520,p:40,q:"150g chicken + 1 cup foxtail millet + sautéed greens",         slot:["l","d"],reg:["all"],meat:1,simple:1,t:["protein","lowgi","fiber"]},
+  {n:"Grilled chicken & millet bowl",   c:520,p:40,q:"150g chicken + 1 cup foxtail millet + sautéed greens",         slot:["l","d"],reg:["all"],meat:1,chicken:1,simple:1,t:["protein","lowgi","fiber"]},
+  /* ── Non-veg additions — mutton, seafood, chicken ── */
+  {n:"Mutton curry with roti",          c:620,p:34,q:"3 rotis (60g each) + 1 cup mutton curry (150g)",                slot:["l","d"],reg:["n","all"],meat:1,mutton:1,t:["protein"]},
+  {n:"Mutton biryani",                  c:680,p:36,q:"1½ cups (300g) + raita",                                        slot:["l","d"],reg:["n","all"],meat:1,mutton:1,dairy:1,t:["protein","highgi"]},
+  {n:"Keema matar with roti",           c:580,p:32,q:"3 rotis (60g each) + 1 cup keema (150g)",                       slot:["l","d"],reg:["n","all"],meat:1,mutton:1,t:["protein"]},
+  {n:"Chicken biryani",                 c:650,p:35,q:"1½ cups (300g) + raita",                                        slot:["l","d"],reg:["all"],meat:1,chicken:1,dairy:1,t:["protein","highgi"]},
+  {n:"Butter chicken with roti",        c:600,p:32,q:"3 rotis (60g each) + 1 cup butter chicken (150g)",              slot:["l","d"],reg:["n","all"],meat:1,chicken:1,dairy:1,t:["protein"]},
+  {n:"Chicken tikka masala with rice",  c:640,p:36,q:"1½ cups rice + 1 cup curry (150g chicken)",                     slot:["l","d"],reg:["all"],meat:1,chicken:1,t:["protein","highgi"]},
+  {n:"Prawn masala with rice",          c:560,p:30,q:"1½ cups rice + 1 cup prawn masala (150g)",                      slot:["l","d"],reg:["s","e","all"],fish:1,t:["protein","highgi"]},
+  {n:"Prawn curry with roti",           c:520,p:28,q:"3 rotis (60g each) + 1 cup prawn curry (150g)",                 slot:["l","d"],reg:["s","e","all"],fish:1,t:["protein"]},
+  {n:"Fish tikka with salad",           c:400,p:32,q:"150g fish tikka + 1½ cups salad",                               slot:["l","d"],reg:["all"],fish:1,simple:1,t:["protein","lowgi"]},
+  {n:"Egg curry with roti",             c:480,p:22,q:"3 rotis (60g each) + 1 cup egg curry (2 eggs)",                 slot:["l","d"],reg:["all"],egg:1,t:["protein"]},
+  {n:"Omelette with whole wheat toast", c:340,p:22,q:"3-egg omelette + 2 toast slices",                               slot:["b"],reg:["all"],egg:1,simple:1,t:["protein"]},
 
   /* ── Bedtime ── */
   {n:"Turmeric milk",  c:120,p:8, q:"1 glass (250ml)",             slot:["bt"],reg:["all"],dairy:1,jain:1,simple:1,t:["lowgi"]},
@@ -1466,8 +1483,16 @@ function calcStats(d: Profile) {
   return { cm, bmi: bmi.toFixed(1), bmiCat, tdee, maintenanceTdee: roundedMaintenance, weeklyKg, direction, effectiveGoal };
 }
 
-function dietOK(f: FoodItem, diet: string) {
-  if (diet==="Non-veg") return true;
+function dietOK(f: FoodItem, diet: string, nonVegTypes?: string[]) {
+  if (diet==="Non-veg") {
+    if (nonVegTypes && nonVegTypes.length>0) {
+      if (f.chicken && !nonVegTypes.includes("Chicken")) return false;
+      if (f.mutton  && !nonVegTypes.includes("Mutton / Lamb")) return false;
+      if (f.fish    && !nonVegTypes.includes("Seafood / Fish")) return false;
+      if (f.egg     && !nonVegTypes.includes("Eggs")) return false;
+    }
+    return true;
+  }
   if (f.meat||f.fish) return false;
   if (diet==="Egg + veg") return true;
   if (f.egg) return false;
@@ -1486,7 +1511,7 @@ function condOK(f: FoodItem, cond: string) {
   return true;
 }
 
-interface MealCtx { goal:string; cond:string; diet:string; regions:string[]; simplePref:boolean; picks:string[]; }
+interface MealCtx { goal:string; cond:string; diet:string; nonVegTypes?:string[]; regions:string[]; simplePref:boolean; picks:string[]; }
 /* Keywords from foods the user picked in the game — used to bias the plan
    toward dishes they actually told us they love. */
 function picksMatch(f: FoodItem, picks: string[]): boolean {
@@ -1501,7 +1526,7 @@ function picksMatch(f: FoodItem, picks: string[]): boolean {
 function cands(slot: string, ctx: MealCtx, relax: number): FoodItem[] {
   return DB.filter(f=>{
     if (!f.slot.includes(slot)) return false;
-    if (!dietOK(f,ctx.diet)) return false;
+    if (!dietOK(f,ctx.diet,ctx.nonVegTypes)) return false;
     if (relax<2&&!f.reg.some(r=>ctx.regions.includes(r))) return false;
     if (relax<1&&!condOK(f,ctx.cond)) return false;
     return true;
@@ -1521,6 +1546,9 @@ function pickMeal(slot: string, target: number, di: number, used: Set<string>, d
     if (["Pregnant","Breastfeeding"].includes(ctx.cond)&&f.t.includes("protein")) s+=0.35;
     if (ctx.simplePref&&f.simple) s+=0.25;
     if (picksMatch(f,ctx.picks)) s+=0.6;
+    /* 90% non-veg bias: strongly prefer non-veg items in main meals for non-veg users */
+    if (ctx.diet==="Non-veg"&&(f.meat||f.fish||f.egg)&&(slot==="l"||slot==="d")) s+=1.5;
+    if (ctx.diet==="Egg + veg"&&f.egg&&(slot==="l"||slot==="d"||slot==="ms")) s+=1.0;
     if (dayUsed.has(f.n)) s-=100;  // hard ban: never same dish twice in one day
     else if (used.has(f.n)) s-=4.0;  // strong cross-day penalty
     s+=(hashNum(f.n+di)%100)/900;
@@ -1945,6 +1973,7 @@ function buildPlan(profile: Profile): Plan {
     goal:st.effectiveGoal,
     cond,
     diet:profile.diet||"Pure veg",
+    nonVegTypes:profile.nonVegTypes,
     regions:mapRegions(profile.region),
     simplePref:false,
     picks:profile.foodPicks||[],
@@ -7413,7 +7442,7 @@ export default function App() {
 
     const code=LABEL2SLOT[meal.time]||"l";
     const cands=DB.filter(f=>
-      f.slot.includes(code)&&dietOK(f,plan.diet)&&f.n!==meal.food&&!autoAvoid.includes(f.n)
+      f.slot.includes(code)&&dietOK(f,plan.diet,profile.nonVegTypes)&&f.n!==meal.food&&!autoAvoid.includes(f.n)
     );
     if(!cands.length) return;
     cands.sort((a,b)=>Math.abs(a.c-meal.cal)-Math.abs(b.c-meal.cal));
