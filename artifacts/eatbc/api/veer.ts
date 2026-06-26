@@ -1,4 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { sql, ensureDb } from "./_lib/db.js";
+import { verifyToken } from "./_lib/auth.js";
+import { allow } from "./_lib/ratelimit.js";
 
 const SYSTEM_PROMPT = `You are Veer, a certified AI lifestyle coach on EatBC — India's personal diet and fitness tracker. You have deep expertise in Indian nutrition, exercise science, and evidence-based wellness.
 
@@ -44,10 +47,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === "GET") return res.status(200).json({ ok: true });
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const { messages, isFirst, userContext } = req.body as {
+  await ensureDb();
+  const userId = await verifyToken(req.headers.authorization);
+  if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+  // Rate limit: 10 messages per minute per user.
+  const okUser = await allow(`veer:user:${userId}`, 10, 60);
+  if (!okUser) return res.status(429).json({ error: "Slow down a moment — you've sent a lot of messages. Try again shortly." });
+
+  const { messages, isFirst, userContext, image } = req.body as {
     messages?: { role: "user" | "assistant"; content: string }[];
     isFirst?: boolean;
     userContext?: string;
+    image?: string;
   };
 
   // Build system prompt — append user's personal data if available
@@ -55,15 +67,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     ? `${SYSTEM_PROMPT}\n\n---\nCURRENT USER PROFILE & JOURNEY\n${userContext}\n---\nUse this data to personalise answers. When asked "how am I doing", "what should I eat today", "am I on track" etc., refer specifically to their numbers.`
     : SYSTEM_PROMPT;
 
-  // Build OpenAI messages array
-  const chatMessages: { role: "system" | "user" | "assistant"; content: string }[] = [
-    { role: "system", content: systemContent },
-  ];
+  // Build OpenAI messages array. Content may be a plain string or, when an
+  // image is attached, an array of content blocks (text + image_url).
+  type ContentBlock =
+    | { type: "text"; text: string }
+    | { type: "image_url"; image_url: { url: string; detail?: string } };
+  type ChatMsg = { role: "system" | "user" | "assistant"; content: string | ContentBlock[] };
+
+  const chatMessages: ChatMsg[] = [{ role: "system", content: systemContent }];
 
   if (isFirst) {
     chatMessages.push({ role: "user", content: "Hello" });
   } else {
     (messages || []).slice(-6).forEach(m => chatMessages.push(m));
+  }
+
+  // If a valid image data URL is attached, fold it into the latest user turn
+  // so the vision-capable model can actually see it.
+  const hasImage = typeof image === "string" && image.startsWith("data:image/");
+  if (hasImage) {
+    let lastUser: ChatMsg | undefined;
+    for (let i = chatMessages.length - 1; i >= 0; i--) {
+      if (chatMessages[i].role === "user") { lastUser = chatMessages[i]; break; }
+    }
+    if (!lastUser) {
+      lastUser = { role: "user", content: "" };
+      chatMessages.push(lastUser);
+    }
+    const text = typeof lastUser.content === "string" ? lastUser.content : "";
+    lastUser.content = [
+      ...(text ? [{ type: "text" as const, text }] : []),
+      { type: "image_url" as const, image_url: { url: image as string, detail: "auto" } },
+    ];
   }
 
   const apiKey = process.env.OPENAI_API_KEY;
@@ -76,9 +111,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "gpt-4o-mini",
+      // gpt-4o supports vision; use it whenever an image is attached.
+      model: hasImage ? "gpt-4o" : "gpt-4o-mini",
       messages: chatMessages,
-      max_tokens: 160,
+      max_tokens: 500,
       temperature: 0.72,
     }),
   });
@@ -89,8 +125,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const oaiData = await oaiRes.json() as { choices: { message: { content: string } }[] };
-  const reply = oaiData.choices?.[0]?.message?.content?.trim()
+  let reply = oaiData.choices?.[0]?.message?.content?.trim()
     || "I'm here to help with your diet and fitness goals!";
+
+  // If the user's latest message hints they want to log a food/meal, nudge
+  // them toward the in-app logger instead of just talking about it.
+  const lastUserText = (messages || []).slice().reverse().find(m => m.role === "user")?.content?.toLowerCase() ?? "";
+  const LOG_INTENT = /\b(log|add|ate|had|eaten|eating)\b/;
+  if (!isFirst && LOG_INTENT.test(lastUserText)) {
+    reply += "\n\nTip: You can tap the + button to log this directly.";
+  }
+
+  // Record usage (best-effort — never block the reply on a counter write).
+  try {
+    await sql`
+      INSERT INTO veer_usage (user_id, count, updated_at)
+      VALUES (${userId}, 1, NOW())
+      ON CONFLICT (user_id)
+      DO UPDATE SET count = veer_usage.count + 1, updated_at = NOW()
+    `;
+  } catch {}
 
   return res.status(200).json({ reply });
 }

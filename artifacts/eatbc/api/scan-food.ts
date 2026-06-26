@@ -1,4 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { ensureDb } from "./_lib/db.js";
+import { verifyToken } from "./_lib/auth.js";
+import { allow, clientIp } from "./_lib/ratelimit.js";
 
 const SYSTEM_PROMPT = `You are an expert Indian food nutritionist and AI vision system for EatBC — India's calorie tracker.
 
@@ -33,6 +36,15 @@ OUTPUT FORMAT — return ONLY this JSON, nothing else:
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === "GET") return res.status(200).json({ ok: true });
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+
+  await ensureDb();
+  const userId = await verifyToken(req.headers.authorization);
+  if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+  // IP-based rate limit: 5 scans per minute per IP.
+  const ip = clientIp(req);
+  const okIp = await allow(`scan:ip:${ip}`, 5, 60);
+  if (!okIp) return res.status(429).json({ error: "Too many scans — please wait a minute and try again." });
 
   const { image } = req.body as { image?: string };
   if (!image || !image.startsWith("data:image/")) {
