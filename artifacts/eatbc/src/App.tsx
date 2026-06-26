@@ -9,7 +9,7 @@ import {
   Lightbulb, Globe, X, Check, Target, Dumbbell, CalendarDays, Clock, BookOpen, ChefHat,
   Camera, Lock, Zap, Star,
   Search, ClipboardList, ChevronLeft,
-  Paperclip, Send, FileText,
+  Paperclip, Send, FileText, Timer, TrendingUp,
 } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -196,7 +196,7 @@ interface WorkoutPlan {
 interface ExGuide { muscles: string[]; steps: string[]; tip: string; emoji: string; burnType: "cardio"|"compound"|"isolation"|"hold"; }
 interface Recipe { time: string; ingredients?: string[]; steps: string[]; tip?: string; }
 interface Plan {
-  summary: string; dailyCalories: number; maintenanceCalories: number; proteinTarget: number; bmi: string; bmiCat: string;
+  summary: string; dailyCalories: number; maintenanceCalories: number; proteinTarget: number; fatTarget: number; fiberTarget: number; bmi: string; bmiCat: string;
   goal: string; diet: string; condition: string; regLabel: string;
   timeline: string; weeklyLoss: string;
   tips: string[]; days: PlanDay[]; workout?: WorkoutPlan | null;
@@ -2010,6 +2010,14 @@ function buildPlan(profile: Profile): Plan {
     days.reduce((s,d)=>s+d.meals.reduce((ms,m)=>ms+m.cal,0),0)/days.length/10
   )*10;
 
+  /* ICMR/NIN 2020 fat & fibre targets.
+     Fat: 25-30% of energy from fat; use 30% for most goals, 25% for weight loss.
+     Fibre: NIN recommends 40 g/2000 kcal; WHO minimum is 25 g. */
+  const fatFrac = st.effectiveGoal === "Weight loss" ? 0.25 : 0.30;
+  const fatTarget = Math.round(avgActualCal * fatFrac / 9 / 5) * 5;
+  const isFemale = (profile.sex||"").toLowerCase().startsWith("f");
+  const fiberTarget = isFemale ? 25 : 38;
+
   const deficitAmt = maintenance - avgActualCal;
   const deficitNote = deficitAmt > 50
     ? ` Your body burns ~${maintenance} kcal/day — eating ${avgActualCal} kcal creates a ${deficitAmt} kcal daily deficit.`
@@ -2019,7 +2027,7 @@ function buildPlan(profile: Profile): Plan {
 
   return {
     summary:`Here's a ${goalLabel} plan at about ${avgActualCal} kcal a day, built around ${regLabel} food you actually like.${deficitNote}${condNote}${bfNote}${pregnantNote}`,
-    dailyCalories:avgActualCal,maintenanceCalories:maintenance,proteinTarget,bmi:st.bmi,bmiCat:st.bmiCat,
+    dailyCalories:avgActualCal,maintenanceCalories:maintenance,proteinTarget,fatTarget,fiberTarget,bmi:st.bmi,bmiCat:st.bmiCat,
     goal:st.effectiveGoal,diet:profile.diet||"Pure veg",
     condition:cond,regLabel,timeline,weeklyLoss,
     tips:makeTips(profile,cal),days,workout:buildWorkout(profile),
@@ -5558,11 +5566,31 @@ function WorkoutTab({workout,tracking,onUpdate}:{
   const weekDone=Array.from({length:7}).filter((_,i)=>workouts[isoShift(-i)]).length;
 
   const [guideEx,setGuideEx]=useState<string|null>(null);
+  const [restSecs,setRestSecs]=useState(0);
+  const restRef=useRef<ReturnType<typeof setInterval>|null>(null);
+
+  const startRest=(secs=90)=>{
+    if(restRef.current) clearInterval(restRef.current);
+    setRestSecs(secs);
+    restRef.current=setInterval(()=>{
+      setRestSecs(s=>{
+        if(s<=1){ clearInterval(restRef.current!); restRef.current=null; return 0; }
+        return s-1;
+      });
+    },1000);
+  };
+
+  const stopRest=()=>{
+    if(restRef.current){ clearInterval(restRef.current); restRef.current=null; }
+    setRestSecs(0);
+  };
 
   const toggleEx=(i:number)=>{
     const cur=sets[iso]||[];
-    const next=cur.includes(i)?cur.filter(x=>x!==i):[...cur,i];
+    const adding=!cur.includes(i);
+    const next=adding?[...cur,i]:cur.filter(x=>x!==i);
     onUpdate({...tracking,workoutSets:{...sets,[iso]:next}});
+    if(adding) startRest(90);
   };
   const markDone=()=>{
     const nowDone=!completedToday;
@@ -5621,6 +5649,19 @@ function WorkoutTab({workout,tracking,onUpdate}:{
           );
         })}
       </div>
+
+      {/* rest timer banner */}
+      {restSecs>0&&(
+        <div className="rounded-2xl px-4 py-3 mb-3 flex items-center justify-between"
+          style={{background:"linear-gradient(135deg,#4C1D95,#6D28D9)"}}>
+          <div className="flex items-center gap-2 text-white">
+            <Timer size={18}/>
+            <span className="font-bold text-sm">Rest</span>
+            <span className="font-black text-2xl tabular-nums">{Math.floor(restSecs/60)}:{String(restSecs%60).padStart(2,"0")}</span>
+          </div>
+          <button onClick={stopRest} className="text-white/60 hover:text-white text-xs font-semibold px-3 py-1 rounded-full" style={{background:"rgba(255,255,255,0.15)"}}>Skip</button>
+        </div>
+      )}
 
       {/* today's session */}
       {isRest?(
@@ -5709,6 +5750,59 @@ function WorkoutTab({workout,tracking,onUpdate}:{
         log={(tracking.workoutLog||{})[iso]||[]}
         onUpdate={l=>onUpdate({...tracking,workoutLog:{...(tracking.workoutLog||{}),[iso]:l}})}
       />
+
+      {/* My Lifts: weight progression per exercise */}
+      {(()=>{
+        const allLogs=tracking.workoutLog||{};
+        const liftMap:Record<string,{date:string;weight:number;label:string}[]>={};
+        Object.entries(allLogs).sort(([a],[b])=>a<b?-1:1).forEach(([date,logs])=>{
+          (logs as ExerciseLog[]).forEach(log=>{
+            if(log.weight&&log.n!=="Workout (estimated)"){
+              if(!liftMap[log.n]) liftMap[log.n]=[];
+              liftMap[log.n].push({date,weight:log.weight!,label:log.weightLabel||`${log.weight}kg`});
+            }
+          });
+        });
+        const lifts=Object.entries(liftMap).filter(([,v])=>v.length>0);
+        if(!lifts.length) return null;
+        return (
+          <div className="bg-white rounded-3xl border border-gray-100 p-5 mb-4">
+            <div className="flex items-center gap-2 mb-4"><TrendingUp size={16} className="text-purple-600"/><h3 className="font-black text-gray-800">My Lifts</h3></div>
+            <div className="space-y-4">
+              {lifts.map(([name,entries])=>{
+                const last5=entries.slice(-5);
+                const max=Math.max(...last5.map(e=>e.weight));
+                const latest=last5[last5.length-1];
+                const first=last5[0];
+                const gained=latest.weight-first.weight;
+                return (
+                  <div key={name}>
+                    <div className="flex justify-between items-center mb-1.5">
+                      <span className="text-sm font-semibold text-gray-800 truncate flex-1 mr-2">{name}</span>
+                      <div className="text-right shrink-0">
+                        <span className="text-sm font-black text-purple-700">{latest.label}</span>
+                        {last5.length>1&&<span className={`ml-1.5 text-[10px] font-bold ${gained>0?"text-green-600":gained<0?"text-red-500":"text-gray-400"}`}>{gained>0?`+${gained}`:gained}kg</span>}
+                      </div>
+                    </div>
+                    <div className="flex gap-1 items-end h-8">
+                      {last5.map((e,i)=>(
+                        <div key={i} className="flex-1 rounded-t transition-all"
+                          style={{height:`${Math.max(15,Math.round((e.weight/max)*100))}%`,
+                          background:i===last5.length-1?"#7C3AED":"#EDE9FE",
+                          minHeight:4}}
+                          title={`${e.date}: ${e.label}`}/>
+                      ))}
+                    </div>
+                    <div className="flex justify-between text-[10px] text-gray-300 mt-1">
+                      <span>{last5[0].date.slice(5)}</span><span>{latest.date.slice(5)}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* coaching notes */}
       <div className="rounded-3xl p-5 mb-4" style={{background:"#F5F3FF"}}>
@@ -6362,6 +6456,8 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
   const proteinFromDiary=(dd.log||[]).reduce((s,x)=>s+(x.p||0),0);
   const proteinConsumed=proteinFromPlan+proteinFromDiary;
   const proteinTarget=plan?.proteinTarget||0;
+  const fatTarget=plan?.fatTarget||0;
+  const fiberTarget=plan?.fiberTarget||0;
   const doneCount=dp?dp.meals.filter((_,i)=>dd.meals[i]).length:0;
 
   const history=tracking.history||{};
@@ -6556,13 +6652,35 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
                   </div>
                 </div>
                 {proteinTargetVal>0?(
-                  <div>
-                    <div className="flex justify-between text-xs text-white/60 mb-1">
-                      <span>{t("protein")}</span><span>{proteinConsumed}/{proteinTargetVal}g</span>
+                  <div className="space-y-1.5">
+                    <div>
+                      <div className="flex justify-between text-xs text-white/60 mb-1">
+                        <span>{t("protein")}</span><span>{proteinConsumed}/{proteinTargetVal}g</span>
+                      </div>
+                      <div className="h-2 rounded-full" style={{background:"rgba(255,255,255,0.2)"}}>
+                        <div className="h-2 rounded-full transition-all duration-700" style={{width:`${Math.min(proteinConsumed/proteinTargetVal,1)*100}%`,background:"#86efac"}}/>
+                      </div>
                     </div>
-                    <div className="h-2 rounded-full" style={{background:"rgba(255,255,255,0.2)"}}>
-                      <div className="h-2 rounded-full transition-all duration-700" style={{width:`${Math.min(proteinConsumed/proteinTargetVal,1)*100}%`,background:"#86efac"}}/>
-                    </div>
+                    {fatTarget>0&&(
+                      <div>
+                        <div className="flex justify-between text-xs text-white/50 mb-1">
+                          <span>Fat target</span><span>–/{fatTarget}g</span>
+                        </div>
+                        <div className="h-1.5 rounded-full" style={{background:"rgba(255,255,255,0.15)"}}>
+                          <div className="h-1.5 rounded-full" style={{width:"0%",background:"#fbbf24"}}/>
+                        </div>
+                      </div>
+                    )}
+                    {fiberTarget>0&&(
+                      <div>
+                        <div className="flex justify-between text-xs text-white/50 mb-1">
+                          <span>Fibre target</span><span>–/{fiberTarget}g</span>
+                        </div>
+                        <div className="h-1.5 rounded-full" style={{background:"rgba(255,255,255,0.15)"}}>
+                          <div className="h-1.5 rounded-full" style={{width:"0%",background:"#60a5fa"}}/>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ):(
                   <div className="text-xs text-white/50 text-center">No protein target set</div>
