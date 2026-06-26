@@ -1087,6 +1087,47 @@ function cheatRecoveryPlan(surplus: number, plan?: Plan | null): {meals: string;
   return {meals:`2-day recovery: cut ~${Math.round(surplus*0.3)} kcal/day. Focus on protein + veggies, skip heavy carbs.`,workout:"2 × 45 min cardio over next 2 days.",emoji:"⚡"};
 }
 
+/* ─────────────── Festival / Fasting Mode data ─────────────── */
+type FastType = "navratri" | "ekadashi" | "if" | "ramadan";
+interface FastMode { type: FastType; window?: "16:8" | "18:6"; startedAt?: string; }
+
+const FAST_LABELS: Record<FastType, {label:string; emoji:string; desc:string}> = {
+  navratri: {label:"Navratri Vrat", emoji:"🪔", desc:"Vrat-friendly foods only — no grains, onion or garlic."},
+  ekadashi: {label:"Ekadashi",      emoji:"🕉️", desc:"No grains, rice or beans today."},
+  if:       {label:"Intermittent Fast", emoji:"⏳", desc:"Eat within your chosen window."},
+  ramadan:  {label:"Ramadan Sehri/Iftar", emoji:"🌙", desc:"Suhoor before dawn, Iftar at sunset."},
+};
+
+/* Vrat-friendly foods shown when Navratri mode is active. */
+const VRAT_FOODS: LogFood[] = [
+  {n:"Sabudana khichdi",        c:200,p:4, q:"1 cup (150g)",        cat:"Vrat"},
+  {n:"Rajgira (amaranth) roti", c:120,p:4, q:"1 roti (50g)",        cat:"Vrat"},
+  {n:"Roasted makhana",         c:180,p:5, q:"½ cup (45g)",         cat:"Vrat"},
+  {n:"Kuttu (buckwheat) roti",  c:140,p:5, q:"1 roti (55g)",        cat:"Vrat"},
+  {n:"Singhara atta puri",      c:160,p:3, q:"2 small puris",       cat:"Vrat"},
+  {n:"Vrat ki kheer (samak)",   c:220,p:6, q:"1 bowl (180g)",       cat:"Vrat"},
+  {n:"Samak rice (barnyard)",   c:190,p:4, q:"1 cup cooked (150g)", cat:"Vrat"},
+  {n:"Aloo sabzi (vrat-style)", c:180,p:3, q:"1 katori (150g)",     cat:"Vrat"},
+  {n:"Sweet potato chaat",      c:150,p:2, q:"1 cup (150g)",        cat:"Vrat"},
+  {n:"Fruit & nuts bowl",       c:160,p:4, q:"1 cup mixed",         cat:"Vrat"},
+  {n:"Curd (dahi)",             c:90, p:5, q:"1 katori (150g)",     cat:"Vrat"},
+  {n:"Coconut water",           c:60, p:1, q:"1 glass (250ml)",     cat:"Vrat"},
+];
+
+/* Top party-friendly choices for "I'm at a party" live guidance (C2). */
+const PARTY_PICKS: LogFood[] = [
+  {n:"Grilled paneer/chicken tikka", c:180, p:18, q:"4–5 pieces",     cat:"Party"},
+  {n:"Tandoori starters (no cream)", c:200, p:20, q:"1 plate",        cat:"Party"},
+  {n:"Clear soup",                   c:80,  p:3,  q:"1 bowl",          cat:"Party"},
+  {n:"Green salad (dressing aside)", c:90,  p:3,  q:"1 plate",         cat:"Party"},
+  {n:"Roasted papad / makhana",      c:110, p:3,  q:"1 small bowl",    cat:"Party"},
+  {n:"Soda water with lime",         c:5,   p:0,  q:"1 glass",         cat:"Party"},
+  {n:"1 vodka/whisky + soda",        c:100, p:0,  q:"1 drink (30ml)",  cat:"Party"},
+  {n:"Hung-curd dip with veggies",   c:120, p:6,  q:"1 small bowl",    cat:"Party"},
+  {n:"2 idli/dhokla bites",          c:120, p:4,  q:"2 pieces",        cat:"Party"},
+  {n:"Dark chocolate (1–2 squares)", c:110, p:1,  q:"2 squares",       cat:"Party"},
+];
+
 function CheatDayZone({dd, plan, dayCalTarget, onUpdate}: {
   dd: DayTracking; plan?: Plan|null; dayCalTarget: number;
   onUpdate: (dd: DayTracking) => void;
@@ -3881,9 +3922,12 @@ function Signup({profile,plan,onDone,onBack,onLogin}:{profile:Profile;plan:Plan|
 }
 
 /* ─────────────── Food Logger ─────────────── */
-function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet}:{
+function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet,token,yesterdayLog,fastMode,onSetFastMode}:{
   log:FoodLog[];customFoods:LogFood[];onSaveCustom:(f:LogFood)=>void;
   onUpdate:(l:FoodLog[])=>void;t:(k:keyof typeof STR)=>string;diet?:string;
+  token?:string;
+  yesterdayLog?:FoodLog[];
+  fastMode?:FastMode|null;onSetFastMode?:(m:FastMode|null)=>void;
 }) {
   const [open,setOpen]=useState(false);
   const [search,setSearch]=useState("");
@@ -3903,9 +3947,31 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet}:{
   const [onlineResults,setOnlineResults]=useState<LogFood[]>([]);
   const [onlineBusy,setOnlineBusy]=useState(false);
   const onlineTimerRef=useRef<ReturnType<typeof setTimeout>|null>(null);
+  /* recently used foods (B3) — persisted across sessions */
+  const RECENT_KEY="eatbc_recent_foods";
+  const [recentFoods,setRecentFoods]=useState<LogFood[]>(()=>sget<LogFood[]>(RECENT_KEY)||[]);
+  /* fasting mode picker (C1) */
+  const [showFastPicker,setShowFastPicker]=useState(false);
+
+  /* Remember a food in the recently-used list (dedup by name, max 10). */
+  function rememberRecent(f:LogFood){
+    setRecentFoods(prev=>{
+      const next=[f,...prev.filter(x=>x.n!==f.n)].slice(0,10);
+      sset(RECENT_KEY,next);
+      return next;
+    });
+  }
 
   const total=log.reduce((s,x)=>s+x.cal,0);
-  const ALL_FOODS=[...customFoods,...LOG_DB];
+  /* Fasting mode reshapes the food source (C1):
+     - Navratri → only vrat-friendly foods
+     - Ekadashi → exclude grains, rice and beans */
+  const EKADASHI_BLOCK=/rice|roti|chapati|wheat|naan|dal|rajma|chole|bean|chana|bread|paratha|biryani|pulao|poha|oats|millet|quinoa|idli|dosa|upma/i;
+  const sourceFoods:LogFood[]=
+    fastMode?.type==="navratri" ? VRAT_FOODS
+    : fastMode?.type==="ekadashi" ? [...customFoods,...LOG_DB].filter(f=>!EKADASHI_BLOCK.test(f.n))
+    : [...customFoods,...LOG_DB];
+  const ALL_FOODS=sourceFoods;
   const CATS=["All",...Array.from(new Set(ALL_FOODS.map(f=>f.cat)))];
   const localFiltered=ALL_FOODS.filter(f=>{
     const matchSearch=!search||f.n.toLowerCase().includes(search.toLowerCase());
@@ -3952,7 +4018,19 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet}:{
     const p=Math.round((pending.p||0)*servings);
     const s=servings===1?"":`${servings}× `;
     onUpdate([...log,{n:pending.n,cal,p,qty:`${s}${pending.q}`,servings}]);
+    rememberRecent({n:pending.n,c:pending.c,p:pending.p||0,q:pending.q,cat:pending.cat});
     setPending(null); setServings(1); setSearch(""); setOpen(false); setMode("search");
+  }
+  /* One-tap log a food straight from the Recently-used shelf (B3). */
+  function quickLog(f:LogFood){
+    onUpdate([...log,{n:f.n,cal:f.c,p:f.p||0,qty:f.q,servings:1}]);
+    rememberRecent(f);
+  }
+  /* Copy yesterday's diary entries into today (B4). */
+  function copyYesterday(){
+    if(!yesterdayLog||!yesterdayLog.length) return;
+    if(!confirm(`Add yesterday's ${yesterdayLog.length} item${yesterdayLog.length!==1?"s":""} to today?`)) return;
+    onUpdate([...log,...yesterdayLog]);
   }
   function remove(i:number){onUpdate(log.filter((_,idx)=>idx!==i));}
 
@@ -4005,7 +4083,7 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet}:{
       });
       const res=await fetch("/api/scan-food",{
         method:"POST",
-        headers:{"Content-Type":"application/json"},
+        headers:{"Content-Type":"application/json",...(token?{Authorization:`Bearer ${token}`}:{})},
         body:JSON.stringify({image:dataUrl}),
       });
       if(res.ok){
@@ -4040,8 +4118,41 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet}:{
         <h3 className="font-bold text-gray-800 flex items-center gap-2">
           <Utensils size={18} style={{color:GREEN}}/> {t("foodDiary")}
         </h3>
-        {total>0&&<span className="text-sm font-bold px-3 py-1 rounded-full" style={{background:"#EAF7F0",color:GREEN}}>{total} kcal</span>}
+        <div className="flex items-center gap-2">
+          {/* Fasting mode toggle button */}
+          <button onClick={()=>onSetFastMode?.(fastMode?null:{type:"navratri"})}
+            title={fastMode?`${FAST_LABELS[fastMode.type].label} active — tap to clear`:"Enable fasting mode"}
+            className="text-lg leading-none transition"
+            style={{opacity:fastMode?1:0.4}}>
+            🌙
+          </button>
+          {total>0&&<span className="text-sm font-bold px-3 py-1 rounded-full" style={{background:"#EAF7F0",color:GREEN}}>{total} kcal</span>}
+        </div>
       </div>
+
+      {/* Fasting mode active banner */}
+      {fastMode&&(
+        <div className="rounded-xl px-3 py-2 mb-3 flex items-center gap-2"
+          style={{background:"rgba(99,102,241,0.08)",border:"1px solid rgba(99,102,241,0.25)"}}>
+          <span>{FAST_LABELS[fastMode.type].emoji}</span>
+          <div className="flex-1 min-w-0">
+            <span className="text-xs font-bold text-indigo-700">{FAST_LABELS[fastMode.type].label}</span>
+            <span className="text-xs text-indigo-400 ml-1.5">{FAST_LABELS[fastMode.type].desc}</span>
+          </div>
+          {/* Fasting type picker */}
+          <div className="flex gap-1">
+            {(Object.keys(FAST_LABELS) as FastType[]).map(k=>(
+              <button key={k} onClick={()=>onSetFastMode?.({type:k})}
+                className="text-xs px-2 py-0.5 rounded-full font-bold transition"
+                style={fastMode.type===k?{background:"#6366F1",color:"#fff"}:{background:"rgba(99,102,241,0.1)",color:"#6366F1"}}>
+                {FAST_LABELS[k].emoji}
+              </button>
+            ))}
+            <button onClick={()=>onSetFastMode?.(null)} className="text-xs px-2 py-0.5 rounded-full font-bold text-red-400 hover:bg-red-50">✕</button>
+          </div>
+        </div>
+      )}
+
       {log.length>0?(
         <div className="space-y-1.5 mb-3">
           {log.map((item,i)=>(
@@ -4056,7 +4167,16 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet}:{
           ))}
         </div>
       ):(
-        <p className="text-sm text-gray-400 mb-3">Nothing logged yet — tap below to add what you actually ate.</p>
+        <div>
+          <p className="text-sm text-gray-400 mb-2">Nothing logged yet — tap below to add what you actually ate.</p>
+          {yesterdayLog&&yesterdayLog.length>0&&(
+            <button onClick={copyYesterday}
+              className="w-full py-2 rounded-xl text-xs font-bold mb-3 transition hover:opacity-90"
+              style={{background:"#EAF7F0",color:GREEN}}>
+              📋 Copy yesterday's {yesterdayLog.length} meal{yesterdayLog.length!==1?"s":""}
+            </button>
+          )}
+        </div>
       )}
       {!open?(
         <div className="flex gap-2">
@@ -4118,6 +4238,22 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet}:{
                     placeholder="Search food — dal, rice, samosa…"
                     className="w-full px-4 py-2.5 rounded-2xl border-2 border-gray-200 outline-none focus:border-green-500 text-sm mb-2"
                     autoFocus/>
+                  {/* Recently used shelf — shown only when search is empty */}
+                  {!search&&recentFoods.length>0&&(
+                    <div className="mb-2">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 px-1">Recently used</p>
+                      <div className="flex gap-1.5 overflow-x-auto pb-1">
+                        {recentFoods.map((f,i)=>(
+                          <button key={i} onClick={()=>quickLog(f)}
+                            className="shrink-0 flex flex-col items-center px-3 py-2 rounded-xl text-left transition hover:opacity-80"
+                            style={{background:"#EAF7F0",minWidth:88}}>
+                            <span className="text-xs font-bold text-gray-700 truncate w-full text-center" style={{maxWidth:80}}>{f.n.split(" ").slice(0,2).join(" ")}</span>
+                            <span className="text-[10px] font-bold mt-0.5" style={{color:GREEN}}>{f.c} kcal</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div className="flex gap-1.5 overflow-x-auto pb-1 mb-2">
                     {CATS.map(c=>(
                       <button key={c} onClick={()=>setCat(c)}
@@ -5528,6 +5664,10 @@ function AdaptiveRecalcBanner({weights, lastRecalcDate, lastRecalcWeight, goal, 
   const show = (diffKg >= 0.8 && daysSince >= 14) || plateau;
   if (!show) return null;
 
+  function askVeerAboutPlateau(){
+    window.dispatchEvent(new CustomEvent("eatbc:veer-open",{detail:{message:"My weight has plateaued and hasn't changed in 2 weeks. What should I adjust in my diet and exercise to break through this plateau?"}}));
+  }
+
   return (
     <div className="rounded-2xl px-4 py-3 mb-3 flex items-center gap-3"
       style={{background:"#EFF6FF",border:"1px solid #BFDBFE"}}>
@@ -5536,7 +5676,11 @@ function AdaptiveRecalcBanner({weights, lastRecalcDate, lastRecalcWeight, goal, 
         <p className="text-sm font-semibold text-blue-800">
           {plateau ? "Weight plateau detected — let's adjust your plan." : `You've ${latest < refWeight ? "lost" : "gained"} ${diffKg.toFixed(1)} kg — update your target.`}
         </p>
-        <p className="text-xs text-blue-500 mt-0.5">Your calorie target needs recalculation.</p>
+        {plateau ? (
+          <button onClick={askVeerAboutPlateau} className="text-xs text-blue-500 underline mt-0.5">Ask Veer for breakthrough tips →</button>
+        ) : (
+          <p className="text-xs text-blue-500 mt-0.5">Your calorie target needs recalculation.</p>
+        )}
       </div>
       <button onClick={()=>onRecalc()}
         className="shrink-0 px-3 py-1.5 rounded-xl text-white text-xs font-semibold"
@@ -5685,6 +5829,17 @@ function VeerBot({session,planCondition,plan,tracking,profile}:{
     }
   },[open]);
 
+  // Listen for external "open Veer with a message" events (e.g. from plateau banner)
+  useEffect(()=>{
+    function handleVeerOpen(e:Event){
+      const msg=(e as CustomEvent<{message:string}>).detail?.message;
+      setOpen(true);
+      if(msg) setTextInput(msg);
+    }
+    window.addEventListener("eatbc:veer-open",handleVeerOpen);
+    return()=>window.removeEventListener("eatbc:veer-open",handleVeerOpen);
+  },[]);
+
   useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:"smooth"});},[messages,thinking]);
 
   useEffect(()=>{
@@ -5709,6 +5864,18 @@ function VeerBot({session,planCondition,plan,tracking,profile}:{
     }
     const ml=Object.values(tracking).filter(v=>typeof v==="object"&&v&&"meals" in v).length;
     if(ml) lines.push(`Days with meals logged: ${ml}`);
+    // Today's food diary context
+    const todayDayName=WEEK[(new Date().getDay()+6)%7];
+    const todayDd=tracking[todayDayName] as DayTracking|undefined;
+    if(todayDd?.log?.length){
+      const logSum=todayDd.log.reduce((a:number,x:FoodLog)=>a+x.cal,0);
+      const logProt=todayDd.log.reduce((a:number,x:FoodLog)=>a+(x.p||0),0);
+      lines.push(`Today's food diary: ${todayDd.log.map((x:FoodLog)=>x.n).join(", ")} (${logSum} kcal, ${logProt}g protein logged so far)`);
+    }
+    // Streak
+    const hist=tracking.history||{};
+    const streakCount=Object.keys(hist).filter(k=>hist[k]?.onTrack).length;
+    if(streakCount>0) lines.push(`Current streak: ${streakCount} active days`);
     return lines.join("\n");
   }
 
@@ -5722,13 +5889,27 @@ function VeerBot({session,planCondition,plan,tracking,profile}:{
     setThinking(true);
     const apiMsgs=next.map(m=>({
       role:m.role,
-      content:m.content+(m.attachment?`\n[Attached: ${m.attachment.name}${m.attachment.size?` (${m.attachment.size})`:""}`+"]":""),
+      content:m.content+(m.attachment&&m.attachment.type!=="image"?`\n[Attached: ${m.attachment.name}${m.attachment.size?` (${m.attachment.size})`:""}`+"]":""),
     }));
+    // If image attachment has a blob URL, convert to base64 so Veer's vision model can read it
+    let imageDataUrl: string|undefined;
+    if(att?.type==="image"&&att.url){
+      try{
+        const resp=await fetch(att.url);
+        const blob=await resp.blob();
+        imageDataUrl=await new Promise<string>((res,rej)=>{
+          const fr=new FileReader();
+          fr.onload=()=>res(fr.result as string);
+          fr.onerror=rej;
+          fr.readAsDataURL(blob);
+        });
+      }catch{ /* fall back silently — Veer will answer without vision */ }
+    }
     try {
       const r=await fetch("/api/veer",{
         method:"POST",
         headers:{"Content-Type":"application/json",...(session?.token?{Authorization:`Bearer ${session.token}`}:{})},
-        body:JSON.stringify({messages:apiMsgs,userContext:buildUserContext()}),
+        body:JSON.stringify({messages:apiMsgs,userContext:buildUserContext(),...(imageDataUrl?{image:imageDataUrl}:{})}),
       });
       const data=await r.json() as {reply?:string;error?:string};
       if(!r.ok){setError(data.error||"Something went wrong.");return;}
@@ -6098,6 +6279,20 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
   const hour=new Date().getHours();
   const showStreakRisk=streak>0&&todayMeals===0&&todayDiaryCal===0&&hour>=18;
 
+  /* ── Fasting mode (C1): stored in localStorage to avoid Tracking type conflict ── */
+  const [fastMode,setFastMode]=useState<FastMode|null>(()=>{
+    try{return JSON.parse(localStorage.getItem("eatbc_fastmode")||"null") as FastMode|null;}catch{return null;}
+  });
+  function handleSetFastMode(m:FastMode|null){
+    setFastMode(m);
+    if(m) localStorage.setItem("eatbc_fastmode",JSON.stringify(m));
+    else localStorage.removeItem("eatbc_fastmode");
+  }
+
+  /* ── Yesterday's food log for Copy Yesterday (B4) ── */
+  const yesterdayDayName=WEEK[(new Date().getDay()+6-1+7)%7];
+  const yesterdayLog=(tracking[yesterdayDayName] as DayTracking|undefined)?.log;
+
   /* ── Weekly review: show on Monday if not shown this week ── */
   const isMonday=new Date().getDay()===1;
   const weekKey=`eatbc:weekReview:${isoDate().slice(0,8)}`;
@@ -6390,6 +6585,22 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
                     )}
                   </div>
                 )}
+                {/* Protein shortfall warning for veg users */}
+                {(()=>{
+                  const vegDiets=["Vegetarian","Vegan","Jain"];
+                  const isVeg=vegDiets.some(v=>plan?.diet?.includes(v));
+                  if(!isVeg||!proteinTarget||proteinTarget<=100) return null;
+                  return(
+                    <div className="rounded-2xl px-4 py-3 mb-3 flex items-start gap-3"
+                      style={{background:"#FFF7ED",border:"1px solid #FED7AA"}}>
+                      <span className="text-lg shrink-0">💪</span>
+                      <div>
+                        <p className="text-sm font-semibold text-orange-800">Protein target is {proteinTarget}g/day</p>
+                        <p className="text-xs text-orange-600 mt-0.5">Indian veg meals average 15–20g protein each. Consider adding Greek yogurt, paneer, roasted chana or a protein supplement to bridge the gap.</p>
+                      </div>
+                    </div>
+                  );
+                })()}
                 <FoodLogger
                   log={dd.log||[]}
                   customFoods={tracking.customFoods||[]}
@@ -6397,6 +6608,10 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
                   onUpdate={l=>onUpdate({...tracking,[sel]:{...dd,log:l}})}
                   t={t}
                   diet={plan?.diet}
+                  token={session.token}
+                  yesterdayLog={yesterdayLog}
+                  fastMode={fastMode??undefined}
+                  onSetFastMode={handleSetFastMode}
                 />
                 <CheatDayZone
                   dd={dd}
