@@ -6138,7 +6138,7 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
                   <div className="text-xs text-white/70">days active</div>
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 mb-3">
                 {(["en","hi"] as const).map(l=>(
                   <button key={l} onClick={()=>onLang(l)}
                     className="px-4 py-1.5 rounded-xl text-xs font-bold transition"
@@ -6146,6 +6146,10 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
                     {l==="en"?"English":"हिन्दी"}
                   </button>
                 ))}
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-white/80">Boss me around 🔔</span>
+                <ReminderToggle t={t} compact token={session.token}/>
               </div>
             </div>
           )}
