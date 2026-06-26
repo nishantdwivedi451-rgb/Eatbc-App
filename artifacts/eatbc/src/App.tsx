@@ -6038,7 +6038,7 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
 
           {/* Slide 1: Main stats */}
           {topSlide===0&&(
-            <div className="px-6 pb-5" style={{animation:"eFade .3s ease both"}}>
+            <div className="px-6 pb-5" style={{minHeight:192,animation:"eFade .3s ease both"}}>
               <h2 className="text-2xl font-black mb-0.5">Hi {session.name}</h2>
               <p className="text-white/70 text-sm mb-3">{session.id}</p>
               <div className="flex items-start justify-between">
@@ -6081,7 +6081,7 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
 
           {/* Slide 2: Calories */}
           {topSlide===1&&(
-            <div className="px-6 pb-5" style={{animation:"eFade .3s ease both"}}>
+            <div className="px-6 pb-5" style={{minHeight:192,animation:"eFade .3s ease both"}}>
               <div className="flex items-center justify-between mb-3">
                 <div>
                   <div className="font-bold text-white/90">Today's calories</div>
@@ -6116,50 +6116,36 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
             </div>
           )}
 
-          {/* Slide 3: Account */}
+          {/* Slide 3: Account — unique content only (no repeat of name/streak/logout) */}
           {topSlide===2&&(
-            <div className="px-6 pb-5" style={{animation:"eFade .3s ease both"}}>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-full flex items-center justify-center font-black text-lg shrink-0"
+            <div className="px-6 pb-5" style={{minHeight:192,animation:"eFade .3s ease both"}}>
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center font-black text-xl shrink-0"
                   style={{background:"rgba(255,255,255,0.2)"}}>{(session.name||"?")[0].toUpperCase()}</div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-black text-lg leading-tight truncate">{session.name}</div>
-                  <div className="text-xs text-white/60 truncate">{session.id}</div>
-                  {plan?.goal&&<div className="text-xs font-semibold text-white/80 truncate">{plan.goal}</div>}
+                  {plan?.goal&&<div className="font-bold text-white/90 truncate">{plan.goal}</div>}
+                  {plan?.condition&&<div className="text-xs text-white/60 truncate">{plan.condition}</div>}
+                  {!plan?.goal&&<div className="font-bold text-white/80">No plan set</div>}
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-2 text-center mb-4">
-                <div className="rounded-2xl py-2.5" style={{background:"rgba(255,255,255,0.15)"}}>
-                  <div className="font-black text-xl flex items-center justify-center gap-0.5"><Flame size={14}/>{streak}</div>
-                  <div className="text-xs text-white/70">streak</div>
+              <div className="grid grid-cols-2 gap-2 text-center mb-5">
+                <div className="rounded-2xl py-3" style={{background:"rgba(255,255,255,0.15)"}}>
+                  <div className="font-black text-2xl">{points}</div>
+                  <div className="text-xs text-white/70">total points</div>
                 </div>
-                <div className="rounded-2xl py-2.5" style={{background:"rgba(255,255,255,0.15)"}}>
-                  <div className="font-black text-xl">{points}</div>
-                  <div className="text-xs text-white/70">points</div>
-                </div>
-                <div className="rounded-2xl py-2.5" style={{background:"rgba(255,255,255,0.15)"}}>
-                  <div className="font-black text-xl">{daysActive}</div>
+                <div className="rounded-2xl py-3" style={{background:"rgba(255,255,255,0.15)"}}>
+                  <div className="font-black text-2xl">{daysActive}</div>
                   <div className="text-xs text-white/70">days active</div>
                 </div>
               </div>
-              <div className="flex items-center justify-between">
-                <div className="flex gap-2">
-                  {(["en","hi"] as const).map(l=>(
-                    <button key={l} onClick={()=>onLang(l)}
-                      className="px-3 py-1 rounded-lg text-xs font-bold transition"
-                      style={lang===l?{background:"white",color:"#1DAA61"}:{background:"rgba(255,255,255,0.15)",color:"rgba(255,255,255,0.85)"}}>
-                      {l==="en"?"EN":"हि"}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex items-center gap-3">
-                  <button onClick={onLogout} className="text-white/80 inline-flex items-center gap-1 text-xs hover:text-white">
-                    <LogOut size={13}/> {t("logout")}
+              <div className="flex gap-2">
+                {(["en","hi"] as const).map(l=>(
+                  <button key={l} onClick={()=>onLang(l)}
+                    className="px-4 py-1.5 rounded-xl text-xs font-bold transition"
+                    style={lang===l?{background:"white",color:"#1DAA61"}:{background:"rgba(255,255,255,0.15)",color:"rgba(255,255,255,0.85)"}}>
+                    {l==="en"?"English":"हिन्दी"}
                   </button>
-                  <button onClick={()=>setShowDeleteConfirm(true)} className="text-red-300/70 inline-flex items-center gap-1 text-xs hover:text-red-200">
-                    <X size={12}/> {t("deleteAccount")}
-                  </button>
-                </div>
+                ))}
               </div>
             </div>
           )}
