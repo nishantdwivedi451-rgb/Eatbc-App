@@ -3980,16 +3980,40 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet}:{
     finally { setBarBusy(false); }
   }
 
-  function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
     if (!e.target.files?.length) return;
-    setPhotoScanning(true); setMode("photo");
-    // Simulate photo analysis: after 2s pick 3 diet-appropriate foods at random
-    setTimeout(()=>{
-      const pool = LOG_DB.slice(0,120);
-      const shuffled = [...pool].sort(()=>Math.random()-0.5).slice(0,3);
-      setPhotoSuggestions(shuffled);
+    const file = e.target.files[0];
+    setPhotoScanning(true); setOpen(true); setMode("photo"); setPhotoSuggestions([]);
+    try {
+      // Resize to 512px on client to keep payload small
+      const dataUrl = await new Promise<string>((resolve,reject)=>{
+        const img = new Image();
+        const objUrl = URL.createObjectURL(file);
+        img.onload = ()=>{
+          const MAX=512;
+          const r=Math.min(MAX/img.width,MAX/img.height,1);
+          const canvas=document.createElement("canvas");
+          canvas.width=Math.round(img.width*r); canvas.height=Math.round(img.height*r);
+          canvas.getContext("2d")!.drawImage(img,0,0,canvas.width,canvas.height);
+          URL.revokeObjectURL(objUrl);
+          resolve(canvas.toDataURL("image/jpeg",0.82));
+        };
+        img.onerror=reject; img.src=objUrl;
+      });
+      const res=await fetch("/api/scan-food",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({image:dataUrl}),
+      });
+      if(res.ok){
+        const data=await res.json() as {foods:{n:string;q:string;c:number;p?:number}[]};
+        setPhotoSuggestions((data.foods||[]).map(f=>({n:f.n,q:f.q,c:f.c,p:f.p||0,cat:"AI Detected"})));
+      }
+    } catch {
+      // empty suggestions — user can add manually
+    } finally {
       setPhotoScanning(false);
-    }, 2000);
+    }
   }
 
   return(
@@ -4025,7 +4049,7 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet}:{
           </button>
           <label className="px-4 py-2.5 rounded-2xl border-2 border-dashed text-sm font-bold transition hover:bg-purple-50 cursor-pointer flex items-center gap-1.5"
             style={{borderColor:"#8B5CF6",color:"#8B5CF6"}}>
-            <Camera size={15}/> {t("photoScan")}
+            <Camera size={15}/><Sparkles size={12}/>AI Scan
             <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={handlePhoto}/>
           </label>
         </div>
@@ -4140,19 +4164,38 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet}:{
                 <div className="mt-3">
                   {photoScanning?(
                     <div className="flex flex-col items-center py-8 gap-3">
-                      <Loader2 className="animate-spin text-purple-500" size={28}/>
-                      <p className="text-sm text-gray-500">{t("photoAnalyzing")}</p>
+                      <Loader2 className="animate-spin" size={28} style={{color:"#8B5CF6"}}/>
+                      <p className="text-sm font-semibold text-gray-600">{t("photoAnalyzing")}</p>
+                      <div className="flex items-center gap-1.5 px-3 py-1 rounded-full" style={{background:"rgba(139,92,246,0.08)"}}>
+                        <Sparkles size={11} style={{color:"#8B5CF6"}}/>
+                        <span className="text-xs font-bold" style={{color:"#8B5CF6"}}>Veer AI is scanning your food…</span>
+                      </div>
                     </div>
-                  ):(
+                  ):photoSuggestions.length>0?(
                     <div className="space-y-2">
-                      <p className="text-xs text-gray-500 mb-2">Best matches from your photo:</p>
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <Sparkles size={12} style={{color:"#8B5CF6"}}/>
+                        <p className="text-xs font-bold" style={{color:"#8B5CF6"}}>Veer AI detected:</p>
+                      </div>
                       {photoSuggestions.map((f,i)=>(
                         <button key={i} onClick={()=>{setPending(f);setServings(1);setMode("search");}}
-                          className="w-full text-left px-4 py-3 rounded-2xl border-2 border-gray-100 hover:border-purple-300 transition">
+                          className="w-full text-left px-4 py-3 rounded-2xl border-2 transition"
+                          style={{borderColor:"#E9D5FF"}} onMouseOver={e=>(e.currentTarget.style.borderColor="#8B5CF6")} onMouseOut={e=>(e.currentTarget.style.borderColor="#E9D5FF")}>
                           <div className="font-semibold text-gray-800 text-sm">{f.n}</div>
-                          <div className="text-xs text-gray-400">{f.q} · {f.c} kcal</div>
+                          <div className="text-xs text-gray-400">{f.q} · <span className="font-bold" style={{color:GREEN}}>{f.c} kcal</span>{f.p?` · ${f.p}g protein`:""}</div>
                         </button>
                       ))}
+                      <p className="text-xs text-gray-400 text-center pt-1">Tap to add · Adjust servings next</p>
+                    </div>
+                  ):(
+                    <div className="flex flex-col items-center py-8 gap-2 text-center">
+                      <Camera size={28} className="text-gray-300"/>
+                      <p className="text-sm text-gray-500">No food detected.</p>
+                      <p className="text-xs text-gray-400">Try a clearer photo or add food manually.</p>
+                      <label className="mt-2 px-4 py-2 rounded-xl text-xs font-bold cursor-pointer" style={{background:"rgba(139,92,246,0.1)",color:"#8B5CF6"}}>
+                        <Camera size={12} className="inline mr-1"/>Try again
+                        <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={handlePhoto}/>
+                      </label>
                     </div>
                   )}
                 </div>
