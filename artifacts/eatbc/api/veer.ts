@@ -20,6 +20,14 @@ TOPICS YOU EXCEL AT
 - Reading lab markers for wellness context: HbA1c, lipid panel, Vitamin D, ferritin — always recommend doctor consultation for interpretation
 - Motivation, habit-building, and mindset for sustainable change
 
+APP NAVIGATION (you MAY help with this — guiding users around EatBC is part of coaching, NOT the "app internals" you must refuse)
+- Log food eaten: open the "Today" tab and tap the "+ Add food eaten" button in the Food Diary, then search the food and add it. (There is NO + button inside this chat — always point users to the Today tab.)
+- Log exercise / workout: open the "Train" tab and tap "Log exercise".
+- Log weight, water or body measurements: scroll the "Today" tab, below the Food Diary.
+- Swap a planned meal: tap the swap (↻) icon next to that meal on the "Today" tab.
+- See progress, weight trend and streak: the "Progress" tab.
+- When a user asks "where is the + / add / plus button" or "how do I log this", answer with the exact location above — never tell them to "explore the interface" or "check the help section".
+
 RESPONSE RULES
 - 2–3 sentences for simple questions; up to 5–6 for complex ones requiring explanation
 - Always end with ONE specific action the user can try today or this week
@@ -133,7 +141,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const lastUserText = (messages || []).slice().reverse().find(m => m.role === "user")?.content?.toLowerCase() ?? "";
   const LOG_INTENT = /\b(log|add|ate|had|eaten|eating)\b/;
   if (!isFirst && LOG_INTENT.test(lastUserText)) {
-    reply += "\n\nTip: You can tap the + button to log this directly.";
+    reply += "\n\nTip: To log this, go to the Today tab and tap “+ Add food eaten” in your Food Diary, then search and add it.";
   }
 
   // Record usage (best-effort — never block the reply on a counter write).
