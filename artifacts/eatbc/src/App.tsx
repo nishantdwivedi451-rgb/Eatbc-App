@@ -991,7 +991,6 @@ const LOG_DB: LogFood[] = [
   {n:"Peanuts — roasted",p:7, c:160,q:"¼ cup (40g)",cat:"Nuts & Fats"},
   {n:"Peanut butter",p:4, c:95,q:"1 tbsp (16g)",cat:"Nuts & Fats"},
   {n:"Cooking oil",p:0, c:40,q:"1 tsp (5ml)",cat:"Nuts & Fats"},
-  {n:"Ghee",p:0, c:45,q:"1 tsp (5g)",cat:"Nuts & Fats"},
   {n:"Coconut — grated",p:1, c:90,q:"¼ cup (20g)",cat:"Nuts & Fats"},
   {n:"Honey",p:0, c:64,q:"1 tbsp (21g)",cat:"Nuts & Fats"},
   {n:"Sugar",p:0, c:48,q:"1 tbsp (12g)",cat:"Nuts & Fats"},
@@ -1253,7 +1252,6 @@ const LOG_DB: LogFood[] = [
   {n:"Bruschetta (2 pcs)",p:5,c:180,q:"2 pieces",cat:"Italian"},
   {n:"Caprese salad",p:14,c:220,q:"1 bowl",cat:"Italian"},
   {n:"Minestrone soup",p:6,c:150,q:"1 bowl (300ml)",cat:"Italian"},
-  {n:"Tiramisu",p:5,c:310,q:"1 portion (100g)",cat:"Italian"},
   {n:"Panna cotta",p:4,c:280,q:"1 serving (120g)",cat:"Italian"},
   {n:"Gelato (2 scoops)",p:4,c:220,q:"2 scoops (120g)",cat:"Italian"},
   /* ── Mexican / Latin ── */
@@ -3201,7 +3199,8 @@ function ShieldCheck({accent}:{accent:string}) {
   return (
     <svg width="96" height="108" viewBox="0 0 96 108" style={{overflow:"visible"}}>
       {/* Ground glow */}
-      <motion.ellipse cx="48" cy="100" rx="28" ry="7" fill={accent}
+      <motion.ellipse cx="48" cy="100" rx={28} ry="7" fill={accent}
+        initial={{rx:28,opacity:0.18}}
         animate={{opacity:[0.18,0.32,0.18],rx:[28,32,28]}}
         transition={{duration:2.5,repeat:Infinity,ease:"easeInOut"}}/>
       {/* Shield body draws itself */}
@@ -3412,6 +3411,7 @@ function VeerKnowledgeAvatar({accent,onDone}:{accent:string;onDone?:()=>void}) {
         {phase===1&&[0,1,2,3].map(i=>(
           <motion.circle key={`p${i}`} cx={60+[-18,20,-12,15][i]} cy={20+i*6} r="2" fill={accent}
             opacity="0.6"
+            initial={{cy:20+i*6,opacity:0.6}}
             animate={{cy:[20+i*6,61],opacity:[0.6,0]}}
             transition={{duration:0.4,delay:absorbed>i?0:99,repeat:Infinity,repeatDelay:1.2}}/>
         ))}
@@ -3783,7 +3783,8 @@ function StreakOrb({accent}:{accent:string}) {
     <motion.svg width="112" height="112" viewBox="0 0 112 112" style={{overflow:"visible"}}
       initial={{scale:0.90,opacity:0}} animate={{scale:1,opacity:1}} transition={SPRING_ENTRY}>
       {/* Shadow halo */}
-      <motion.ellipse cx="56" cy="106" rx="26" ry="7" fill={accent}
+      <motion.ellipse cx="56" cy="106" rx={26} ry="7" fill={accent}
+        initial={{rx:26,opacity:0.14}}
         animate={{opacity:[0.14,0.26,0.14],rx:[26,30,26]}}
         transition={{duration:2.6,repeat:Infinity,ease:"easeInOut"}}/>
       {/* Track */}
@@ -8100,9 +8101,12 @@ export default function App() {
     const retired=swapCounts[meal.food]>=3?meal.food:undefined;
 
     const code=LABEL2SLOT[meal.time]||"l";
-    const cands=DB.filter(f=>
-      f.slot.includes(code)&&dietOK(f,plan.diet,profile.nonVegTypes)&&f.n!==meal.food&&!autoAvoid.includes(f.n)
-    );
+    const regions=mapRegions(profile.region);
+    /* Diet is always strict; cuisine is enforced too, relaxed only if it would
+       otherwise leave no swap option — same rule the plan builder follows. */
+    const base=(f:FoodItem)=>f.slot.includes(code)&&dietOK(f,plan.diet,profile.nonVegTypes)&&f.n!==meal.food&&!autoAvoid.includes(f.n);
+    let cands=DB.filter(f=>base(f)&&f.reg.some(r=>regions.includes(r)));
+    if(!cands.length) cands=DB.filter(base);
     if(!cands.length) return;
     cands.sort((a,b)=>Math.abs(a.c-meal.cal)-Math.abs(b.c-meal.cal));
     const pick=cands[Math.floor(Math.random()*Math.min(5,cands.length))];
