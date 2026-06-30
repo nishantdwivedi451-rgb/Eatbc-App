@@ -30,11 +30,52 @@ function pick() {
   return NUDGE_MSGS[Math.floor(Math.random() * NUDGE_MSGS.length)];
 }
 
+// IST = UTC+5:30. Only send between 07:00–21:00 IST.
+function isQuietHourIST(): boolean {
+  const nowIST = new Date(Date.now() + 5.5 * 3600 * 1000);
+  const h = nowIST.getUTCHours();
+  return h < 7 || h >= 21;
+}
+
+// Push subscriptions in chunks to avoid serverless timeouts at scale.
+async function sendInBatches(
+  subs: { id: string; endpoint: string; p256dh: string; auth: string }[],
+  payload: string,
+  batchSize = 100,
+): Promise<{ sent: number; failed: number }> {
+  let sent = 0, failed = 0;
+  for (let i = 0; i < subs.length; i += batchSize) {
+    const batch = subs.slice(i, i + batchSize);
+    await Promise.all(batch.map(async (sub) => {
+      try {
+        await webpush.sendNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          payload,
+        );
+        sent++;
+      } catch (err: unknown) {
+        const status = (err as { statusCode?: number }).statusCode;
+        if (status === 404 || status === 410) {
+          // Expired subscription — clean up
+          await sql`DELETE FROM push_subscriptions WHERE id = ${sub.id}`;
+        }
+        failed++;
+      }
+    }));
+  }
+  return { sent, failed };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Vercel Cron requests include an Authorization header with CRON_SECRET
   const authHeader = req.headers.authorization;
   if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  // Respect IST quiet hours — skip if outside 07:00–21:00 IST
+  if (isQuietHourIST()) {
+    return res.status(200).json({ ok: true, skipped: true, reason: "quiet hours (IST)" });
   }
 
   const publicKey = process.env.VAPID_PUBLIC_KEY;
@@ -58,23 +99,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const msg = pick();
   const payload = JSON.stringify({ title: msg.title, body: msg.body, icon: "/icon.svg", url: "/" });
 
-  let sent = 0, failed = 0;
-  await Promise.all(subs.map(async (sub) => {
-    try {
-      await webpush.sendNotification(
-        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-        payload,
-      );
-      sent++;
-    } catch (err: unknown) {
-      // 404/410 = subscription expired — remove it
-      const status = (err as { statusCode?: number }).statusCode;
-      if (status === 404 || status === 410) {
-        await sql`DELETE FROM push_subscriptions WHERE id = ${sub.id}`;
-      }
-      failed++;
-    }
-  }));
+  const { sent, failed } = await sendInBatches(subs, payload);
 
   return res.status(200).json({ ok: true, sent, failed, total: subs.length });
 }

@@ -22,7 +22,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === "POST") {
     const { tracking } = req.body ?? {};
     if (!tracking) return res.status(400).json({ error: "Missing tracking" });
-    const enc = encrypt(JSON.stringify(tracking));
+    const raw = JSON.stringify(tracking);
+    if (raw.length > 524288) // 512 KB guard
+      return res.status(413).json({ error: "Tracking data too large." });
+    const enc = encrypt(raw);
     await sql`
       INSERT INTO tracking (user_id, tracking_enc, updated_at)
       VALUES (${userId}, ${enc}, NOW())
