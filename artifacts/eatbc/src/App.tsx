@@ -8101,9 +8101,12 @@ export default function App() {
     const retired=swapCounts[meal.food]>=3?meal.food:undefined;
 
     const code=LABEL2SLOT[meal.time]||"l";
-    const cands=DB.filter(f=>
-      f.slot.includes(code)&&dietOK(f,plan.diet,profile.nonVegTypes)&&f.n!==meal.food&&!autoAvoid.includes(f.n)
-    );
+    const regions=mapRegions(profile.region);
+    /* Diet is always strict; cuisine is enforced too, relaxed only if it would
+       otherwise leave no swap option — same rule the plan builder follows. */
+    const base=(f:FoodItem)=>f.slot.includes(code)&&dietOK(f,plan.diet,profile.nonVegTypes)&&f.n!==meal.food&&!autoAvoid.includes(f.n);
+    let cands=DB.filter(f=>base(f)&&f.reg.some(r=>regions.includes(r)));
+    if(!cands.length) cands=DB.filter(base);
     if(!cands.length) return;
     cands.sort((a,b)=>Math.abs(a.c-meal.cal)-Math.abs(b.c-meal.cal));
     const pick=cands[Math.floor(Math.random()*Math.min(5,cands.length))];
