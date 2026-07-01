@@ -27,6 +27,7 @@
     "@fontsource/space-grotesk": "^5.2.10",
     "@neondatabase/serverless": "^0.10.4",
     "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.0.0",
     "bcryptjs": "^2.4.3",
     "web-push": "^3.6.7"
   },
