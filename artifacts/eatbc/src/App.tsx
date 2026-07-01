@@ -177,7 +177,7 @@ interface Profile {
   heightFt?: string; heightIn?: string;
   weight?: string; target?: string;
   timeline?: string;
-  goal?: string; condition?: string; diet?: string; region: string[];
+  goal?: string; condition?: string | string[]; diet?: string; region: string[];
   activity?: string; exercise?: string[]; meals?: string;
   nonVegTypes?: string[];
   cooktime?: string; avoid?: string; weekend?: string[]; foodPicks?: string[];
@@ -253,7 +253,8 @@ const Q: Question[] = [
       return `You want to change ~${delta.toFixed(0)} kg. Our recommendation: ${rec}.`;
     },
     opts:["1 month (aggressive)","3 months","6 months","1 year","No fixed timeline"] },
-  { k:"condition", label:"Any health condition we should know about?",  type:"pick",
+  { k:"condition", label:"Any health condition we should know about?",  type:"multi",
+    sub:"Pick all that apply — we'll adjust your plan for each. Choose None if none apply.",
     opts:["None","Diabetes / pre-diabetes","High BP (hypertension)","High cholesterol","Thyroid (hypothyroid)","PCOS / PCOD","Pregnant","Breastfeeding","Other"] },
   { k:"diet",      label:"Your food preference",                        type:"pick",   opts:["Pure veg","Egg + veg","Non-veg","Vegan","Jain"] },
   { k:"nonVegTypes", label:"What non-veg do you eat?",                type:"multi",
@@ -6798,13 +6799,15 @@ function calcStats(d: Profile) {
   const pal = PAL[d.activity || "Mostly desk job"]?.[normExercise(d.exercise)] ?? 1.4;
   const baseTdee = Math.round(bmr * pal);
 
-  const cond = d.condition || "None";
+  /* Conditions are multi-select — apply every one, strictest rule wins. */
+  const conds = condArr(d.condition);
+  const has = (n: string) => conds.includes(n);
 
   /* Condition adjustments before goal — these are maintenance-level needs */
   let maintenanceTdee = baseTdee;
-  if (cond === "Thyroid (hypothyroid)") maintenanceTdee = Math.round(maintenanceTdee * 0.9);
-  if (cond === "Pregnant")              maintenanceTdee += 350;  // ACOG 2nd/3rd trimester avg
-  else if (cond === "Breastfeeding")    maintenanceTdee += 500;  // WHO full lactation
+  if (has("Thyroid (hypothyroid)")) maintenanceTdee = Math.round(maintenanceTdee * 0.9);
+  if (has("Pregnant"))              maintenanceTdee += 350;  // ACOG 2nd/3rd trimester avg
+  else if (has("Breastfeeding"))    maintenanceTdee += 500;  // WHO full lactation
 
   let tdee = maintenanceTdee;
 
@@ -6845,20 +6848,22 @@ function calcStats(d: Profile) {
 
   /* ── Absolute calorie floors by safety category ── */
   /* Pregnancy floors only apply when biologically female to avoid wrong floors for edge cases */
-  const isPregnancyRelated = ["Pregnant", "Breastfeeding"].includes(cond) && isFemale;
+  const isPregnancyRelated = (has("Pregnant") || has("Breastfeeding")) && isFemale;
   const absFloor = isPregnancyRelated ? 1800 : isFemale ? 1200 : 1500;
 
   /* ── Apply goal delta with condition-aware caps ── */
   if (effectiveGoal === "Weight loss") {
     /* Pregnant: no deficit at all (foetal growth requires maintenance+) */
-    if (cond === "Pregnant" && isFemale) {
+    if (has("Pregnant") && isFemale) {
       tdee = maintenanceTdee;           // no deficit during pregnancy
     } else {
       const desiredDeficit = deficitMap[timeline] ?? 500;
       /* Breastfeeding: max 500 kcal/day deficit to protect milk supply (AAP/ACOG) */
-      /* PCOS: max 400 kcal deficit to avoid hormonal disruption */
-      const condCap = (cond === "Breastfeeding" && isFemale) ? 500
-        : cond === "PCOS / PCOD" ? 400 : 1000;
+      /* PCOS: max 400 kcal deficit to avoid hormonal disruption — strictest cap wins */
+      const condCap = Math.min(
+        (has("Breastfeeding") && isFemale) ? 500 : 1000,
+        has("PCOS / PCOD") ? 400 : 1000
+      );
       /* Delta-driven cap: small goals don't need aggressive deficits */
       const kgToLose = Math.max(0, w - target);
       const deltaCap = kgToLose <= 2 ? 300 : kgToLose <= 5 ? 500 : 1000;
@@ -6907,7 +6912,12 @@ function dietOK(f: FoodItem, diet: string, nonVegTypes?: string[]) {
   if (diet==="Jain") return !!f.jain;
   return true;
 }
-function condOK(f: FoodItem, cond: string) {
+/* Normalise the (now multi-select) condition into a clean array, dropping "None". */
+function condArr(c: string | string[] | undefined): string[] {
+  const arr = Array.isArray(c) ? c : c ? [c] : [];
+  return arr.filter(x => x && x !== "None");
+}
+function condOne(f: FoodItem, cond: string) {
   if (cond==="Diabetes / pre-diabetes") return !f.t.includes("sugary") && !f.t.includes("highgi");
   if (cond==="High BP (hypertension)") return !f.t.includes("highsalt");
   if (cond==="High cholesterol") return !f.t.includes("fried");
@@ -6916,8 +6926,12 @@ function condOK(f: FoodItem, cond: string) {
   if (cond==="PCOS / PCOD") return !f.t.includes("sugary") && !f.t.includes("highgi");
   return true;
 }
+/* Multi-condition: a food must satisfy EVERY selected condition. */
+function condOK(f: FoodItem, conds: string[]) {
+  return conds.every(c => condOne(f, c));
+}
 
-interface MealCtx { goal:string; cond:string; diet:string; nonVegTypes?:string[]; regions:string[]; simplePref:boolean; picks:string[]; }
+interface MealCtx { goal:string; conds:string[]; diet:string; nonVegTypes?:string[]; regions:string[]; simplePref:boolean; picks:string[]; }
 /* Keywords from foods the user picked in the game — used to bias the plan
    toward dishes they actually told us they love. */
 function picksMatch(f: FoodItem, picks: string[]): boolean {
@@ -6934,7 +6948,7 @@ function cands(slot: string, ctx: MealCtx, relax: number): FoodItem[] {
     if (!f.slot.includes(slot)) return false;
     if (!dietOK(f,ctx.diet,ctx.nonVegTypes)) return false;
     if (relax<2&&!f.reg.some(r=>ctx.regions.includes(r))) return false;
-    if (relax<1&&!condOK(f,ctx.cond)) return false;
+    if (relax<1&&!condOK(f,ctx.conds)) return false;
     return true;
   });
 }
@@ -6946,10 +6960,10 @@ function pickMeal(slot: string, target: number, di: number, used: Set<string>, d
   const scored=list.map(f=>{
     let s=-Math.abs(f.c-target)/Math.max(target,1);
     if ((ctx.goal==="Muscle gain"||ctx.goal==="Weight gain")&&f.t.includes("protein")) s+=0.45;
-    if ((ctx.goal==="Weight loss"||ctx.cond==="Diabetes / pre-diabetes"||ctx.cond==="PCOS / PCOD")&&(f.t.includes("lowgi")||f.t.includes("fiber"))) s+=0.3;
-    if (ctx.cond==="PCOS / PCOD"&&f.t.includes("protein")) s+=0.3;
-    if (ctx.cond==="High cholesterol"&&f.t.includes("fiber")) s+=0.2;
-    if (["Pregnant","Breastfeeding"].includes(ctx.cond)&&f.t.includes("protein")) s+=0.35;
+    if ((ctx.goal==="Weight loss"||ctx.conds.includes("Diabetes / pre-diabetes")||ctx.conds.includes("PCOS / PCOD"))&&(f.t.includes("lowgi")||f.t.includes("fiber"))) s+=0.3;
+    if (ctx.conds.includes("PCOS / PCOD")&&f.t.includes("protein")) s+=0.3;
+    if (ctx.conds.includes("High cholesterol")&&f.t.includes("fiber")) s+=0.2;
+    if (ctx.conds.some(c=>c==="Pregnant"||c==="Breastfeeding")&&f.t.includes("protein")) s+=0.35;
     if (ctx.simplePref&&f.simple) s+=0.25;
     if (picksMatch(f,ctx.picks)) s+=0.6;
     /* 90% non-veg bias: strongly prefer non-veg items in main meals for non-veg users */
@@ -6982,7 +6996,7 @@ function makeTips(p: Profile, _cal: number): string[] {
     "Other":["Review this plan with your doctor before starting."],
   };
   const g=goalTips[p.goal||""]||[];
-  const c=condTips[p.condition||""]||[];
+  const c=condArr(p.condition).flatMap(cn=>condTips[cn]||[]);
   const extra=["Drink 2.5–3L water daily and aim for 7+ hours of sleep."];
   return [...g,...c,...extra].slice(0,5);
 }
@@ -7600,11 +7614,12 @@ function buildPlan(profile: Profile): Plan {
   const st=calcStats(profile);
   const cal=st.tdee;
   const maintenance=st.maintenanceTdee;
-  const cond=profile.condition||"None";
+  const conds=condArr(profile.condition);
+  const cond=conds.length?conds.join(", "):"None";   // display string
   const weekendPrefs=(profile.weekend as string[]|undefined)||[];
   const ctx: MealCtx={
     goal:st.effectiveGoal,
-    cond,
+    conds,
     diet:profile.diet||"Pure veg",
     nonVegTypes:profile.nonVegTypes,
     regions:mapRegions(profile.region),
@@ -7658,7 +7673,7 @@ function buildPlan(profile: Profile): Plan {
   };
   const elderlyBoost=_age2>=65?0.20:0;
   // ICMR: +25 g/day for breastfeeding/pregnancy
-  const proteinExtra=["Breastfeeding","Pregnant"].includes(cond)?25:0;
+  const proteinExtra=conds.some(c=>c==="Breastfeeding"||c==="Pregnant")?25:0;
   const proteinBase=(proteinMultiplier[st.effectiveGoal]??1.4)*(1+elderlyBoost)*proteinW;
   const proteinTarget=Math.round((proteinBase+proteinExtra)/5)*5;
 
@@ -7667,14 +7682,16 @@ function buildPlan(profile: Profile): Plan {
     ? `${st.effectiveGoal.toLowerCase()} (adjusted from your ${(profile.goal||"").toLowerCase()} goal based on your weight targets)`
     : (st.effectiveGoal || "fitness").toLowerCase();
 
-  const condNote = cond !== "None" && cond !== "Other"
-    ? ` It's tuned to support your ${COND_SHORT[cond]||cond} — still, please review it with your doctor.`
-    : cond === "Other" ? " Since you flagged a condition, please clear this plan with your doctor first." : "";
+  const realConds = conds.filter(c=>c!=="Other");
+  const condShortStr = realConds.map(c=>COND_SHORT[c]||c).join(", ");
+  const condNote = realConds.length
+    ? ` It's tuned to support your ${condShortStr} — still, please review it with your doctor.`
+    : conds.includes("Other") ? " Since you flagged a condition, please clear this plan with your doctor first." : "";
 
-  const bfNote = cond === "Breastfeeding" && st.effectiveGoal === "Weight loss"
+  const bfNote = conds.includes("Breastfeeding") && st.effectiveGoal === "Weight loss"
     ? " Calorie target includes a safe breastfeeding deficit — milk supply is protected."
     : "";
-  const pregnantNote = cond === "Pregnant" && profile.goal === "Weight loss"
+  const pregnantNote = conds.includes("Pregnant") && profile.goal === "Weight loss"
     ? " Weight loss during pregnancy isn't recommended — this is a healthy maintenance plan instead."
     : "";
 
@@ -11871,14 +11888,15 @@ function ProgressionTracker({daysActive, t}:{daysActive:number; t:(k:keyof typeo
 function DietitianCard({condition, t}:{condition:string; t:(k:keyof typeof STR)=>string}) {
   const SHOW_FOR = ["Diabetes / pre-diabetes","High BP (hypertension)","High cholesterol","Thyroid (hypothyroid)","PCOS / PCOD"];
   const [dismissed, setDismissed] = useState(()=>!!sget<boolean>("eatbc:dietitianDismissed"));
-  if (!SHOW_FOR.includes(condition) || dismissed) return null;
+  const shownConds = condition.split(",").map(s=>s.trim()).filter(c=>SHOW_FOR.includes(c));
+  if (!shownConds.length || dismissed) return null;
   return (
     <div className="rounded-2xl px-4 py-3.5 mb-4" style={{background:"linear-gradient(135deg,#FFF0F5,#FCE7F3)",border:"1px solid #FBCFE8"}}>
       <div className="flex items-start gap-2.5">
         <HeartPulse size={18} className="text-pink-500 shrink-0 mt-0.5"/>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold text-pink-800">{t("dietitianCTA")}</p>
-          <p className="text-xs text-pink-500 mt-0.5">You have {condition} — a dietician can personalise this further.</p>
+          <p className="text-xs text-pink-500 mt-0.5">You have {shownConds.join(", ")} — a dietician can personalise this further.</p>
           <a href="https://wa.me/917000639366?text=Hi%2C%20I%20want%20a%20free%20diet%20plan%20review"
             target="_blank" rel="noopener noreferrer"
             className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white"
@@ -11961,7 +11979,7 @@ function VeerBot({session,planCondition,plan,tracking,profile}:{
     if(profile.goal) lines.push(`Goal: ${profile.goal}`);
     if(profile.activity) lines.push(`Activity: ${profile.activity}${profile.exercise?.length?` / ${profile.exercise.join(", ")}`:""}`);
     if(profile.diet) lines.push(`Diet: ${profile.diet}`);
-    if(profile.condition) lines.push(`Health condition: ${profile.condition}`);
+    if(condArr(profile.condition).length) lines.push(`Health condition: ${condArr(profile.condition).join(", ")}`);
     if(plan){lines.push(`Daily calories: ${plan.dailyCalories} kcal`);if(plan.weeklyLoss)lines.push(`Target: ${plan.weeklyLoss}`);}
     const wLog=Object.entries(tracking.weights||{}).sort();
     if(wLog.length){
@@ -12999,8 +13017,12 @@ export default function App() {
     setProfile(p=>({...p,[cur.k]:v}));
   };
   const toggleMulti=(o:string)=>setProfile(p=>{
-    const a=(p[cur.k] as string[])||[];
-    return {...p,[cur.k]:a.includes(o)?a.filter(x=>x!==o):[...a,o]};
+    const raw=p[cur.k];
+    let a:string[]=Array.isArray(raw)?[...raw]:raw?[raw as string]:[];  // coerce legacy string → array
+    if(a.includes(o)) a=a.filter(x=>x!==o);
+    else if(o==="None") a=["None"];                 // "None" is exclusive
+    else a=[...a.filter(x=>x!=="None"),o];           // picking a real option clears "None"
+    return {...p,[cur.k]:a};
   });
   const canNext=!cur?false
     :cur.type==="multi"?((profile[cur.k] as string[]|undefined)||[]).length>0
@@ -13251,7 +13273,7 @@ export default function App() {
           {cur.type==="multi"&&(
             <div className="grid grid-cols-2 gap-2 max-h-72 overflow-y-auto">
               {cur.opts!.map(o=>{
-                const on=((profile[cur.k] as string[])||[]).includes(o);
+                const on=(Array.isArray(profile[cur.k])?(profile[cur.k] as string[]):[]).includes(o);
                 return (
                   <button key={o} onClick={()=>toggleMulti(o)}
                     className={`px-3 py-2.5 rounded-2xl border-2 transition font-semibold text-xs inline-flex items-center justify-center gap-1 min-h-[44px] text-center leading-tight ${on?"text-white shadow-md":"bg-white text-gray-700 border-gray-200 hover:border-gray-300"}`}
@@ -13350,18 +13372,18 @@ export default function App() {
           </div>
         </div>
 
-        {["Pregnant","Breastfeeding"].includes(plan.condition)&&(
+        {(()=>{const preg=plan.condition.split(",").map(s=>s.trim()).filter(c=>c==="Pregnant"||c==="Breastfeeding");return preg.length?(
           <div className="rounded-2xl px-4 py-3 mb-4 flex items-start gap-2.5 text-sm" style={{background:"#FFF0F5",color:"#9D174D"}}>
             <HeartPulse size={18} className="mt-0.5 shrink-0"/>
-            <span>This plan accounts for your <b>{plan.condition.toLowerCase()}</b> nutritional needs. <b>Always consult your gynaecologist or dietician before making dietary changes.</b></span>
+            <span>This plan accounts for your <b>{preg.join(" & ").toLowerCase()}</b> nutritional needs. <b>Always consult your gynaecologist or dietician before making dietary changes.</b></span>
           </div>
-        )}
-        {plan.condition!=="None"&&!["Pregnant","Breastfeeding"].includes(plan.condition)&&(
+        ):null;})()}
+        {(()=>{const others=plan.condition.split(",").map(s=>s.trim()).filter(c=>c&&c!=="None"&&c!=="Pregnant"&&c!=="Breastfeeding");return others.length?(
           <div className="rounded-2xl px-4 py-3 mb-4 flex items-start gap-2.5 text-sm" style={{background:"#FFF7ED",color:"#9A3412"}}>
             <HeartPulse size={18} className="mt-0.5 shrink-0"/>
-            <span>This plan is adjusted for <b>{plan.condition}</b>. Please confirm with your doctor before starting.</span>
+            <span>This plan is adjusted for <b>{others.join(", ")}</b>. Please confirm with your doctor before starting.</span>
           </div>
-        )}
+        ):null;})()}
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-5">
           <Chip label="BMI" val={`${plan.bmi} · ${plan.bmiCat}`}/>
