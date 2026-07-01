@@ -12,12 +12,14 @@ import "@fontsource/inter/600.css";
 import "@fontsource/inter/700.css";
 import "./index.css";
 import { inject } from "@vercel/analytics";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 
 inject();
 
 createRoot(document.getElementById("root")!).render(
   <ErrorBoundary>
     <App />
+    <SpeedInsights />
   </ErrorBoundary>
 );
 
