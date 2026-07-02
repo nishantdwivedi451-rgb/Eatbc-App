@@ -183,6 +183,11 @@
   to   { opacity: 1; transform: none; }
 }
 
+@keyframes eSlideUp {
+  from { opacity: 0; transform: translateY(48px); }
+  to   { opacity: 1; transform: none; }
+}
+
 @keyframes floatFood {
   0%   { transform: translateY(0)   scale(1)   rotate(0deg);  opacity: 0; }
   8%   { opacity: 0.85; }
