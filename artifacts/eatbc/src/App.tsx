@@ -234,6 +234,7 @@ interface Question {
   k: keyof Profile; label: string;
   type: "text" | "number" | "pick" | "multi" | "height";
   ph?: string; sub?: string; subFn?: (p: Profile) => string; opts?: string[];
+  optsFn?: (p: Profile) => string[];
   showIf?: (p: Profile) => boolean;
 }
 const Q: Question[] = [
@@ -255,7 +256,11 @@ const Q: Question[] = [
     opts:["1 month (aggressive)","3 months","6 months","1 year","No fixed timeline"] },
   { k:"condition", label:"Any health condition we should know about?",  type:"multi",
     sub:"Pick all that apply — we'll adjust your plan for each. Choose None if none apply.",
-    opts:["None","Diabetes / pre-diabetes","High BP (hypertension)","High cholesterol","Thyroid (hypothyroid)","PCOS / PCOD","Pregnant","Breastfeeding","Other"] },
+    opts:["None","Diabetes / pre-diabetes","High BP (hypertension)","High cholesterol","Thyroid (hypothyroid)","PCOS / PCOD","Pregnant","Breastfeeding","Other"],
+    /* Pregnancy/PCOS-related conditions don't apply to men — hide them for a cleaner, relevant list. */
+    optsFn:(p)=>p.sex==="Male"
+      ?["None","Diabetes / pre-diabetes","High BP (hypertension)","High cholesterol","Thyroid (hypothyroid)","Other"]
+      :["None","Diabetes / pre-diabetes","High BP (hypertension)","High cholesterol","Thyroid (hypothyroid)","PCOS / PCOD","Pregnant","Breastfeeding","Other"] },
   { k:"diet",      label:"Your food preference",                        type:"pick",   opts:["Pure veg","Egg + veg","Non-veg","Vegan","Jain"] },
   { k:"nonVegTypes", label:"What non-veg do you eat?",                type:"multi",
     sub:"Pick all that apply — we'll only include these in your plan.",
@@ -6800,7 +6805,7 @@ function calcStats(d: Profile) {
   const baseTdee = Math.round(bmr * pal);
 
   /* Conditions are multi-select — apply every one, strictest rule wins. */
-  const conds = condArr(d.condition);
+  const conds = condArr(d.condition, isFemale);
   const has = (n: string) => conds.includes(n);
 
   /* Condition adjustments before goal — these are maintenance-level needs */
@@ -6913,9 +6918,13 @@ function dietOK(f: FoodItem, diet: string, nonVegTypes?: string[]) {
   return true;
 }
 /* Normalise the (now multi-select) condition into a clean array, dropping "None". */
-function condArr(c: string | string[] | undefined): string[] {
+const FEMALE_ONLY_CONDS = ["PCOS / PCOD", "Pregnant", "Breastfeeding"];
+/* isFemale, when passed, strips female-only conditions defensively — guards
+   against stale data if sex was changed to Male after they were selected
+   (e.g. via "review my answers"). */
+function condArr(c: string | string[] | undefined, isFemale?: boolean): string[] {
   const arr = Array.isArray(c) ? c : c ? [c] : [];
-  return arr.filter(x => x && x !== "None");
+  return arr.filter(x => x && x !== "None" && (isFemale !== false || !FEMALE_ONLY_CONDS.includes(x)));
 }
 function condOne(f: FoodItem, cond: string) {
   if (cond==="Diabetes / pre-diabetes") return !f.t.includes("sugary") && !f.t.includes("highgi");
@@ -6931,7 +6940,17 @@ function condOK(f: FoodItem, conds: string[]) {
   return conds.every(c => condOne(f, c));
 }
 
-interface MealCtx { goal:string; conds:string[]; diet:string; nonVegTypes?:string[]; regions:string[]; simplePref:boolean; picks:string[]; }
+interface MealCtx { goal:string; conds:string[]; diet:string; nonVegTypes?:string[]; regions:string[]; styleTags:string[]; simplePref:boolean; picks:string[]; }
+/* "High-Protein"/"Keto"/"Plant-Based" are diet-style preferences, not regions —
+   they can't hard-filter (no Indian dish is tagged "keto"), but combined with
+   a real cuisine pick (e.g. North Indian + High-Protein) they should heavily
+   bias selection toward dishes matching both, not just broaden the pool. */
+function styleMatch(f: FoodItem, tag: string): boolean {
+  if (tag==="High-Protein") return f.t.includes("protein") || (f.p||0)>=15;
+  if (tag==="Keto") return (f.t.includes("lowgi")) && !f.t.includes("highgi") && !f.t.includes("sugary");
+  if (tag==="Plant-Based") return !f.meat && !f.fish && !f.egg && !f.dairy;
+  return false;
+}
 /* Keywords from foods the user picked in the game — used to bias the plan
    toward dishes they actually told us they love. */
 function picksMatch(f: FoodItem, picks: string[]): boolean {
@@ -6966,6 +6985,9 @@ function pickMeal(slot: string, target: number, di: number, used: Set<string>, d
     if (ctx.conds.some(c=>c==="Pregnant"||c==="Breastfeeding")&&f.t.includes("protein")) s+=0.35;
     if (ctx.simplePref&&f.simple) s+=0.25;
     if (picksMatch(f,ctx.picks)) s+=0.6;
+    /* Cuisine × style intersection (e.g. North Indian + High-Protein):
+       big boost so the plan majorly favours dishes matching BOTH picks. */
+    if (ctx.styleTags.length&&ctx.styleTags.some(tag=>styleMatch(f,tag))) s+=0.8;
     /* 90% non-veg bias: strongly prefer non-veg items in main meals for non-veg users */
     if (ctx.diet==="Non-veg"&&(f.meat||f.fish||f.egg)&&(slot==="l"||slot==="d")) s+=1.5;
     if (ctx.diet==="Egg + veg"&&f.egg&&(slot==="l"||slot==="d"||slot==="ms")) s+=1.0;
@@ -6996,7 +7018,7 @@ function makeTips(p: Profile, _cal: number): string[] {
     "Other":["Review this plan with your doctor before starting."],
   };
   const g=goalTips[p.goal||""]||[];
-  const c=condArr(p.condition).flatMap(cn=>condTips[cn]||[]);
+  const c=condArr(p.condition, p.sex!=="Male").flatMap(cn=>condTips[cn]||[]);
   const extra=["Drink 2.5–3L water daily and aim for 7+ hours of sleep."];
   return [...g,...c,...extra].slice(0,5);
 }
@@ -7614,7 +7636,7 @@ function buildPlan(profile: Profile): Plan {
   const st=calcStats(profile);
   const cal=st.tdee;
   const maintenance=st.maintenanceTdee;
-  const conds=condArr(profile.condition);
+  const conds=condArr(profile.condition, profile.sex!=="Male");
   const cond=conds.length?conds.join(", "):"None";   // display string
   const weekendPrefs=(profile.weekend as string[]|undefined)||[];
   const ctx: MealCtx={
@@ -7623,6 +7645,7 @@ function buildPlan(profile: Profile): Plan {
     diet:profile.diet||"Pure veg",
     nonVegTypes:profile.nonVegTypes,
     regions:mapRegions(profile.region),
+    styleTags:(profile.region||[]).filter(r=>["High-Protein","Keto","Plant-Based"].includes(r)),
     simplePref:false,
     picks:profile.foodPicks||[],
   };
@@ -9597,23 +9620,34 @@ function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;on
 /* ─────────────── Food affiliation game ─────────────── */
 /* Healthy-only ingredient picks — EatBC is a health app, so no fried/sugary
    items (paratha, white rice, poha, chai, biscuits) make this list. */
-const FOOD_GAME: {e:string;n:string}[] = [
-  {e:"🧀",n:"Paneer"},{e:"🍲",n:"Dal"},{e:"🫘",n:"Rajma"},{e:"🥘",n:"Chole"},
-  {e:"🥞",n:"Dosa"},{e:"🍘",n:"Idli"},{e:"🍗",n:"Chicken"},{e:"🐟",n:"Fish"},
-  {e:"🥚",n:"Egg"},{e:"🍛",n:"Khichdi"},{e:"🌾",n:"Oats"},{e:"🥗",n:"Salad"},
-  {e:"🫛",n:"Sprouts"},{e:"🥦",n:"Veggies"},{e:"🍚",n:"Brown Rice"},{e:"🥛",n:"Milk"},
-  {e:"🍶",n:"Curd"},{e:"🍵",n:"Green Tea"},{e:"🍎",n:"Fruit"},{e:"🥜",n:"Peanuts"},
-  {e:"🍌",n:"Banana"},{e:"🍠",n:"Sweet Potato"},{e:"🌰",n:"Almonds"},{e:"🥑",n:"Avocado"},
-  {e:"🍄",n:"Mushroom"},{e:"🥬",n:"Spinach"},{e:"🫕",n:"Tofu"},{e:"🐠",n:"Salmon"},
-  {e:"🌱",n:"Soya Chunks"},{e:"🥕",n:"Carrot"},{e:"🥥",n:"Coconut"},{e:"🫙",n:"Flaxseed"},
-  {e:"🌿",n:"Methi"},{e:"🧄",n:"Garlic"},{e:"🌽",n:"Corn"},{e:"🍇",n:"Berries"},
+const FOOD_GAME: {e:string;n:string;meat?:1;fish?:1;egg?:1;dairy?:1;root?:1}[] = [
+  {e:"🧀",n:"Paneer",dairy:1},{e:"🍲",n:"Dal"},{e:"🫘",n:"Rajma"},{e:"🥘",n:"Chole"},
+  {e:"🥞",n:"Dosa"},{e:"🍘",n:"Idli"},{e:"🍗",n:"Chicken",meat:1},{e:"🐟",n:"Fish",fish:1},
+  {e:"🥚",n:"Egg",egg:1},{e:"🍛",n:"Khichdi"},{e:"🌾",n:"Oats"},{e:"🥗",n:"Salad"},
+  {e:"🫛",n:"Sprouts"},{e:"🥦",n:"Veggies"},{e:"🍚",n:"Brown Rice"},{e:"🥛",n:"Milk",dairy:1},
+  {e:"🍶",n:"Curd",dairy:1},{e:"🍵",n:"Green Tea"},{e:"🍎",n:"Fruit"},{e:"🥜",n:"Peanuts"},
+  {e:"🍌",n:"Banana"},{e:"🍠",n:"Sweet Potato",root:1},{e:"🌰",n:"Almonds"},{e:"🥑",n:"Avocado"},
+  {e:"🍄",n:"Mushroom"},{e:"🥬",n:"Spinach"},{e:"🫕",n:"Tofu"},{e:"🐠",n:"Salmon",fish:1},
+  {e:"🌱",n:"Soya Chunks"},{e:"🥕",n:"Carrot",root:1},{e:"🥥",n:"Coconut"},{e:"🫙",n:"Flaxseed"},
+  {e:"🌿",n:"Methi"},{e:"🧄",n:"Garlic",root:1},{e:"🌽",n:"Corn"},{e:"🍇",n:"Berries"},
   {e:"🫐",n:"Amla"},{e:"🥝",n:"Kiwi"},{e:"🍋",n:"Lemon"},{e:"🌻",n:"Sunflower Seeds"},
 ];
-function FoodGame({name,onDone}:{name?:string;onDone:(picks:string[])=>void}) {
+function FoodGame({name,diet,onDone}:{name?:string;diet?:string;onDone:(picks:string[])=>void}) {
   const NEED=5;
   const [picks,setPicks]=useState<string[]>([]);
   const done=picks.length>=NEED;
   const toggle=(n:string)=>setPicks(p=>p.includes(n)?p.filter(x=>x!==n):p.length>=NEED?p:[...p,n]);
+  /* Same diet rules as the meal planner — no meat/fish for veg diets, no egg
+     unless Egg+veg/Non-veg, no dairy for Vegan, no root veg for Jain. */
+  const foods=FOOD_GAME.filter(f=>{
+    if(diet==="Non-veg") return true;
+    if(f.meat||f.fish) return false;
+    if(diet==="Egg + veg") return true;
+    if(f.egg) return false;
+    if(diet==="Vegan") return !f.dairy;
+    if(diet==="Jain") return !f.root;   // Jain: dairy ok, root veg (garlic/carrot/sweet potato) not
+    return true;   // Pure veg (default): no meat/fish/egg, dairy & root veg fine
+  });
   return (
     <div className="min-h-screen relative overflow-hidden flex flex-col px-5 pt-12 pb-32"
       style={{background:"linear-gradient(165deg,#052e1b 0%,#0a5e34 48%,#159a57 100%)"}}>
@@ -9645,7 +9679,7 @@ function FoodGame({name,onDone}:{name?:string;onDone:(picks:string[])=>void}) {
 
         {/* bubble grid */}
         <div className="grid grid-cols-4 gap-3">
-          {FOOD_GAME.map((f,i)=>{
+          {foods.map((f,i)=>{
             const on=picks.includes(f.n);
             return (
               <button key={f.n} onClick={()=>toggle(f.n)}
@@ -9834,6 +9868,7 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet,token,yesterda
   const [search,setSearch]=useState("");
   const [pending,setPending]=useState<LogFood|null>(null);
   const [servings,setServings]=useState(1);
+  const [mealTag,setMealTag]=useState("");   // "" = auto-detect from current time
   const [cat,setCat]=useState("All");
   const [mode,setMode]=useState<"search"|"custom"|"barcode"|"photo">("search");
   /* custom food form */
@@ -9920,9 +9955,9 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet,token,yesterda
     const f=pending.f!=null?Math.round(pending.f*servings*10)/10:undefined;
     const fi=pending.fi!=null?Math.round(pending.fi*servings*10)/10:undefined;
     const s=servings===1?"":`${servings}× `;
-    onUpdate([...log,{n:pending.n,cal,p,...(f!=null?{f}:{}),...(fi!=null?{fi}:{}),qty:`${s}${pending.q}`,servings,mealBucket:getMealBucket()}]);
+    onUpdate([...log,{n:pending.n,cal,p,...(f!=null?{f}:{}),...(fi!=null?{fi}:{}),qty:`${s}${pending.q}`,servings,mealBucket:mealTag||getMealBucket()}]);
     rememberRecent({n:pending.n,c:pending.c,p:pending.p||0,f:pending.f,fi:pending.fi,q:pending.q,cat:pending.cat});
-    setPending(null); setServings(1); setSearch(""); setOpen(false); setMode("search");
+    setPending(null); setServings(1); setMealTag(""); setSearch(""); setOpen(false); setMode("search");
   }
   /* One-tap log a food straight from the Recently-used shelf (B3). */
   function quickLog(f:LogFood){
@@ -10186,13 +10221,23 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet,token,yesterda
               <div className="text-base font-black mb-4" style={{color:GREEN}}>
                 = {Math.round(pending.c*servings)} kcal
               </div>
+              <p className="text-xs font-semibold text-gray-600 mb-2">Log as (optional)</p>
+              <div className="flex flex-wrap gap-1.5 mb-4">
+                {["","Breakfast","Morning Snack","Lunch","Afternoon Snack","Dinner","Late Night"].map(b=>(
+                  <button key={b||"auto"} onClick={()=>setMealTag(b)}
+                    className="px-3 py-1.5 rounded-xl text-xs font-bold transition"
+                    style={mealTag===b?{background:GREEN,color:"#fff"}:{background:"#fff",color:"#555",border:"1.5px solid #e5e7eb"}}>
+                    {b||"Auto"}
+                  </button>
+                ))}
+              </div>
               <div className="flex gap-2">
                 <button onClick={addFood}
                   className="flex-1 py-2.5 rounded-xl text-white font-bold text-sm"
                   style={{background:GREEN}}>
                   Add to Diary
                 </button>
-                <button onClick={()=>setPending(null)}
+                <button onClick={()=>{setPending(null);setMealTag("");}}
                   className="px-4 py-2.5 rounded-xl text-gray-500 text-sm border border-gray-200 bg-white">
                   ← Back
                 </button>
@@ -11215,9 +11260,114 @@ function calcWorkoutCal(weightKg:number,sets:number,repsStr:string):number{
   if(weightKg===0) return Math.round(sets*reps*0.5);
   return Math.round(weightKg*sets*reps*0.05);
 }
-const REPS_OPTS=["5 reps","8 reps","10 reps","12 reps","15 reps","20 reps","25 reps","30 reps","30 sec","45 sec","60 sec","2 min","5 min","10 min","5–8 breaths","Each side"];
+const REPS_OPTS=["5 reps","8 reps","10 reps","12 reps","15 reps","20 reps","25 reps","30 reps","Each side"];
+const CARDIO_DURATION_OPTS=["5 min","10 min","15 min","20 min","25 min","30 min","45 min","60 min","90 min"];
+const RESTORE_DURATION_OPTS=["30 sec","60 sec","2 min","5 min","10 min","15 min","20 min","5–8 breaths","Each side"];
 
-function WorkoutLogger({log,onUpdate}:{log:ExerciseLog[];onUpdate:(l:ExerciseLog[])=>void}) {
+/* Apple-Watch-style active-calorie estimate — the ACSM MET formula every
+   consumer fitness tracker (Apple Watch, Fitbit, Garmin) approximates when
+   it doesn't have heart-rate data to work from:
+     kcal = MET × 3.5 × bodyweightKg / 200 × minutes                        */
+function estimateMET(name:string, cat:string):number{
+  const n=name.toLowerCase();
+  if(cat==="restore") return /restorative|yin|child|savasana|breath/.test(n)?2:2.8;
+  if(cat==="cardio"){
+    /* Check "walk" first — names like "Brisk walk / jog" mention a higher-
+       intensity alternative too, but the walk is the primary descriptor. */
+    if(/walk|brisk/.test(n)) return 4;
+    if(/sprint|hiit|battle rope|assault bike|box jump|prowler|shuttle|agility|broad jump/.test(n)) return 10;
+    if(/run|jog|skip|jump rope|stadium|hill/.test(n)) return 9;
+    if(/cycl|row|stair|elliptical|swim/.test(n)) return 7;
+    return 7; // generic cardio default
+  }
+  return 5;
+}
+function parseDurationMinutes(s:string):number{
+  const mMin=s.match(/(\d+(?:\.\d+)?)\s*min/i); if(mMin) return parseFloat(mMin[1]);
+  const mHr=s.match(/(\d+(?:\.\d+)?)\s*(hr|hour)/i); if(mHr) return parseFloat(mHr[1])*60;
+  const mSec=s.match(/(\d+(?:\.\d+)?)\s*sec/i); if(mSec) return parseFloat(mSec[1])/60;
+  return 0; // distance-only / rep-based text — can't derive a duration
+}
+function calcCardioCal(met:number,weightKg:number,minutes:number):number{
+  if(!minutes||!weightKg) return 0;
+  return Math.round(met*3.5*weightKg/200*minutes);
+}
+
+const WORKOUT_PRAISE=[
+  "Well done! 💪 That's one more deposit in the bank.",
+  "Crushed it! 🔥 Your future self says thanks.",
+  "Logged and locked in. Consistency wins.",
+  "That's the way! 🙌 Small sessions, big results.",
+  "Nice work — showing up is the hardest part, and you did it.",
+  "Boom! 🎯 Another one in the books.",
+  "You did the thing. That's how streaks are built.",
+  "Strong effort! Your body is thanking you right now.",
+];
+function pickPraise(seed:string):string{ return WORKOUT_PRAISE[hashNum(seed)%WORKOUT_PRAISE.length]; }
+
+/* Renders a branded, story-ready (9:16) share card for a logged workout and
+   returns it as a PNG blob — used for the native share sheet (WhatsApp,
+   Instagram Stories, etc all accept an image file via Web Share). */
+async function renderWorkoutShareCard(exerciseName:string,cal:number,praise:string):Promise<Blob|null>{
+  try{
+    const W=1080,H=1920;
+    const canvas=document.createElement("canvas");
+    canvas.width=W; canvas.height=H;
+    const ctx=canvas.getContext("2d"); if(!ctx) return null;
+    const grad=ctx.createLinearGradient(0,0,W,H);
+    grad.addColorStop(0,"#5B21B6"); grad.addColorStop(0.55,"#7C3AED"); grad.addColorStop(1,"#9333EA");
+    ctx.fillStyle=grad; ctx.fillRect(0,0,W,H);
+    ctx.textAlign="center";
+    ctx.fillStyle="rgba(255,255,255,0.85)";
+    ctx.font="700 44px system-ui,-apple-system,sans-serif";
+    ctx.fillText("EatBC · Workout Logged", W/2, 220);
+    ctx.fillStyle="#fff";
+    ctx.font="900 120px system-ui,-apple-system,sans-serif";
+    wrapCanvasText(ctx, exerciseName, W/2, 520, W-160, 130);
+    if(cal>0){
+      ctx.fillStyle="#FDE68A";
+      ctx.font="900 220px system-ui,-apple-system,sans-serif";
+      ctx.fillText(`~${cal}`, W/2, 1150);
+      ctx.fillStyle="rgba(255,255,255,0.85)";
+      ctx.font="700 48px system-ui,-apple-system,sans-serif";
+      ctx.fillText("kcal burned", W/2, 1230);
+    }
+    ctx.fillStyle="#fff";
+    ctx.font="600 42px system-ui,-apple-system,sans-serif";
+    wrapCanvasText(ctx, praise, W/2, 1500, W-200, 58);
+    ctx.fillStyle="rgba(255,255,255,0.6)";
+    ctx.font="700 36px system-ui,-apple-system,sans-serif";
+    ctx.fillText("eatbc.in", W/2, H-100);
+    return await new Promise(res=>canvas.toBlob(b=>res(b),"image/png"));
+  }catch{ return null; }
+}
+function wrapCanvasText(ctx:CanvasRenderingContext2D,text:string,x:number,y:number,maxWidth:number,lineHeight:number){
+  const words=text.split(" "); let line=""; let cy=y;
+  for(const w of words){
+    const test=line?`${line} ${w}`:w;
+    if(ctx.measureText(test).width>maxWidth && line){ ctx.fillText(line,x,cy); line=w; cy+=lineHeight; }
+    else line=test;
+  }
+  if(line) ctx.fillText(line,x,cy);
+}
+/* Native share sheet (covers WhatsApp + Instagram Stories/DM + everything
+   else installed) with an image file when supported; falls back to a
+   WhatsApp deep link on desktop/older browsers where Web Share is absent. */
+async function shareWorkoutResult(exerciseName:string,cal:number,praise:string){
+  const text=`${praise}\n${exerciseName}${cal>0?` — ~${cal} kcal burned`:""} 💪 via EatBC`;
+  try{
+    const blob=await renderWorkoutShareCard(exerciseName,cal,praise);
+    const nav=navigator as Navigator & {canShare?:(d:{files?:File[]})=>boolean};
+    if(blob && nav.canShare && nav.share){
+      const file=new File([blob],"eatbc-workout.png",{type:"image/png"});
+      if(nav.canShare({files:[file]})){ await nav.share({files:[file],title:"EatBC Workout",text}); return; }
+    }
+    if(navigator.share){ await navigator.share({title:"EatBC Workout",text}); return; }
+  }catch{ /* user cancelled share sheet or it errored — fall through */ }
+  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`,"_blank","noopener");
+}
+
+function WorkoutLogger({log,onUpdate,userWeightKg}:{log:ExerciseLog[];onUpdate:(l:ExerciseLog[])=>void;userWeightKg?:number}) {
   const [open,setOpen]=useState(false);
   const [search,setSearch]=useState("");
   const [cat,setCat]=useState("All");
@@ -11249,17 +11399,36 @@ function WorkoutLogger({log,onUpdate}:{log:ExerciseLog[];onUpdate:(l:ExerciseLog
 
   const close=()=>{setOpen(false);setPending(null);setSearch("");setCat("All");setWeightPreset("BW");setFreeWeight("");};
 
+  /* Only strength categories log sets/weight — a walk or a yoga hold doesn't
+     have "sets", it has a duration. Each category gets its own relevant
+     field set instead of one form pretending every exercise is a lift. */
+  const isDuration=pendingCat==="cardio"||pendingCat==="restore";
+  const showSets=WEIGHT_CATS.has(pendingCat);
   const showWeight=WEIGHT_CATS.has(pendingCat);
+  const durationOpts=pendingCat==="cardio"?CARDIO_DURATION_OPTS:pendingCat==="restore"?RESTORE_DURATION_OPTS:REPS_OPTS;
   const effectiveWeight=freeWeight?parseFloat(freeWeight)||(weightPreset==="BW"?0:parseFloat(weightPreset)):weightPreset==="BW"?0:parseFloat(weightPreset);
   const finalRepsStr=useCustom&&customReps?customReps:reps;
-  const previewCal=showWeight?calcWorkoutCal(effectiveWeight,sets,finalRepsStr):0;
+  const weightKg=userWeightKg||65;
+  const previewCal=isDuration
+    ?calcCardioCal(estimateMET(pending||"",pendingCat),weightKg,parseDurationMinutes(finalRepsStr))
+    :showWeight?calcWorkoutCal(effectiveWeight,sets,finalRepsStr):0;
+
+  const [justLogged,setJustLogged]=useState<{n:string;cal:number;praise:string}|null>(null);
+
+  const selectExercise=(n:string,c:string)=>{
+    setPending(n);setPendingCat(c);
+    setReps(c==="cardio"?CARDIO_DURATION_OPTS[2]:c==="restore"?RESTORE_DURATION_OPTS[3]:"10 reps");
+    setUseCustom(false);setCustomReps("");
+  };
 
   const addLog=()=>{
     if(!pending) return;
     const weightLabel=showWeight?(freeWeight?`${freeWeight}kg`:weightPreset==="BW"?"BW":`${weightPreset}kg`):undefined;
-    const cal=showWeight?calcWorkoutCal(effectiveWeight,sets,finalRepsStr):undefined;
-    onUpdate([...log,{n:pending,sets,reps:finalRepsStr,cat:pendingCat,ts:new Date().toISOString(),weight:showWeight?effectiveWeight:undefined,weightLabel,cal}]);
+    const cal=previewCal>0?previewCal:undefined;
+    onUpdate([...log,{n:pending,sets:showSets?sets:1,reps:finalRepsStr,cat:pendingCat,ts:new Date().toISOString(),weight:showWeight?effectiveWeight:undefined,weightLabel,cal}]);
+    setJustLogged({n:pending,cal:cal||0,praise:pickPraise(pending+new Date().toDateString())});
     setPending(null);setSets(3);setReps("10 reps");setUseCustom(false);setCustomReps("");setWeightPreset("BW");setFreeWeight("");
+    setOpen(false);
   };
 
   const remove=(i:number)=>onUpdate(log.filter((_,j)=>j!==i));
@@ -11327,25 +11496,27 @@ function WorkoutLogger({log,onUpdate}:{log:ExerciseLog[];onUpdate:(l:ExerciseLog
                   </div>
                 </div>
 
-                {/* Sets */}
-                <div className="mb-5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-gray-500">Sets</label>
-                  <div className="flex gap-2 mt-2">
-                    {[1,2,3,4,5,6].map(n=>(
-                      <button key={n} onClick={()=>setSets(n)}
-                        className="w-11 h-11 rounded-xl font-bold text-sm transition"
-                        style={sets===n?{background:PUR,color:"#fff"}:{background:"#F3F4F6",color:"#374151"}}>
-                        {n}
-                      </button>
-                    ))}
+                {/* Sets — strength categories only; a walk or a yoga hold doesn't have "sets" */}
+                {showSets&&(
+                  <div className="mb-5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-gray-500">Sets</label>
+                    <div className="flex gap-2 mt-2">
+                      {[1,2,3,4,5,6].map(n=>(
+                        <button key={n} onClick={()=>setSets(n)}
+                          className="w-11 h-11 rounded-xl font-bold text-sm transition"
+                          style={sets===n?{background:PUR,color:"#fff"}:{background:"#F3F4F6",color:"#374151"}}>
+                          {n}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
-                {/* Reps */}
+                {/* Reps for strength, Duration/Hold for cardio & yoga — relevant options per exercise type */}
                 <div className="mb-5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-gray-500">Reps / Duration</label>
+                  <label className="text-xs font-bold uppercase tracking-wider text-gray-500">{isDuration?"Duration":"Reps"}</label>
                   <div className="flex flex-wrap gap-2 mt-2">
-                    {REPS_OPTS.map(r=>(
+                    {durationOpts.map(r=>(
                       <button key={r} onClick={()=>{setReps(r);setUseCustom(false);}}
                         className="px-3 py-1.5 rounded-xl font-semibold text-xs transition"
                         style={!useCustom&&reps===r?{background:PUR,color:"#fff"}:{background:"#F3F4F6",color:"#374151"}}>
@@ -11353,7 +11524,7 @@ function WorkoutLogger({log,onUpdate}:{log:ExerciseLog[];onUpdate:(l:ExerciseLog
                       </button>
                     ))}
                   </div>
-                  <input type="text" placeholder="Custom e.g. 400m run, 1 km walk…"
+                  <input type="text" placeholder={isDuration?"Custom e.g. 5 km run, 20 min walk…":"Custom e.g. 400m run"}
                     value={customReps} onChange={e=>{setCustomReps(e.target.value);setUseCustom(!!e.target.value);}}
                     className="w-full mt-3 px-4 py-2.5 rounded-2xl border-2 text-sm outline-none"
                     style={{borderColor:useCustom?"#7C3AED":"#E5E7EB"}}/>
@@ -11376,11 +11547,13 @@ function WorkoutLogger({log,onUpdate}:{log:ExerciseLog[];onUpdate:(l:ExerciseLog
                       value={freeWeight} onChange={e=>setFreeWeight(e.target.value)}
                       className="w-full mt-3 px-4 py-2.5 rounded-2xl border-2 text-sm outline-none"
                       style={{borderColor:freeWeight?"#7C3AED":"#E5E7EB"}}/>
-                    {previewCal>0&&(
-                      <div className="mt-2 flex items-center gap-1.5 text-xs font-semibold" style={{color:"#D97706"}}>
-                        <Flame size={13}/> ~{previewCal} kcal estimated burn
-                      </div>
-                    )}
+                  </div>
+                )}
+
+                {/* Calorie preview — every category, not just weighted lifts */}
+                {previewCal>0&&(
+                  <div className="mb-5 flex items-center gap-1.5 text-xs font-semibold" style={{color:"#D97706"}}>
+                    <Flame size={13}/> ~{previewCal} kcal estimated burn
                   </div>
                 )}
 
@@ -11418,7 +11591,7 @@ function WorkoutLogger({log,onUpdate}:{log:ExerciseLog[];onUpdate:(l:ExerciseLog
                 {/* exercise list */}
                 <div className="overflow-y-auto flex-1 p-4 pt-2 space-y-1.5">
                   {filtered.map((e,i)=>(
-                    <button key={i} onClick={()=>{setPending(e.n);setPendingCat(e.cat);}}
+                    <button key={i} onClick={()=>selectExercise(e.n,e.cat)}
                       className="w-full flex items-center gap-3 p-3 rounded-2xl border border-gray-100 text-left transition"
                       style={{}}>
                       <span className="text-2xl shrink-0 leading-none">{EXERCISE_GUIDE[e.n]?.emoji||"💪"}</span>
@@ -11442,12 +11615,142 @@ function WorkoutLogger({log,onUpdate}:{log:ExerciseLog[];onUpdate:(l:ExerciseLog
           </div>
         </div>
       )}
+
+      {/* Completion celebration — motivating message, calorie burn, share */}
+      {justLogged&&(
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-5"
+          style={{background:"rgba(0,0,0,0.6)",backdropFilter:"blur(4px)"}}
+          onClick={()=>setJustLogged(null)}>
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full text-center"
+            style={{animation:"popIn 0.3s ease both"}} onClick={e=>e.stopPropagation()}>
+            <div className="text-5xl mb-2">🎉</div>
+            <h3 className="font-black text-gray-800 text-xl leading-snug">{justLogged.praise}</h3>
+            <p className="text-gray-500 text-sm mt-1">{justLogged.n} — logged</p>
+            {justLogged.cal>0&&(
+              <div className="mt-4 rounded-2xl py-4" style={{background:PURLT}}>
+                <div className="text-3xl font-black flex items-center justify-center gap-1.5" style={{color:PUR}}>
+                  <Flame size={22}/>~{justLogged.cal}
+                </div>
+                <div className="text-xs font-semibold" style={{color:"rgba(109,40,217,0.7)"}}>kcal burned (est.)</div>
+              </div>
+            )}
+            <div className="flex gap-2 mt-5">
+              <button onClick={()=>shareWorkoutResult(justLogged.n,justLogged.cal,justLogged.praise)}
+                className="flex-1 py-3 rounded-2xl font-bold text-white text-sm flex items-center justify-center gap-1.5"
+                style={{background:PUR}}>
+                <Share2 size={15}/> Share
+              </button>
+              <button onClick={()=>window.open(`https://wa.me/?text=${encodeURIComponent(`${justLogged.praise}\n${justLogged.n}${justLogged.cal>0?` — ~${justLogged.cal} kcal burned`:""} 💪 via EatBC`)}`,"_blank","noopener")}
+                className="flex-1 py-3 rounded-2xl font-bold text-sm flex items-center justify-center gap-1.5"
+                style={{background:"#DCFCE7",color:"#15803D"}}>
+                WhatsApp
+              </button>
+            </div>
+            <button onClick={()=>setJustLogged(null)} className="mt-3 text-xs font-semibold text-gray-400">Close</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function WorkoutTab({workout,tracking,onUpdate}:{
-  workout:WorkoutPlan;tracking:Tracking;onUpdate:(t:Tracking)=>void;
+/* Latest logged weigh-in beats the onboarding number for calorie-burn math —
+   people lose/gain weight and MET calculations should reflect that. */
+function resolveWeightKg(tracking:Tracking, profile:Profile):number|undefined{
+  const entries=Object.entries(tracking.weights||{}).sort(([a],[b])=>a<b?1:-1);
+  return entries[0]?.[1] ?? (profile.weight?+profile.weight:undefined);
+}
+
+function MyLiftsCard({tracking}:{tracking:Tracking}) {
+  const allLogs=tracking.workoutLog||{};
+  const liftMap:Record<string,{date:string;weight:number;label:string}[]>={};
+  Object.entries(allLogs).sort(([a],[b])=>a<b?-1:1).forEach(([date,logs])=>{
+    (logs as ExerciseLog[]).forEach(log=>{
+      if(log.weight&&log.n!=="Workout (estimated)"){
+        if(!liftMap[log.n]) liftMap[log.n]=[];
+        liftMap[log.n].push({date,weight:log.weight!,label:log.weightLabel||`${log.weight}kg`});
+      }
+    });
+  });
+  const lifts=Object.entries(liftMap).filter(([,v])=>v.length>0);
+  if(!lifts.length) return null;
+  return (
+    <div className="bg-white rounded-3xl border border-gray-100 p-5 mb-4">
+      <div className="flex items-center gap-2 mb-4"><TrendingUp size={16} className="text-purple-600"/><h3 className="font-black text-gray-800">My Lifts</h3></div>
+      <div className="space-y-4">
+        {lifts.map(([name,entries])=>{
+          const last5=entries.slice(-5);
+          const max=Math.max(...last5.map(e=>e.weight));
+          const latest=last5[last5.length-1];
+          const first=last5[0];
+          const gained=latest.weight-first.weight;
+          return (
+            <div key={name}>
+              <div className="flex justify-between items-center mb-1.5">
+                <span className="text-sm font-semibold text-gray-800 truncate flex-1 mr-2">{name}</span>
+                <div className="text-right shrink-0">
+                  <span className="text-sm font-black text-purple-700">{latest.label}</span>
+                  {last5.length>1&&<span className={`ml-1.5 text-[10px] font-bold ${gained>0?"text-green-600":gained<0?"text-red-500":"text-gray-400"}`}>{gained>0?`+${gained}`:gained}kg</span>}
+                </div>
+              </div>
+              <div className="flex gap-1 items-end h-8">
+                {last5.map((e,i)=>(
+                  <div key={i} className="flex-1 rounded-t transition-all"
+                    style={{height:`${Math.max(15,Math.round((e.weight/max)*100))}%`,
+                    background:i===last5.length-1?"#7C3AED":"#EDE9FE",
+                    minHeight:4}}
+                    title={`${e.date}: ${e.label}`}/>
+                ))}
+              </div>
+              <div className="flex justify-between text-[10px] text-gray-300 mt-1">
+                <span>{last5[0].date.slice(5)}</span><span>{latest.date.slice(5)}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* For users who skipped the structured workout plan during onboarding —
+   no schedule/sessions to show, but they can still log any exercise and
+   see their streak, calories and lift history build up over time. */
+function NoPlanTrainTab({tracking,onUpdate,profile}:{tracking:Tracking;onUpdate:(t:Tracking)=>void;profile:Profile;}) {
+  const iso=isoDate();
+  const workouts=tracking.workouts||{};
+  const streak=workoutStreak(workouts);
+  const dayLog=(tracking.workoutLog||{})[iso]||[];
+
+  const updateLog=(l:ExerciseLog[])=>{
+    /* Logging anything today counts as "worked out today" for streaks —
+       there's no structured session to check off, so the diary itself
+       is the source of truth for this user. */
+    onUpdate({...tracking,workoutLog:{...(tracking.workoutLog||{}),[iso]:l},workouts:{...workouts,[iso]:l.length>0}});
+  };
+
+  return (
+    <>
+      <div className="rounded-3xl p-5 mb-4 text-white shadow-lg"
+        style={{background:"linear-gradient(135deg,#5B21B6 0%,#7C3AED 55%,#9333EA 100%)"}}>
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-1"><Dumbbell size={18}/><span className="font-bold text-sm">Your Training</span></div>
+            <div className="text-3xl font-black flex items-center gap-1.5"><Flame size={24}/>{streak}</div>
+            <div className="text-white/70 text-xs">workout day streak</div>
+          </div>
+        </div>
+        <div className="text-white/80 text-xs mt-3">No structured plan — log any workout, anytime, and we'll track it for you.</div>
+      </div>
+
+      <WorkoutLogger log={dayLog} onUpdate={updateLog} userWeightKg={resolveWeightKg(tracking,profile)}/>
+      <MyLiftsCard tracking={tracking}/>
+    </>
+  );
+}
+
+function WorkoutTab({workout,tracking,onUpdate,profile}:{
+  workout:WorkoutPlan;tracking:Tracking;onUpdate:(t:Tracking)=>void;profile:Profile;
 }) {
   const todayIdx=(new Date().getDay()+6)%7;            // Mon=0
   const iso=isoDate();
@@ -11645,60 +11948,11 @@ function WorkoutTab({workout,tracking,onUpdate}:{
       <WorkoutLogger
         log={(tracking.workoutLog||{})[iso]||[]}
         onUpdate={l=>onUpdate({...tracking,workoutLog:{...(tracking.workoutLog||{}),[iso]:l}})}
+        userWeightKg={resolveWeightKg(tracking,profile)}
       />
 
       {/* My Lifts: weight progression per exercise */}
-      {(()=>{
-        const allLogs=tracking.workoutLog||{};
-        const liftMap:Record<string,{date:string;weight:number;label:string}[]>={};
-        Object.entries(allLogs).sort(([a],[b])=>a<b?-1:1).forEach(([date,logs])=>{
-          (logs as ExerciseLog[]).forEach(log=>{
-            if(log.weight&&log.n!=="Workout (estimated)"){
-              if(!liftMap[log.n]) liftMap[log.n]=[];
-              liftMap[log.n].push({date,weight:log.weight!,label:log.weightLabel||`${log.weight}kg`});
-            }
-          });
-        });
-        const lifts=Object.entries(liftMap).filter(([,v])=>v.length>0);
-        if(!lifts.length) return null;
-        return (
-          <div className="bg-white rounded-3xl border border-gray-100 p-5 mb-4">
-            <div className="flex items-center gap-2 mb-4"><TrendingUp size={16} className="text-purple-600"/><h3 className="font-black text-gray-800">My Lifts</h3></div>
-            <div className="space-y-4">
-              {lifts.map(([name,entries])=>{
-                const last5=entries.slice(-5);
-                const max=Math.max(...last5.map(e=>e.weight));
-                const latest=last5[last5.length-1];
-                const first=last5[0];
-                const gained=latest.weight-first.weight;
-                return (
-                  <div key={name}>
-                    <div className="flex justify-between items-center mb-1.5">
-                      <span className="text-sm font-semibold text-gray-800 truncate flex-1 mr-2">{name}</span>
-                      <div className="text-right shrink-0">
-                        <span className="text-sm font-black text-purple-700">{latest.label}</span>
-                        {last5.length>1&&<span className={`ml-1.5 text-[10px] font-bold ${gained>0?"text-green-600":gained<0?"text-red-500":"text-gray-400"}`}>{gained>0?`+${gained}`:gained}kg</span>}
-                      </div>
-                    </div>
-                    <div className="flex gap-1 items-end h-8">
-                      {last5.map((e,i)=>(
-                        <div key={i} className="flex-1 rounded-t transition-all"
-                          style={{height:`${Math.max(15,Math.round((e.weight/max)*100))}%`,
-                          background:i===last5.length-1?"#7C3AED":"#EDE9FE",
-                          minHeight:4}}
-                          title={`${e.date}: ${e.label}`}/>
-                      ))}
-                    </div>
-                    <div className="flex justify-between text-[10px] text-gray-300 mt-1">
-                      <span>{last5[0].date.slice(5)}</span><span>{latest.date.slice(5)}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })()}
+      <MyLiftsCard tracking={tracking}/>
 
       {/* coaching notes */}
       <div className="rounded-3xl p-5 mb-4" style={{background:"#F5F3FF"}}>
@@ -11979,7 +12233,7 @@ function VeerBot({session,planCondition,plan,tracking,profile}:{
     if(profile.goal) lines.push(`Goal: ${profile.goal}`);
     if(profile.activity) lines.push(`Activity: ${profile.activity}${profile.exercise?.length?` / ${profile.exercise.join(", ")}`:""}`);
     if(profile.diet) lines.push(`Diet: ${profile.diet}`);
-    if(condArr(profile.condition).length) lines.push(`Health condition: ${condArr(profile.condition).join(", ")}`);
+    if(condArr(profile.condition, profile.sex!=="Male").length) lines.push(`Health condition: ${condArr(profile.condition, profile.sex!=="Male").join(", ")}`);
     if(plan){lines.push(`Daily calories: ${plan.dailyCalories} kcal`);if(plan.weeklyLoss)lines.push(`Target: ${plan.weeklyLoss}`);}
     const wLog=Object.entries(tracking.weights||{}).sort();
     if(wLog.length){
@@ -12453,10 +12707,9 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
   const touchStartX=useRef(0);
   const [tab,setTab]=useState<"today"|"train"|"progress"|"community">("today");
   const [showCalendar,setShowCalendar]=useState(false);
-  const hasWorkout=!!plan?.workout;
   const TABS:[typeof tab,string,React.ElementType][]=[
     ["today","Today",Utensils],
-    ...(hasWorkout?[["train","Train",Dumbbell] as [typeof tab,string,React.ElementType]]:[]),
+    ["train","Train",Dumbbell],
     ["progress","Stats",BarChart3],["community","Squad",Users],
   ];
 
@@ -12838,8 +13091,10 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
           </>
         )}
 
-        {tab==="train"&&plan?.workout&&(
-          <WorkoutTab workout={plan.workout} tracking={tracking} onUpdate={onUpdate}/>
+        {tab==="train"&&(
+          plan?.workout
+            ?<WorkoutTab workout={plan.workout} tracking={tracking} onUpdate={onUpdate} profile={profile}/>
+            :<NoPlanTrainTab tracking={tracking} onUpdate={onUpdate} profile={profile}/>
         )}
 
         {tab==="progress"&&(
@@ -13146,6 +13401,13 @@ export default function App() {
     let cands=DB.filter(f=>base(f)&&f.reg.some(r=>regions.includes(r)));
     if(!cands.length) cands=DB.filter(base);
     if(!cands.length) return;
+    /* Same cuisine×style intersection as the plan builder: within the cuisine
+       pool, prefer dishes matching a selected style tag (e.g. High-Protein). */
+    const styleTags=(profile.region||[]).filter(r=>["High-Protein","Keto","Plant-Based"].includes(r));
+    if(styleTags.length){
+      const styled=cands.filter(f=>styleTags.some(tag=>styleMatch(f,tag)));
+      if(styled.length) cands=styled;
+    }
     cands.sort((a,b)=>Math.abs(a.c-meal.cal)-Math.abs(b.c-meal.cal));
     const pick=cands[Math.floor(Math.random()*Math.min(5,cands.length))];
     const newMeal:Meal={time:meal.time,food:pick.n,cal:pick.c,p:pick.p||0,qty:pick.q};
@@ -13238,7 +13500,7 @@ export default function App() {
   if (screen==="login")   return <Login onDone={doLogin} onBack={()=>setScreen("welcome")}/>;
   if (screen==="intro")   return <LoginIntro diet={plan?.diet} onDone={()=>setScreen("quote")}/>;
   if (screen==="quote")   return <DailyQuote onDone={()=>setScreen("dash")}/>;
-  if (screen==="foodgame") return <FoodGame name={profile.name} onDone={finishGame}/>;
+  if (screen==="foodgame") return <FoodGame name={profile.name} diet={profile.diet} onDone={finishGame}/>;
 
   if (screen==="quiz") return (
     <div className="min-h-screen py-8 px-4 relative overflow-hidden" style={{background:"#0A0A0A"}}>
@@ -13261,7 +13523,7 @@ export default function App() {
         <div className={cur.sub?"":"mt-5"}>
           {cur.type==="pick"&&(
             <div className="grid gap-2.5">
-              {cur.opts!.map(o=>(
+              {(cur.optsFn?.(profile)||cur.opts||[]).map(o=>(
                 <button key={o} onClick={()=>setVal(o)}
                   className={`text-left px-5 py-3.5 rounded-2xl border-2 transition font-medium ${profile[cur.k]===o?"text-white shadow-md":"bg-white text-gray-700 border-gray-200 hover:border-gray-300"}`}
                   style={profile[cur.k]===o?{background:GREEN,borderColor:GREEN}:{}}>
@@ -13272,7 +13534,7 @@ export default function App() {
           )}
           {cur.type==="multi"&&(
             <div className="grid grid-cols-2 gap-2 max-h-72 overflow-y-auto">
-              {cur.opts!.map(o=>{
+              {(cur.optsFn?.(profile)||cur.opts||[]).map(o=>{
                 const on=(Array.isArray(profile[cur.k])?(profile[cur.k] as string[]):[]).includes(o);
                 return (
                   <button key={o} onClick={()=>toggleMulti(o)}
