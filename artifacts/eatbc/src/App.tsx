@@ -168,6 +168,12 @@ function pickQuote(): string { return QUOTES[Math.floor(Math.random() * QUOTES.l
 
 /* ─────────────── constants ─────────────── */
 const GREEN = "#1DAA61";
+/* Dashboard palette — Pine & Turmeric: deep pine ink + turmeric gold.
+   Premium, distinctly Indian, continuous with the funnel's dark-green/yellow. */
+const PINE = "#0D2E22";
+const PINE_MID = "#123B2C";
+const TURMERIC = "#E8B54A";
+const TURMERIC_DEEP = "#A97613";   // AA-contrast turmeric for text on white
 const WEEK = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"] as const;
 type DayName = typeof WEEK[number];
 
@@ -12785,29 +12791,29 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
       <div className="pb-24" style={{animation:"eFade .4s ease both"}}>
         {/* ── Hero: one glanceable header, no hidden swipes ── */}
         <div className="rounded-[28px] text-white shadow-lg mb-4 overflow-hidden relative"
-          style={{background:"linear-gradient(150deg,#0D8A4E 0%,#0C7A46 45%,#0A5E38 100%)"}}>
+          style={{background:`linear-gradient(150deg,${PINE_MID} 0%,${PINE} 55%,#081F17 100%)`}}>
           <div className="absolute inset-0 pointer-events-none"
             style={{backgroundImage:"radial-gradient(rgba(255,255,255,0.09) 1px,transparent 1px)",backgroundSize:"22px 22px",opacity:0.45}}/>
           <div className="absolute rounded-full pointer-events-none"
-            style={{width:260,height:260,top:-120,right:-80,background:"radial-gradient(circle,rgba(255,250,102,0.16),transparent 68%)",filter:"blur(6px)"}}/>
+            style={{width:260,height:260,top:-120,right:-80,background:"radial-gradient(circle,rgba(232,181,74,0.18),transparent 68%)",filter:"blur(6px)"}}/>
           <div className="relative px-5 pt-5 pb-5">
 
             {/* Top row: greeting + calendar + avatar */}
             <div className="flex items-start justify-between mb-5">
               <div className="min-w-0">
-                <div className="text-[11px] font-bold uppercase tracking-widest text-white/85">{greeting}</div>
+                <div className="text-[11px] font-bold uppercase tracking-widest" style={{color:TURMERIC}}>{greeting}</div>
                 <h2 className="text-[26px] font-black leading-tight truncate" style={{letterSpacing:"-0.5px"}}>{session.name}</h2>
                 <div className="text-xs text-white/85 mt-0.5">{dateLabel}</div>
               </div>
               <div className="flex items-center gap-2 shrink-0 pt-0.5">
                 <button onClick={()=>setShowCalendar(true)} aria-label="Open month calendar"
                   className="w-10 h-10 rounded-full flex items-center justify-center active:scale-95 transition"
-                  style={{background:"rgba(255,255,255,0.14)",border:"1px solid rgba(255,255,255,0.22)"}}>
+                  style={{background:"rgba(255,255,255,0.12)",border:"1px solid rgba(255,255,255,0.2)"}}>
                   <CalendarDays size={17}/>
                 </button>
                 <button onClick={()=>setShowProfile(true)} aria-label="Account & settings"
                   className="w-10 h-10 rounded-full flex items-center justify-center font-black text-base active:scale-95 transition"
-                  style={{background:"rgba(255,250,102,0.9)",color:"#0A5E38",boxShadow:"0 4px 14px rgba(0,0,0,0.18)"}}>
+                  style={{background:TURMERIC,color:PINE,boxShadow:"0 4px 14px rgba(0,0,0,0.25)"}}>
                   {(session.name||"?")[0].toUpperCase()}
                 </button>
               </div>
@@ -12816,11 +12822,12 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
             {/* Middle: calorie ring + macro bars — the whole day at a glance */}
             <div className="flex items-center gap-5 mb-4">
               <div className="shrink-0 relative">
-                <CalRing pct={cal?consumed/cal:0} big={consumed} small={`/ ${cal}`} size={118}/>
+                <CalRing pct={cal?consumed/cal:0} big={consumed} small={`/ ${cal}`} size={118}
+                  color={TURMERIC} track="rgba(232,181,74,0.22)"/>
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-2.5">
-                  <span className="text-sm font-black">{cal>0?`${kcalLeft} kcal left`:"Set your plan"}</span>
+                  <span className="text-sm font-black" style={{color:TURMERIC}}>{cal>0?`${kcalLeft} kcal left`:"Set your plan"}</span>
                   {workoutBurned>0&&(
                     <span className="text-[11px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1"
                       style={{background:"rgba(255,255,255,0.16)"}}>
@@ -12835,7 +12842,7 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
                         <span>{t("protein")}</span><span>{proteinConsumed} / {proteinTargetVal}g</span>
                       </div>
                       <div className="h-2 rounded-full" style={{background:"rgba(255,255,255,0.2)"}}>
-                        <div className="h-2 rounded-full transition-all duration-700" style={{width:`${Math.min(proteinConsumed/proteinTargetVal,1)*100}%`,background:"#86efac"}}/>
+                        <div className="h-2 rounded-full transition-all duration-700" style={{width:`${Math.min(proteinConsumed/proteinTargetVal,1)*100}%`,background:TURMERIC}}/>
                       </div>
                     </div>
                     {fatTarget>0&&(
@@ -12844,7 +12851,7 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
                           <span>Fat</span><span>{fatConsumed} / {fatTarget}g</span>
                         </div>
                         <div className="h-1.5 rounded-full" style={{background:"rgba(255,255,255,0.16)"}}>
-                          <div className="h-1.5 rounded-full transition-all duration-700" style={{width:`${Math.min(fatConsumed/fatTarget,1)*100}%`,background:"#fbbf24"}}/>
+                          <div className="h-1.5 rounded-full transition-all duration-700" style={{width:`${Math.min(fatConsumed/fatTarget,1)*100}%`,background:"#8FD3B6"}}/>
                         </div>
                       </div>
                     )}
@@ -12868,7 +12875,7 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
             {/* Stat chips */}
             <div className="grid grid-cols-4 gap-2 text-center">
               <div className="rounded-2xl py-2.5" style={{background:"rgba(255,255,255,0.13)",border:"1px solid rgba(255,255,255,0.12)"}}>
-                <div className="font-black text-lg leading-none flex items-center justify-center gap-1"><Flame size={15} style={{color:"#FFFA66"}}/>{streak}</div>
+                <div className="font-black text-lg leading-none flex items-center justify-center gap-1"><Flame size={15} style={{color:TURMERIC}}/>{streak}</div>
                 <div className="text-[10px] text-white/75 mt-1">streak</div>
               </div>
               <div className="rounded-2xl py-2.5" style={{background:"rgba(255,255,255,0.13)",border:"1px solid rgba(255,255,255,0.12)"}}>
@@ -12926,10 +12933,10 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
                 return (
                   <button key={d} onClick={()=>setSel(d)} aria-label={`View ${d}`}
                     className={`flex flex-col items-center py-2 rounded-2xl transition active:scale-95 ${isSel?"text-white shadow-md":"bg-white text-gray-500 border border-gray-100"}`}
-                    style={isSel?{background:GREEN}:{}}>
+                    style={isSel?{background:PINE_MID}:{}}>
                     <span className={`text-[10px] font-bold uppercase ${isSel?"text-white/80":"text-gray-400"}`}>{d.slice(0,3)}</span>
                     <span className="text-base font-black leading-tight">{dt.getDate()}</span>
-                    <span className="w-1 h-1 rounded-full mt-0.5" style={{background:isToday?(isSel?"#FFFA66":GREEN):"transparent"}}/>
+                    <span className="w-1 h-1 rounded-full mt-0.5" style={{background:isToday?(isSel?TURMERIC:TURMERIC_DEEP):"transparent"}}/>
                   </button>
                 );
               })}
@@ -12938,14 +12945,14 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
               <>
                 <Card className="p-5 mb-4">
                   <div className="flex items-center justify-between mb-1.5">
-                    <h3 className="font-black text-gray-800 flex items-center gap-2"><Utensils size={16} style={{color:GREEN}}/>{sel}'s plan</h3>
-                    <span className="text-[11px] font-bold px-2.5 py-1 rounded-full" style={{background:"#F0FDF4",color:GREEN}}>
+                    <h3 className="font-black text-gray-800 flex items-center gap-2"><Utensils size={16} style={{color:TURMERIC_DEEP}}/>{sel}'s plan</h3>
+                    <span className="text-[11px] font-bold px-2.5 py-1 rounded-full" style={{background:"#FBF3E0",color:TURMERIC_DEEP}}>
                       {dp.meals.reduce((a,m)=>a+m.cal,0)} kcal
                     </span>
                   </div>
                   <div className="flex items-center gap-2.5 mb-3.5">
                     <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{background:"#F3F4F6"}}>
-                      <div className="h-1.5 rounded-full transition-all duration-500" style={{width:`${dp.meals.length?doneCount/dp.meals.length*100:0}%`,background:GREEN}}/>
+                      <div className="h-1.5 rounded-full transition-all duration-500" style={{width:`${dp.meals.length?doneCount/dp.meals.length*100:0}%`,background:TURMERIC}}/>
                     </div>
                     <span className="text-[11px] font-semibold text-gray-500 shrink-0">{doneCount}/{dp.meals.length} done · {t("tickOff")}</span>
                   </div>
@@ -13203,10 +13210,10 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
             <div className="w-10 h-1 rounded-full bg-gray-200 mx-auto mb-5"/>
             <div className="flex items-center gap-3.5 mb-5">
               <div className="w-14 h-14 rounded-full flex items-center justify-center font-black text-2xl text-white shrink-0"
-                style={{background:`linear-gradient(135deg,${GREEN},#0B6E40)`}}>{(session.name||"?")[0].toUpperCase()}</div>
+                style={{background:`linear-gradient(135deg,${PINE_MID},${PINE})`}}>{(session.name||"?")[0].toUpperCase()}</div>
               <div className="flex-1 min-w-0">
                 <div className="font-black text-gray-800 text-lg truncate">{session.name}</div>
-                <div className="text-xs font-semibold px-2 py-0.5 rounded-full inline-block mt-0.5" style={{background:"#F0FDF4",color:GREEN}}>
+                <div className="text-xs font-semibold px-2 py-0.5 rounded-full inline-block mt-0.5" style={{background:"#FBF3E0",color:TURMERIC_DEEP}}>
                   {plan?.goal||"No goal set"}
                 </div>
               </div>
@@ -13278,14 +13285,14 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
             <button key={id} onClick={()=>{setTab(id);window.scrollTo({top:0,behavior:"smooth"});}}
               role="tab" aria-selected={tab===id} aria-label={`Switch to ${label} tab`}
               className="flex flex-col items-center gap-0.5 py-1.5 rounded-xl transition active:scale-95">
-              <Icon size={21} style={{color:tab===id?GREEN:"#9CA3AF"}} strokeWidth={tab===id?2.6:2}/>
-              <span className="text-[10px] font-bold" style={{color:tab===id?GREEN:"#9CA3AF"}}>{label}</span>
+              <Icon size={21} style={{color:tab===id?PINE_MID:"#9CA3AF"}} strokeWidth={tab===id?2.6:2}/>
+              <span className="text-[10px] font-bold" style={{color:tab===id?PINE_MID:"#9CA3AF"}}>{label}</span>
             </button>
           ))}
           <div className="flex justify-center">
             <button onClick={()=>setShowQuick(true)} aria-label="Quick add"
               className="w-[52px] h-[52px] -mt-6 rounded-full flex items-center justify-center text-white active:scale-95 transition"
-              style={{background:`linear-gradient(135deg,${GREEN},#0B6E40)`,boxShadow:"0 8px 22px -4px rgba(29,170,97,0.55)",border:"3px solid white"}}>
+              style={{background:`linear-gradient(135deg,${PINE_MID},${PINE})`,boxShadow:"0 8px 22px -4px rgba(13,46,34,0.5)",border:"3px solid white"}}>
               <Plus size={26} strokeWidth={2.8}/>
             </button>
           </div>
@@ -13293,8 +13300,8 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
             <button key={id} onClick={()=>{setTab(id);window.scrollTo({top:0,behavior:"smooth"});}}
               role="tab" aria-selected={tab===id} aria-label={`Switch to ${label} tab`}
               className="flex flex-col items-center gap-0.5 py-1.5 rounded-xl transition active:scale-95">
-              <Icon size={21} style={{color:tab===id?GREEN:"#9CA3AF"}} strokeWidth={tab===id?2.6:2}/>
-              <span className="text-[10px] font-bold" style={{color:tab===id?GREEN:"#9CA3AF"}}>{label}</span>
+              <Icon size={21} style={{color:tab===id?PINE_MID:"#9CA3AF"}} strokeWidth={tab===id?2.6:2}/>
+              <span className="text-[10px] font-bold" style={{color:tab===id?PINE_MID:"#9CA3AF"}}>{label}</span>
             </button>
           ))}
         </div>
