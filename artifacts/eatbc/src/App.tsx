@@ -274,7 +274,7 @@ const Q: Question[] = [
     opts:["3 meals","3 meals + 2 snacks","5-6 small meals"] },
   { k:"weekend",   label:"What's your typical weekend like?",           type:"multi",
     sub:"Pick all that apply — we'll adjust your weekend calorie targets to match.",
-    opts:["Rest & recovery","Run club / group fitness","Coffee rave / morning run","Hiking / outdoor sports","Social eating out","Travel / exploring","Home cooking & meal prep","Houseparty / clubbing / drinking"] },
+    opts:["Just a regular weekend","Rest & recovery","Run club / group fitness","Coffee rave / morning run","Hiking / outdoor sports","Social eating out","Travel / exploring","Home cooking & meal prep","Houseparty / clubbing / drinking"] },
   { k:"region",    label:"Which cuisines do you enjoy?",                type:"multi",
     sub:"Pick all that apply — we'll mix these into your meal plan.",
     opts:["North Indian","South Indian","Continental","Mediterranean","East Asian","Middle Eastern","Mexican","Keto","High-Protein","Plant-Based","Intermittent Fasting"] },
@@ -6984,10 +6984,15 @@ function pickMeal(slot: string, target: number, di: number, used: Set<string>, d
     if (ctx.conds.includes("High cholesterol")&&f.t.includes("fiber")) s+=0.2;
     if (ctx.conds.some(c=>c==="Pregnant"||c==="Breastfeeding")&&f.t.includes("protein")) s+=0.35;
     if (ctx.simplePref&&f.simple) s+=0.25;
-    if (picksMatch(f,ctx.picks)) s+=0.6;
+    if (picksMatch(f,ctx.picks)) s+=1.0;
     /* Cuisine × style intersection (e.g. North Indian + High-Protein):
        big boost so the plan majorly favours dishes matching BOTH picks. */
     if (ctx.styleTags.length&&ctx.styleTags.some(tag=>styleMatch(f,tag))) s+=0.8;
+    /* Region affinity: when the user chose specific Indian cuisines, dishes
+       actually tagged with those regions outrank generic "all" fillers
+       (stops a burrito bowl gate-crashing a North Indian plan). */
+    const explicitRegs=ctx.regions.filter(r=>r!=="all");
+    if (explicitRegs.length&&f.reg.some(r=>explicitRegs.includes(r))) s+=0.7;
     /* 90% non-veg bias: strongly prefer non-veg items in main meals for non-veg users */
     if (ctx.diet==="Non-veg"&&(f.meat||f.fish||f.egg)&&(slot==="l"||slot==="d")) s+=1.5;
     if (ctx.diet==="Egg + veg"&&f.egg&&(slot==="l"||slot==="d"||slot==="ms")) s+=1.0;
@@ -7664,8 +7669,17 @@ function buildPlan(profile: Profile): Plan {
       return {time:label,food:m.n,cal:m.c,p:m.p||0,qty:m.q};
     });
     const total=raw.reduce((a,b)=>a+b.cal,0);
-    let f=total?dayCal/total:1; f=Math.max(0.85,Math.min(1.25,f));
+    let f=total?dayCal/total:1; f=Math.max(0.6,Math.min(1.4,f));
     raw=raw.map(m=>({...m,cal:Math.round((m.cal*f)/5)*5}));
+    /* The day list must add up to the day's stated target (±5%) — a plan
+       whose header says 1950 while Monday shows 2130 destroys trust. Absorb
+       any residual into the largest meal. */
+    const dayTotal=raw.reduce((a,b)=>a+b.cal,0);
+    const resid=dayCal-dayTotal;
+    if (Math.abs(resid)>dayCal*0.05){
+      const bi=raw.reduce((mi,m,i2)=>m.cal>raw[mi].cal?i2:mi,0);
+      raw[bi]={...raw[bi],cal:Math.max(150,Math.round((raw[bi].cal+resid)/5)*5)};
+    }
     if (di%7===6) weekUsed.clear();
     return {day:dn as DayName,meals:raw};
   });
@@ -7741,7 +7755,7 @@ function buildPlan(profile: Profile): Plan {
     : "";
 
   return {
-    summary:`Here's a ${goalLabel} plan at about ${avgActualCal} kcal a day, built around ${regLabel} food you actually like.${deficitNote}${condNote}${bfNote}${pregnantNote}`,
+    summary:`Here's a ${goalLabel} plan at about ${avgActualCal} kcal a day, built around ${regLabel} food you actually like.${deficitNote}${condNote}${bfNote}${pregnantNote}${profile.sex&&profile.sex!=="Male"&&profile.sex!=="Female"?" Calorie math uses the more conservative baseline for safety.":""}`,
     dailyCalories:avgActualCal,maintenanceCalories:maintenance,proteinTarget,fatTarget,fiberTarget,bmi:st.bmi,bmiCat:st.bmiCat,
     goal:st.effectiveGoal,diet:profile.diet||"Pure veg",
     condition:cond,regLabel,timeline,weeklyLoss,
@@ -7889,7 +7903,7 @@ function Card({children,className=""}:{children:React.ReactNode;className?:strin
 function Chip({label,val,accent}:{label:string;val:string;accent?:boolean}) {
   return (
     <div className="rounded-2xl bg-white border border-gray-100 px-3 py-2.5 shadow-sm">
-      <div className="text-xs text-gray-400">{label}</div>
+      <div className="text-xs text-gray-500">{label}</div>
       <div className={`font-semibold text-sm mt-0.5 ${accent?"":"text-gray-800"}`}
         style={accent?{color:GREEN}:{}}>{val}</div>
     </div>
@@ -7943,8 +7957,8 @@ function PlanWeek({plan}:{plan:Plan}) {
                   )}
                 </div>
                 <div className="flex items-center gap-1 mt-1">
-                  <Scale size={11} className="text-gray-400 shrink-0"/>
-                  <span className="text-xs text-gray-400">{m.qty}</span>
+                  <Scale size={11} className="text-gray-500 shrink-0"/>
+                  <span className="text-xs text-gray-500">{m.qty}</span>
                 </div>
               </div>
             </div>
@@ -8084,7 +8098,7 @@ function MeasurementsCard({tracking,onUpdate}:{tracking:Tracking;onUpdate:(t:Tra
   return (
     <Card className="p-5 mt-4">
       <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-3">
-        <Scale size={18} style={{color:GREEN}}/> Body measurements <span className="text-xs font-normal text-gray-400">(cm)</span>
+        <Scale size={18} style={{color:GREEN}}/> Body measurements <span className="text-xs font-normal text-gray-500">(cm)</span>
       </h3>
       <div className="grid grid-cols-2 gap-2 mb-3">
         {(["waist","hip","chest","neck"] as MeasurementKey[]).map(k=>(
@@ -8108,7 +8122,7 @@ function MeasurementsCard({tracking,onUpdate}:{tracking:Tracking;onUpdate:(t:Tra
           <div className="text-xs font-semibold text-gray-500 mb-1">Recent history</div>
           {history.slice(-3).reverse().map(([date,m])=>(
             <div key={date} className="flex items-center gap-2 text-xs text-gray-600">
-              <span className="text-gray-400 shrink-0">{date.slice(5)}</span>
+              <span className="text-gray-500 shrink-0">{date.slice(5)}</span>
               {(["waist","hip","chest","neck"] as MeasurementKey[]).filter(k=>m[k]!=null).map(k=>(
                 <span key={k} className="px-1.5 py-0.5 rounded-lg bg-gray-100">{MEASURE_LABELS[k][0]}: {m[k]}</span>
               ))}
@@ -8223,29 +8237,48 @@ function AtomOrb({accent}:{accent:string}) {
   );
 }
 
+/* Slide 0: THE PROMISE — say what the product does before selling trust. */
+function OnbSlide0({accent}:{accent:string}) {
+  return(
+    <motion.div className="flex flex-col items-center text-center"
+      variants={staggerContainer} initial="hidden" animate="show">
+      <motion.div variants={slideUp} className="mb-5 relative">
+        <div className="absolute inset-0 rounded-full" style={{background:accent,filter:"blur(30px)",opacity:0.28}}/>
+        <span style={{fontSize:76,lineHeight:1,position:"relative"}}>🍛</span>
+      </motion.div>
+      <motion.h2 variants={slideUp} className="font-black text-white mb-3"
+        style={{fontSize:40,lineHeight:1.05,letterSpacing:"-1.5px"}}>
+        Your Indian diet<br/>&amp; workout plan.
+      </motion.h2>
+      <motion.p variants={slideUp} className="font-black mb-4"
+        style={{fontSize:21,color:accent,letterSpacing:"-0.3px"}}>
+        Free. Ready in 3 minutes.
+      </motion.p>
+      <motion.p variants={slideUp}
+        style={{color:"rgba(255,255,255,0.62)",fontSize:14,maxWidth:260,lineHeight:1.7}}>
+        Answer a few questions about your body, goal and the food you love — get a 7-day plan built for you.
+      </motion.p>
+    </motion.div>
+  );
+}
 function OnbSlide1({accent}:{accent:string}) {
-  const [ct,setCt]=useState(0);
-  useEffect(()=>{
-    const iv=setInterval(()=>setCt(c=>c>=2000?2000:c+50),22);
-    return()=>clearInterval(iv);
-  },[]);
   return(
     <motion.div className="flex flex-col items-center text-center"
       variants={staggerContainer} initial="hidden" animate="show">
       <motion.div variants={slideUp} className="mb-4">
         <AtomOrb accent={accent}/>
       </motion.div>
-      <motion.div variants={slideUp} className="font-black leading-none mb-1 tabular-nums"
-        style={{fontSize:86,color:accent,textShadow:`0 0 48px ${ha(accent,0.4)}`,letterSpacing:"-3px"}}>
-        {ct.toLocaleString()}+
+      <motion.div variants={slideUp} className="font-black leading-none mb-1"
+        style={{fontSize:44,color:accent,textShadow:`0 0 48px ${ha(accent,0.4)}`,letterSpacing:"-1.5px"}}>
+        WHO · ICMR · ISSN
       </motion.div>
       <motion.p variants={slideUp} className="font-black mb-4"
         style={{fontSize:20,color:"rgba(255,255,255,0.9)",letterSpacing:"-0.3px"}}>
-        Nutrition Studies
+        Published guidelines. Real science.
       </motion.p>
       <motion.p variants={slideUp}
-        style={{color:"rgba(255,255,255,0.48)",fontSize:14,maxWidth:250,lineHeight:1.7}}>
-        Real science behind every meal. Peer-reviewed nutrition research — not influencer guesswork.
+        style={{color:"rgba(255,255,255,0.62)",fontSize:14,maxWidth:260,lineHeight:1.7}}>
+        Every target comes from published nutrition guidelines and peer-reviewed research — not influencer guesswork.
       </motion.p>
     </motion.div>
   );
@@ -8304,7 +8337,7 @@ function OnbSlide2({accent}:{accent:string}) {
       </motion.h2>
       <motion.p variants={slideUp}
         style={{color:"rgba(255,255,255,0.48)",fontSize:14,maxWidth:260,lineHeight:1.7}}>
-        We do not sell your data to Bajaj Finance or anyone else. Your health information stays yours — always.
+        No spam calls. No selling your data to anyone — ever. Your health information stays yours, always.
       </motion.p>
     </motion.div>
   );
@@ -8589,6 +8622,7 @@ function OnbSlide4({accent}:{accent:string}) {
   );
 }
 function Onboarding({onDone}:{onDone:()=>void}) {
+  const LAST=4;
   const [slide,setSlide]=useState(0);
   const [prog,setProg]=useState(0);
   const [anim,setAnim]=useState(0);
@@ -8603,7 +8637,7 @@ function Onboarding({onDone}:{onDone:()=>void}) {
         const next=p+STEP;
         if(next>=100){
           clearInterval(ivRef.current!);
-          setTimeout(()=>{if(slide<3)setSlide(s=>s+1);else onDone();},0);
+          setTimeout(()=>{if(slide<LAST)setSlide(s=>s+1);else onDone();},0);
           return 100;
         }
         return next;
@@ -8614,7 +8648,7 @@ function Onboarding({onDone}:{onDone:()=>void}) {
 
   useEffect(()=>{
     setAnim(0);
-    if(slide!==3) return;
+    if(slide!==LAST) return;
     const t1=setTimeout(()=>setAnim(1),700);
     const t2=setTimeout(()=>setAnim(2),1900);
     const t3=setTimeout(()=>setAnim(3),2900);
@@ -8623,17 +8657,19 @@ function Onboarding({onDone}:{onDone:()=>void}) {
 
   function goNext(){
     if(ivRef.current) clearInterval(ivRef.current);
-    if(slide<3) setSlide(slide+1); else onDone();
+    if(slide<LAST) setSlide(slide+1); else onDone();
   }
 
+  /* One brand family across the funnel: deep green (quiz/food game) + yellow. */
   const BKGS=[
-    "linear-gradient(155deg,#180826 0%,#250c3b 45%,#370854 100%)",
-    "linear-gradient(155deg,#1a0929 0%,#270d40 45%,#370854 100%)",
-    "linear-gradient(155deg,#150625 0%,#1f0934 45%,#2d0c48 100%)",
-    "linear-gradient(155deg,#12041e 0%,#1f0730 45%,#32094a 100%)",
+    "linear-gradient(155deg,#04170e 0%,#073321 45%,#0a4a2c 100%)",
+    "linear-gradient(155deg,#051c11 0%,#083824 45%,#0a4a2c 100%)",
+    "linear-gradient(155deg,#04150d 0%,#06301f 45%,#094427 100%)",
+    "linear-gradient(155deg,#031209 0%,#062c1c 45%,#083d23 100%)",
+    "linear-gradient(155deg,#04170e 0%,#073321 45%,#0a4a2c 100%)",
   ];
 
-  const ACCENT=["#FFFA66","#FFFA66","#FFFA66","#FFFA66"];
+  const ACCENT=["#FFFA66","#FFFA66","#FFFA66","#FFFA66","#FFFA66"];
   const tilt=use3DParallax();
   /* depth: how far a layer reacts to tilt (px of translate) */
   const layer=(depth:number)=>({
@@ -8674,12 +8710,18 @@ function Onboarding({onDone}:{onDone:()=>void}) {
 
       {/* Story progress bars */}
       <div className="absolute left-0 right-0 flex gap-1.5 px-4 z-20" style={{top:52}}>
-        {[0,1,2,3].map(i=>(
+        {[0,1,2,3,4].map(i=>(
           <div key={i} className="flex-1 rounded-full overflow-hidden" style={{height:3,background:"rgba(255,255,255,0.18)"}}>
             <div className="h-full rounded-full" style={{width:i<slide?"100%":i===slide?`${prog}%`:"0%",background:ACCENT[slide],boxShadow:`0 0 8px ${ACCENT[slide]}`,transition:"width 0.1s linear"}}/>
           </div>
         ))}
       </div>
+      {/* Skip — no one should be forced through 5 taps */}
+      <button onClick={(e)=>{e.stopPropagation();onDone();}}
+        className="absolute right-4 z-30 text-xs font-bold tracking-wide uppercase px-3 py-1.5 rounded-full"
+        style={{top:66,color:"rgba(255,255,255,0.65)",background:"rgba(255,255,255,0.10)",border:"1px solid rgba(255,255,255,0.18)"}}>
+        Skip
+      </button>
       {/* ── Depth layer 3: foreground glass card with the slide content ── */}
       <div className="flex-1 flex items-center justify-center px-6 pt-24 pb-6 relative z-10" style={{transformStyle:"preserve-3d"}}>
         <div key={slide} style={{
@@ -8696,19 +8738,20 @@ function Onboarding({onDone}:{onDone:()=>void}) {
             transform:`rotateX(${tilt.x*-5}deg) rotateY(${tilt.y*5}deg)`,
             transition:"transform 0.18s ease-out, box-shadow 0.6s ease",
           }}>
-            {slide===0&&<OnbSlide1 accent={ACCENT[slide]}/>}
-            {slide===1&&<OnbSlide2 accent={ACCENT[slide]}/>}
-            {slide===2&&<OnbSlide3 accent={ACCENT[slide]}/>}
-            {slide===3&&<OnbSlide4 accent={ACCENT[slide]}/>}
+            {slide===0&&<OnbSlide0 accent={ACCENT[slide]}/>}
+            {slide===1&&<OnbSlide1 accent={ACCENT[slide]}/>}
+            {slide===2&&<OnbSlide2 accent={ACCENT[slide]}/>}
+            {slide===3&&<OnbSlide3 accent={ACCENT[slide]}/>}
+            {slide===4&&<OnbSlide4 accent={ACCENT[slide]}/>}
           </div>
         </div>
       </div>
 
       {/* Tap hint + dot nav */}
       <div className="pb-9 flex flex-col items-center gap-3 relative z-10">
-        <span className="text-[11px] tracking-widest uppercase font-semibold" style={{color:"rgba(255,255,255,0.4)"}}>Tap to continue</span>
+        <span className="text-[11px] tracking-widest uppercase font-semibold" style={{color:"rgba(255,255,255,0.55)"}}>Tap to continue</span>
         <div className="flex justify-center gap-2">
-          {[0,1,2,3].map(i=>(
+          {[0,1,2,3,4].map(i=>(
             <div key={i} className="rounded-full transition-all duration-300"
               style={{width:i===slide?24:7,height:7,
                 background:i===slide?ACCENT[slide]:"rgba(255,255,255,0.26)",
@@ -9122,14 +9165,14 @@ function QuizTeaser({profile}:{profile:Profile}) {
       <div className="flex gap-4">
         <div>
           <div className="text-xl font-black text-gray-800">{roughTdee} kcal</div>
-          <div className="text-xs text-gray-400">est. maintenance (deficit applied at end)</div>
+          <div className="text-xs text-gray-500">est. maintenance (deficit applied at end)</div>
         </div>
         <div className="border-l border-green-200 pl-4">
           <div className="text-xl font-black" style={{color:bmiColor}}>{bmi.toFixed(1)}</div>
-          <div className="text-xs text-gray-400">BMI · {bmiCat}</div>
+          <div className="text-xs text-gray-500">BMI · {bmiCat}</div>
         </div>
       </div>
-      <p className="text-xs text-gray-400 mt-2">Answer a few more questions to lock in your personalised plan.</p>
+      <p className="text-xs text-gray-500 mt-2">Answer a few more questions to lock in your personalised plan.</p>
     </div>
   );
 }
@@ -9376,12 +9419,15 @@ function QuoteIllustration({theme,accent}:{theme:string;accent:string}) {
   }
 }
 
+/* Show the quote interstitial at most once per day — it's a delight, not a toll gate. */
+function quoteShownToday(){ return sget<string>("eatbc:quoteDate")===new Date().toDateString(); }
 function DailyQuote({onDone}:{onDone:()=>void}) {
   const [q]=useState(()=>MOTIVATION_QUOTES[Math.floor(Math.random()*MOTIVATION_QUOTES.length)]);
   const accent=THEME_ACCENT[q.theme]||"#FFFA66";
   const [show,setShow]=useState(false);
   useEffect(()=>{
-    const t=setTimeout(()=>setShow(true),1050);
+    sset("eatbc:quoteDate",new Date().toDateString());
+    const t=setTimeout(()=>setShow(true),400);
     return()=>clearTimeout(t);
   },[]);
   const words=q.text.split(" ");
@@ -9389,7 +9435,7 @@ function DailyQuote({onDone}:{onDone:()=>void}) {
   const ctaDelay=0.28+words.length*0.042;
   return(
     <motion.div className="min-h-screen relative overflow-hidden flex flex-col items-center justify-center"
-      style={{background:"#070312"}} onClick={show?onDone:undefined}>
+      style={{background:"#070312"}} onClick={onDone}>
 
       {/* ── Aurora background blobs (breathe + drift) ── */}
       <motion.div style={{position:"absolute",width:620,height:620,borderRadius:"50%",
@@ -9540,6 +9586,8 @@ function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;on
   const Y="#FFFA66";
   const wq=useMemo(()=>MOTIVATION_QUOTES[Math.floor(Math.random()*MOTIVATION_QUOTES.length)],[]);
   const wa=THEME_ACCENT[wq.theme]||Y;
+  /* Mid-quiz returners get a resume CTA — their 19 answers are saved. */
+  const resumed=(sget<number>("eatbc:quiz:step")||0)>0;
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-5 py-16 relative overflow-hidden"
       style={{background:"#0A0A0A"}}>
@@ -9583,6 +9631,10 @@ function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;on
               Eat Better &amp; Count
             </p>
           </motion.div>
+          {/* The promise, up front (H1): say what the product does before selling trust. */}
+          <p className="mt-4 text-center font-semibold" style={{color:"rgba(255,255,255,0.85)",fontSize:15}}>
+            {t("tagline")}
+          </p>
         </motion.div>
 
         {/* Daily quote */}
@@ -9600,7 +9652,7 @@ function Welcome({lang,onLang,onNew,onLogin}:{lang:Lang;onLang:(l:Lang)=>void;on
             style={{background:Y,color:"#0A0A0A",boxShadow:"0 8px 32px rgba(255,250,102,0.25)"}}
             whileTap={{scale:0.97}} transition={SPRING_CRISP}>
             <span className="absolute left-5 top-1/2 -translate-y-1/2"><UserPlus size={21}/></span>
-            <span className="block text-center">{t("newWarrior")}</span>
+            <span className="block text-center">{resumed?"Continue my plan →":t("newWarrior")}</span>
             <span className="absolute right-5 top-1/2 -translate-y-1/2 opacity-50 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all"><ArrowRight size={19}/></span>
           </motion.button>
           <motion.button onClick={onLogin}
@@ -9625,7 +9677,7 @@ const FOOD_GAME: {e:string;n:string;meat?:1;fish?:1;egg?:1;dairy?:1;root?:1}[] =
   {e:"🥞",n:"Dosa"},{e:"🍘",n:"Idli"},{e:"🍗",n:"Chicken",meat:1},{e:"🐟",n:"Fish",fish:1},
   {e:"🥚",n:"Egg",egg:1},{e:"🍛",n:"Khichdi"},{e:"🌾",n:"Oats"},{e:"🥗",n:"Salad"},
   {e:"🫛",n:"Sprouts"},{e:"🥦",n:"Veggies"},{e:"🍚",n:"Brown Rice"},{e:"🥛",n:"Milk",dairy:1},
-  {e:"🍶",n:"Curd",dairy:1},{e:"🍵",n:"Green Tea"},{e:"🍎",n:"Fruit"},{e:"🥜",n:"Peanuts"},
+  {e:"🥣",n:"Curd",dairy:1},{e:"🍵",n:"Green Tea"},{e:"🍎",n:"Fruit"},{e:"🥜",n:"Peanuts"},
   {e:"🍌",n:"Banana"},{e:"🍠",n:"Sweet Potato",root:1},{e:"🌰",n:"Almonds"},{e:"🥑",n:"Avocado"},
   {e:"🍄",n:"Mushroom"},{e:"🥬",n:"Spinach"},{e:"🫕",n:"Tofu"},{e:"🐠",n:"Salmon",fish:1},
   {e:"🌱",n:"Soya Chunks"},{e:"🥕",n:"Carrot",root:1},{e:"🥥",n:"Coconut"},{e:"🫙",n:"Flaxseed"},
@@ -9649,7 +9701,7 @@ function FoodGame({name,diet,onDone}:{name?:string;diet?:string;onDone:(picks:st
     return true;   // Pure veg (default): no meat/fish/egg, dairy & root veg fine
   });
   return (
-    <div className="min-h-screen relative overflow-hidden flex flex-col px-5 pt-12 pb-32"
+    <div className="min-h-screen relative overflow-hidden flex flex-col px-5 pt-12 pb-44"
       style={{background:"linear-gradient(165deg,#052e1b 0%,#0a5e34 48%,#159a57 100%)"}}>
       {/* glow orbs */}
       <div className="absolute pointer-events-none rounded-full" style={{width:300,height:300,top:"-60px",right:"-80px",background:"radial-gradient(circle,rgba(0,255,157,0.25),transparent 70%)",filter:"blur(30px)"}}/>
@@ -9665,7 +9717,7 @@ function FoodGame({name,diet,onDone}:{name?:string;diet?:string;onDone:(picks:st
         <h2 className="text-white font-black leading-tight" style={{fontSize:30,letterSpacing:"-1px"}}>
           {name?`${name}, pick`:"Pick"} <span style={{color:"#7CFFC4"}}>5 foods</span> that fuel you
         </h2>
-        <p className="text-white/55 text-sm mt-1.5">You've seen what each food does. Now pick your team — your plan gets handcrafted around what actually makes it to your plate.</p>
+        <p className="text-white/70 text-sm mt-1.5">Pick the 5 foods you'd happily eat every week — your plan gets handcrafted around them.</p>
 
         {/* progress dots */}
         <div className="flex items-center gap-2 mt-5 mb-6">
@@ -9727,7 +9779,9 @@ function Login({onDone,onBack}:{onDone:(sess:Session,plan?:Plan|null,tracking?:T
   const [err,setErr]=useState("");
   const [busy,setBusy]=useState(false);
   async function submit() {
-    setErr(""); if (!id.trim()||!pw){setErr("Enter both fields");return;}
+    setErr("");
+    if (!id.trim()){setErr("Enter your phone, email or username");return;}
+    if (!pw){setErr("Enter your password");return;}
     setBusy(true);
     try {
       const data=await apiPost("/api/login",{id:id.toLowerCase().trim(),password:pw});
@@ -9744,7 +9798,7 @@ function Login({onDone,onBack}:{onDone:(sess:Session,plan?:Plan|null,tracking?:T
       <Card className="p-6 md:p-8">
         <span className="font-bold text-gray-700 mb-2 block">EatBC</span>
         <h2 className="text-2xl font-black text-gray-800 mt-4">Welcome back,<br/><span style={{color:GREEN}}>warrior!</span></h2>
-        <p className="text-gray-400 text-sm mt-1 mb-6">Sign in to track your progress</p>
+        <p className="text-gray-500 text-sm mt-1 mb-6">Sign in to track your progress</p>
         <label className="text-sm font-semibold text-gray-600">Phone, Email or Username</label>
         <input value={id} onChange={e=>setId(e.target.value)} placeholder="9876543210 or you@email.com"
           className="w-full px-4 py-3 rounded-2xl border-2 border-gray-200 outline-none focus:border-green-500 mb-4 mt-1"/>
@@ -9758,7 +9812,12 @@ function Login({onDone,onBack}:{onDone:(sess:Session,plan?:Plan|null,tracking?:T
           style={{background:GREEN}}>
           {busy?<span className="flex items-center justify-center gap-2"><Loader2 className="animate-spin" size={18}/>Signing in…</span>:"Let's Go"}
         </button>
-        <p className="text-center text-xs text-gray-400 mt-4">
+        <a href={`https://wa.me/917000639366?text=${encodeURIComponent(`Hi, I forgot my EatBC password. My login ID is: ${id||"(type it here)"}`)}`}
+          target="_blank" rel="noopener noreferrer"
+          className="block text-center text-sm font-semibold mt-3" style={{color:GREEN}}>
+          Forgot password? Message us on WhatsApp →
+        </a>
+        <p className="text-center text-xs text-gray-500 mt-4">
           No account yet?{" "}
           <button onClick={onBack} className="font-bold" style={{color:GREEN}}>Start your journey first →</button>
         </p>
@@ -9775,7 +9834,9 @@ function Signup({profile,plan,onDone,onBack,onLogin}:{profile:Profile;plan:Plan|
   const [alreadyExists,setAlreadyExists]=useState(false);
   async function submit() {
     setErr(""); setAlreadyExists(false);
-    if (!id.trim()||!pw){setErr("Enter both fields");return;}
+    if (!id.trim()){setErr("Enter a phone, email or username for your login ID");return;}
+    if (!pw){setErr("Set a password (min 6 characters)");return;}
+    if (!pw2){setErr("Confirm your password in the last field");return;}
     if (pw!==pw2){setErr("Passwords don't match");return;}
     if (pw.length<6){setErr("Password must be at least 6 characters");return;}
     if (!consent){setErr("Please accept the consent & disclaimer to continue");return;}
@@ -9793,7 +9854,7 @@ function Signup({profile,plan,onDone,onBack,onLogin}:{profile:Profile;plan:Plan|
   return (
     <Shell>
       <button onClick={onBack} className="flex items-center gap-1.5 text-sm font-semibold text-gray-500 hover:text-gray-800 transition mb-4">
-        <ArrowLeft size={16}/> Home
+        <ArrowLeft size={16}/> My plan
       </button>
       <Card className="p-6 md:p-8">
         <span className="font-bold text-gray-700 mb-2 block">EatBC</span>
@@ -9802,7 +9863,7 @@ function Signup({profile,plan,onDone,onBack,onLogin}:{profile:Profile;plan:Plan|
           <p className="text-xs text-gray-500 mt-0.5">Create your account to unlock your personal tracker.</p>
         </div>
         <h2 className="text-2xl font-black text-gray-800 mb-5">Lock in your <span style={{color:GREEN}}>account</span> 🔐</h2>
-        <label className="text-sm font-semibold text-gray-600">Phone, Email or Username <span className="text-gray-400 font-normal">(your login ID)</span></label>
+        <label className="text-sm font-semibold text-gray-600">Phone, Email or Username <span className="text-gray-500 font-normal">(your login ID)</span></label>
         <input value={id} onChange={e=>setId(e.target.value)} placeholder="9876543210 or you@email.com"
           className="w-full px-4 py-3 rounded-2xl border-2 border-gray-200 outline-none focus:border-green-500 mb-4 mt-1"/>
         <label className="text-sm font-semibold text-gray-600">Set a Password</label>
@@ -9812,7 +9873,8 @@ function Signup({profile,plan,onDone,onBack,onLogin}:{profile:Profile;plan:Plan|
         <input type="password" value={pw2} onChange={e=>setPw2(e.target.value)} placeholder="Repeat password"
           className="w-full px-4 py-3 rounded-2xl border-2 border-gray-200 outline-none focus:border-green-500 mb-2 mt-1"
           onKeyDown={e=>e.key==="Enter"&&submit()}/>
-        <p className="text-xs text-gray-400 mb-3">Your data is encrypted with AES-256 and stored securely.</p>
+        <p className="text-xs text-gray-500 mb-1">Your data is encrypted and stored securely.</p>
+        <p className="text-xs font-semibold mb-3" style={{color:"#B45309"}}>⚠ Save your password somewhere safe — we can't recover it for you yet.</p>
         <label className="flex items-start gap-2.5 mb-4 cursor-pointer select-none">
           <input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)}
             className="mt-0.5 w-4 h-4 accent-green-600 shrink-0"/>
@@ -9839,7 +9901,7 @@ function Signup({profile,plan,onDone,onBack,onLogin}:{profile:Profile;plan:Plan|
           style={{background:GREEN}}>
           {busy?<span className="flex items-center justify-center gap-2"><Loader2 className="animate-spin" size={18}/>Creating…</span>:"Activate My Tracker"}
         </button>
-        <button onClick={onBack} className="w-full text-center text-gray-400 text-sm mt-4">← Back to plan</button>
+        <button onClick={onBack} className="w-full text-center text-gray-500 text-sm mt-4">← Back to plan</button>
       </Card>
     </Shell>
   );
@@ -10151,7 +10213,7 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet,token,yesterda
               <div key={i} className="flex items-center gap-2 py-2 px-3 rounded-xl bg-gray-50">
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-semibold text-gray-700 truncate">{item.n}</div>
-                  <div className="text-xs text-gray-400">{item.qty}</div>
+                  <div className="text-xs text-gray-500">{item.qty}</div>
                 </div>
                 <span className="text-xs font-bold shrink-0 mr-1" style={{color:GREEN}}>{item.cal} kcal</span>
                 <button onClick={()=>remove(i)} className="text-gray-300 hover:text-red-400 transition text-base leading-none">✕</button>
@@ -10162,12 +10224,12 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet,token,yesterda
             log.forEach((item,idx)=>{ const b=item.mealBucket||""; (groups[b]=groups[b]||[]).push({item,idx}); });
             return ORDER.filter(b=>groups[b]).map(b=>(
               <div key={b}>
-                {b&&<div className="flex items-center gap-1.5 mt-2 mb-1 px-1"><span className="text-sm">{BUCKET_ICONS[b]||""}</span><span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{b}</span></div>}
+                {b&&<div className="flex items-center gap-1.5 mt-2 mb-1 px-1"><span className="text-sm">{BUCKET_ICONS[b]||""}</span><span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{b}</span></div>}
                 {groups[b].map(({item,idx})=>(
                   <div key={idx} className="flex items-center gap-2 py-2 px-3 rounded-xl bg-gray-50 mb-1">
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-semibold text-gray-700 truncate">{item.n}</div>
-                      <div className="text-xs text-gray-400">{item.qty}</div>
+                      <div className="text-xs text-gray-500">{item.qty}</div>
                     </div>
                     <span className="text-xs font-bold shrink-0 mr-1" style={{color:GREEN}}>{item.cal} kcal</span>
                     <button onClick={()=>remove(idx)} className="text-gray-300 hover:text-red-400 transition text-base leading-none">✕</button>
@@ -10179,7 +10241,7 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet,token,yesterda
         </div>
       ):(
         <div>
-          <p className="text-sm text-gray-400 mb-2">Nothing logged yet — tap below to add what you actually ate.</p>
+          <p className="text-sm text-gray-500 mb-2">Nothing logged yet — tap below to add what you actually ate.</p>
           {yesterdayLog&&yesterdayLog.length>0&&(
             <button onClick={copyYesterday}
               className="w-full py-2 rounded-xl text-xs font-bold mb-3 transition hover:opacity-90"
@@ -10262,7 +10324,7 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet,token,yesterda
                   {/* Recently used shelf — shown only when search is empty */}
                   {!search&&recentFoods.length>0&&(
                     <div className="mb-2">
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 px-1">Recently used</p>
+                      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 px-1">Recently used</p>
                       <div className="flex gap-1.5 overflow-x-auto pb-1">
                         {recentFoods.map((f,i)=>(
                           <button key={i} onClick={()=>quickLog(f)}
@@ -10290,12 +10352,12 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet,token,yesterda
                         className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl hover:bg-gray-50 text-left transition">
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-semibold text-gray-700 truncate">{f.n}{f.cat==="My Foods"&&<span className="ml-1 text-[10px] font-bold" style={{color:GREEN}}>★</span>}</div>
-                          <div className="text-xs text-gray-400 truncate">{f.q}</div>
+                          <div className="text-xs text-gray-500 truncate">{f.q}</div>
                         </div>
                         <span className="text-xs font-bold shrink-0" style={{color:GREEN}}>{f.c}</span>
                       </button>
                     ))}
-                    {filtered.length===0&&<p className="text-sm text-gray-400 text-center py-6">No matches — add it as a custom food.</p>}
+                    {filtered.length===0&&<p className="text-sm text-gray-500 text-center py-6">No matches — add it as a custom food.</p>}
                   </div>
                 </>
               )}
@@ -10322,7 +10384,7 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet,token,yesterda
                     className="w-full py-2.5 rounded-2xl text-white font-bold text-sm disabled:opacity-50" style={{background:GREEN}}>
                     Save &amp; use this food
                   </button>
-                  <p className="text-xs text-gray-400 text-center">Saved foods are reusable from Search next time.</p>
+                  <p className="text-xs text-gray-500 text-center">Saved foods are reusable from Search next time.</p>
                 </div>
               )}
 
@@ -10349,7 +10411,7 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet,token,yesterda
                         aria-label="Scan barcode with camera">
                         <Camera size={16}/> Scan with camera
                       </button>
-                      <div className="flex items-center gap-2 text-xs text-gray-400"><div className="flex-1 h-px bg-gray-200"/><span>or enter manually</span><div className="flex-1 h-px bg-gray-200"/></div>
+                      <div className="flex items-center gap-2 text-xs text-gray-500"><div className="flex-1 h-px bg-gray-200"/><span>or enter manually</span><div className="flex-1 h-px bg-gray-200"/></div>
                     </>
                   )}
                   <div className="flex gap-2">
@@ -10375,7 +10437,7 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet,token,yesterda
                         <Sparkles size={14} style={{color:"#8B5CF6",position:"absolute",top:-6,right:-6}}/>
                       </div>
                       <p className="text-sm font-semibold text-gray-700">Veer AI is analysing…</p>
-                      <p className="text-xs text-gray-400 text-center">Identifying dishes and estimating calories</p>
+                      <p className="text-xs text-gray-500 text-center">Identifying dishes and estimating calories</p>
                     </div>
                   ):photoSuggestions.length>0?(
                     <div>
@@ -10384,7 +10446,7 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet,token,yesterda
                           <Sparkles size={12} style={{color:"#8B5CF6"}}/>
                           <span className="text-xs font-bold" style={{color:"#8B5CF6"}}>Veer AI detected {photoSuggestions.length} item{photoSuggestions.length>1?"s":""}</span>
                         </div>
-                        <button className="text-xs text-gray-400 underline" onClick={()=>{
+                        <button className="text-xs text-gray-500 underline" onClick={()=>{
                           setPhotoSelected(s=>{
                             const all=new Set(photoSuggestions.map((_,i)=>i));
                             return s.size===all.size?new Set():all;
@@ -10405,7 +10467,7 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet,token,yesterda
                                 </button>
                                 <div className="flex-1 min-w-0">
                                   <div className="font-semibold text-gray-800 text-sm truncate">{f.n}</div>
-                                  <div className="text-xs text-gray-400">{f.q}{f.p?` · ${f.p}g protein`:""}</div>
+                                  <div className="text-xs text-gray-500">{f.q}{f.p?` · ${f.p}g protein`:""}</div>
                                 </div>
                                 <div className="flex items-center gap-1 shrink-0">
                                   <input
@@ -10414,7 +10476,7 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet,token,yesterda
                                     onChange={e=>setPhotoEditCals(ec=>({...ec,[i]:e.target.value}))}
                                     className="w-16 text-right text-sm font-black rounded-lg border px-2 py-0.5 outline-none"
                                     style={{color:GREEN,borderColor:"#E5E7EB"}}/>
-                                  <span className="text-xs text-gray-400">kcal</span>
+                                  <span className="text-xs text-gray-500">kcal</span>
                                 </div>
                               </div>
                             </div>
@@ -10426,7 +10488,7 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet,token,yesterda
                         style={{background:"#8B5CF6"}}>
                         Add {photoSelected.size} item{photoSelected.size!==1?"s":""} to diary
                       </button>
-                      <label className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold text-gray-400 cursor-pointer hover:text-gray-600">
+                      <label className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold text-gray-500 cursor-pointer hover:text-gray-600">
                         <Camera size={12}/>Scan a different photo
                         <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={handlePhoto}/>
                       </label>
@@ -10435,7 +10497,7 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet,token,yesterda
                     <div className="flex flex-col items-center py-8 gap-2 text-center">
                       <Camera size={28} className="text-gray-300"/>
                       <p className="text-sm text-gray-600">No food detected.</p>
-                      <p className="text-xs text-gray-400">Make sure the food is clearly visible and well-lit.</p>
+                      <p className="text-xs text-gray-500">Make sure the food is clearly visible and well-lit.</p>
                       <label className="mt-3 px-5 py-2 rounded-xl text-sm font-bold cursor-pointer" style={{background:"rgba(139,92,246,0.1)",color:"#8B5CF6"}}>
                         <Camera size={13} className="inline mr-1.5"/>Try again
                         <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={handlePhoto}/>
@@ -10446,7 +10508,7 @@ function FoodLogger({log,customFoods,onSaveCustom,onUpdate,t,diet,token,yesterda
               )}
 
               <button onClick={()=>{setOpen(false);setSearch("");setPending(null);setMode("search");setBarErr("");}}
-                className="w-full mt-3 text-center text-gray-400 text-sm py-1 hover:text-gray-600">
+                className="w-full mt-3 text-center text-gray-500 text-sm py-1 hover:text-gray-600">
                 Close
               </button>
             </>
@@ -10476,7 +10538,7 @@ function TrendsCard({history,calTarget,proteinTarget,weights,weeklyLoss,t}:{
       </h3>
       {anyData?(
         <>
-          <div className="text-xs text-gray-400 mb-1">Calories — last 7 days</div>
+          <div className="text-xs text-gray-500 mb-1">Calories — last 7 days</div>
           <div style={{width:"100%",height:150}}>
             <ResponsiveContainer>
               <BarChart data={days} margin={{top:4,right:4,left:-18,bottom:0}}>
@@ -10491,7 +10553,7 @@ function TrendsCard({history,calTarget,proteinTarget,weights,weeklyLoss,t}:{
           </div>
           {proteinTarget>0&&(
             <>
-              <div className="text-xs text-gray-400 mt-3 mb-1">Protein (g) — last 7 days</div>
+              <div className="text-xs text-gray-500 mt-3 mb-1">Protein (g) — last 7 days</div>
               <div style={{width:"100%",height:120}}>
                 <ResponsiveContainer>
                   <BarChart data={days} margin={{top:4,right:4,left:-18,bottom:0}}>
@@ -10508,7 +10570,7 @@ function TrendsCard({history,calTarget,proteinTarget,weights,weeklyLoss,t}:{
           )}
         </>
       ):(
-        <p className="text-sm text-gray-400">Start ticking meals and logging food — your weekly trends will appear here.</p>
+        <p className="text-sm text-gray-500">Start ticking meals and logging food — your weekly trends will appear here.</p>
       )}
       {wEntries.length>=2&&(()=>{
         const rate=parseFloat((weeklyLoss||"0").replace(/[^\d.]/g,""))||0;
@@ -10523,7 +10585,7 @@ function TrendsCard({history,calTarget,proteinTarget,weights,weeklyLoss,t}:{
         });
         const onTrack=combined.every(e=>e.expected===undefined||e.w<=e.expected+0.5);
         return (<>
-          <div className="text-xs text-gray-400 mt-3 mb-1">Weight (kg) — actual vs expected{!startLabel&&""}</div>
+          <div className="text-xs text-gray-500 mt-3 mb-1">Weight (kg) — actual vs expected{!startLabel&&""}</div>
           <div style={{width:"100%",height:130}}>
             <ResponsiveContainer>
               <LineChart data={combined} margin={{top:4,right:8,left:-18,bottom:0}}>
@@ -10536,7 +10598,7 @@ function TrendsCard({history,calTarget,proteinTarget,weights,weeklyLoss,t}:{
               </LineChart>
             </ResponsiveContainer>
           </div>
-          {rate>0&&<div className="flex gap-3 mt-1 text-xs text-gray-400"><span className="flex items-center gap-1"><span style={{width:10,height:2,background:onTrack?"#0E8A4D":"#F59E0B",display:"inline-block",borderRadius:1}}/> Actual</span><span className="flex items-center gap-1"><span style={{width:10,height:2,background:"#D1D5DB",display:"inline-block",borderRadius:1}}/> Expected</span></div>}
+          {rate>0&&<div className="flex gap-3 mt-1 text-xs text-gray-500"><span className="flex items-center gap-1"><span style={{width:10,height:2,background:onTrack?"#0E8A4D":"#F59E0B",display:"inline-block",borderRadius:1}}/> Actual</span><span className="flex items-center gap-1"><span style={{width:10,height:2,background:"#D1D5DB",display:"inline-block",borderRadius:1}}/> Expected</span></div>}
         </>);
       })()}
     </Card>
@@ -10574,7 +10636,7 @@ function InsightsCard({history,proteinTarget,t}:{
         {stats.map(s=>(
           <div key={s.label} className="rounded-2xl px-3 py-2.5" style={{background:"#F7FAF8"}}>
             <div className="text-lg font-black text-gray-800">{s.emoji} {s.val}</div>
-            <div className="text-xs text-gray-400">{s.label}</div>
+            <div className="text-xs text-gray-500">{s.label}</div>
           </div>
         ))}
       </div>
@@ -10621,7 +10683,7 @@ function ChallengesCard({history,joined,onToggle,t}:{
                       <div className="h-1.5 rounded-full bg-gray-100">
                         <div className="h-1.5 rounded-full transition-all" style={{width:`${pct}%`,background:GREEN}}/>
                       </div>
-                      <div className="text-xs text-gray-400 mt-1">{done}/{c.target}</div>
+                      <div className="text-xs text-gray-500 mt-1">{done}/{c.target}</div>
                     </div>
                   )}
                 </div>
@@ -10668,7 +10730,7 @@ function Leaderboard({session,points,streak,t}:{
       <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-1">
         <Trophy size={18} style={{color:"#F59E0B"}}/> {t("leaderboard")}
       </h3>
-      <p className="text-xs text-gray-400 mb-3">Opt-in. Only your name &amp; streak are shared — never your health data.</p>
+      <p className="text-xs text-gray-500 mb-3">Opt-in. Only your name &amp; streak are shared — never your health data.</p>
       {!shared&&(
         <button disabled={busy} onClick={share}
           className="w-full mb-3 py-2.5 rounded-2xl text-white font-bold text-sm disabled:opacity-60"
@@ -10679,7 +10741,7 @@ function Leaderboard({session,points,streak,t}:{
       {rows===null?(
         <div className="flex justify-center py-4"><Loader2 className="animate-spin text-gray-300" size={20}/></div>
       ):rows.length===0?(
-        <p className="text-sm text-gray-400">Be the first to join the community board!</p>
+        <p className="text-sm text-gray-500">Be the first to join the community board!</p>
       ):(
         <div className="space-y-1.5">
           {rows.map((r,i)=>{
@@ -10805,7 +10867,7 @@ function MonthCalendar({
           </button>
           <div className="text-center">
             <h2 className="font-black text-gray-900 text-base leading-tight">{FULL_MONTH_NAMES[view.m]} {view.y}</h2>
-            <p className="text-xs text-gray-400 mt-0.5">Tap a day to inspect</p>
+            <p className="text-xs text-gray-500 mt-0.5">Tap a day to inspect</p>
           </div>
           <button onClick={nextMonth} disabled={isCurrentMonth}
             className="w-9 h-9 flex items-center justify-center rounded-full transition"
@@ -10817,7 +10879,7 @@ function MonthCalendar({
         {/* day-of-week headers */}
         <div className="grid grid-cols-7 px-4 mb-1">
           {CAL_DAY_HDRS.map((h,i)=>(
-            <div key={i} className="text-center text-[11px] font-bold text-gray-400 py-1">{h}</div>
+            <div key={i} className="text-center text-[11px] font-bold text-gray-500 py-1">{h}</div>
           ))}
         </div>
 
@@ -11136,7 +11198,7 @@ function ReminderToggle({t, compact, radio, token, label, sublabel}:{t:(k:keyof 
         </div>
         <div className="flex-1 min-w-0">
           <div className="font-bold text-gray-800 text-sm">{label||"Smart nudges"}</div>
-          <div className="text-xs text-gray-400">{sublabel||"Water, meals & workouts — every 3 hours, even when the app is closed."}</div>
+          <div className="text-xs text-gray-500">{sublabel||"Water, meals & workouts — every 3 hours, even when the app is closed."}</div>
         </div>
         <button onClick={on?disable:enable} disabled={loading}
           className="text-xs font-bold px-4 py-2 rounded-xl shrink-0 transition"
@@ -11214,7 +11276,7 @@ function RecipeSheet({name,onClose}:{name:string;onClose:()=>void}) {
         <div className="sticky top-0 bg-white flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100">
           <div>
             <h2 className="font-black text-gray-900 text-lg leading-tight">{name}</h2>
-            <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1"><Clock size={12}/> {r.time}</p>
+            <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1"><Clock size={12}/> {r.time}</p>
           </div>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100"><X size={16}/></button>
         </div>
@@ -11450,7 +11512,7 @@ function WorkoutLogger({log,onUpdate,userWeightKg}:{log:ExerciseLog[];onUpdate:(
       </div>
 
       {log.length===0?(
-        <p className="text-sm text-gray-400 text-center py-4">Nothing logged yet.<br/>Tap "Log exercise" to record what you actually did.</p>
+        <p className="text-sm text-gray-500 text-center py-4">Nothing logged yet.<br/>Tap "Log exercise" to record what you actually did.</p>
       ):(
         <div className="space-y-2">
           {log.map((e,i)=>(
@@ -11464,10 +11526,10 @@ function WorkoutLogger({log,onUpdate,userWeightKg}:{log:ExerciseLog[];onUpdate:(
                   {e.cal&&<span className="ml-1 inline-flex items-center gap-0.5" style={{color:"#D97706"}}>· ~{e.cal} kcal</span>}
                 </div>
               </div>
-              <button onClick={()=>remove(i)} className="p-1 rounded-lg text-gray-400 hover:text-red-400"><X size={14}/></button>
+              <button onClick={()=>remove(i)} className="p-1 rounded-lg text-gray-500 hover:text-red-400"><X size={14}/></button>
             </div>
           ))}
-          <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-xs font-semibold text-gray-400">
+          <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-xs font-semibold text-gray-500">
             <span>{log.length} exercise{log.length!==1?"s":""} logged</span>
             {totalCal>0&&<span style={{color:PUR}} className="flex items-center gap-1"><Flame size={11}/>~{totalCal} kcal burned</span>}
           </div>
@@ -11490,9 +11552,9 @@ function WorkoutLogger({log,onUpdate,userWeightKg}:{log:ExerciseLog[];onUpdate:(
                     <ChevronLeft size={16}/>
                   </button>
                   <div>
-                    <div className="text-xs font-bold uppercase tracking-wider text-gray-400">{EXERCISE_GUIDE[pending]?.emoji||"💪"} Logging</div>
+                    <div className="text-xs font-bold uppercase tracking-wider text-gray-500">{EXERCISE_GUIDE[pending]?.emoji||"💪"} Logging</div>
                     <h3 className="font-black text-gray-800 text-xl leading-tight">{pending}</h3>
-                    {EXERCISE_GUIDE[pending]?.muscles&&<p className="text-xs text-gray-400 mt-0.5">{EXERCISE_GUIDE[pending].muscles.join(" · ")}</p>}
+                    {EXERCISE_GUIDE[pending]?.muscles&&<p className="text-xs text-gray-500 mt-0.5">{EXERCISE_GUIDE[pending].muscles.join(" · ")}</p>}
                   </div>
                 </div>
 
@@ -11572,7 +11634,7 @@ function WorkoutLogger({log,onUpdate,userWeightKg}:{log:ExerciseLog[];onUpdate:(
                     <button onClick={close} className="p-2 rounded-xl" style={{background:"#F3F4F6"}}><X size={16}/></button>
                   </div>
                   <div className="relative mb-3">
-                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"/>
                     <input type="text" placeholder="Search exercise…" value={search}
                       onChange={e=>setSearch(e.target.value)} autoFocus
                       className="w-full pl-9 pr-4 py-2.5 rounded-2xl border border-gray-200 text-sm outline-none focus:border-purple-400"/>
@@ -11598,7 +11660,7 @@ function WorkoutLogger({log,onUpdate,userWeightKg}:{log:ExerciseLog[];onUpdate:(
                       <div className="flex-1 min-w-0">
                         <div className="font-semibold text-sm text-gray-800 leading-tight">{e.n}</div>
                         {EXERCISE_GUIDE[e.n]?.muscles&&
-                          <div className="text-xs text-gray-400 truncate">{EXERCISE_GUIDE[e.n].muscles.join(", ")}</div>}
+                          <div className="text-xs text-gray-500 truncate">{EXERCISE_GUIDE[e.n].muscles.join(", ")}</div>}
                       </div>
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0"
                         style={{background:PURBG,color:PUR}}>
@@ -11607,7 +11669,7 @@ function WorkoutLogger({log,onUpdate,userWeightKg}:{log:ExerciseLog[];onUpdate:(
                     </button>
                   ))}
                   {filtered.length===0&&(
-                    <p className="text-center text-sm text-gray-400 py-8">No exercises found</p>
+                    <p className="text-center text-sm text-gray-500 py-8">No exercises found</p>
                   )}
                 </div>
               </>
@@ -11646,7 +11708,7 @@ function WorkoutLogger({log,onUpdate,userWeightKg}:{log:ExerciseLog[];onUpdate:(
                 WhatsApp
               </button>
             </div>
-            <button onClick={()=>setJustLogged(null)} className="mt-3 text-xs font-semibold text-gray-400">Close</button>
+            <button onClick={()=>setJustLogged(null)} className="mt-3 text-xs font-semibold text-gray-500">Close</button>
           </div>
         </div>
       )}
@@ -11690,7 +11752,7 @@ function MyLiftsCard({tracking}:{tracking:Tracking}) {
                 <span className="text-sm font-semibold text-gray-800 truncate flex-1 mr-2">{name}</span>
                 <div className="text-right shrink-0">
                   <span className="text-sm font-black text-purple-700">{latest.label}</span>
-                  {last5.length>1&&<span className={`ml-1.5 text-[10px] font-bold ${gained>0?"text-green-600":gained<0?"text-red-500":"text-gray-400"}`}>{gained>0?`+${gained}`:gained}kg</span>}
+                  {last5.length>1&&<span className={`ml-1.5 text-[10px] font-bold ${gained>0?"text-green-600":gained<0?"text-red-500":"text-gray-500"}`}>{gained>0?`+${gained}`:gained}kg</span>}
                 </div>
               </div>
               <div className="flex gap-1 items-end h-8">
@@ -11824,7 +11886,7 @@ function WorkoutTab({workout,tracking,onUpdate,profile}:{
             <div className="text-white/70 text-xs">workout day streak</div>
           </div>
           <div className="text-right">
-            <div className="text-2xl font-bold">{weekDone}<span className="text-base font-normal text-white/60">/{workout.daysPerWeek}</span></div>
+            <div className="text-2xl font-bold">{weekDone}<span className="text-base font-normal text-white/80">/{workout.daysPerWeek}</span></div>
             <div className="text-white/70 text-xs">sessions this week</div>
           </div>
         </div>
@@ -11839,7 +11901,7 @@ function WorkoutTab({workout,tracking,onUpdate,profile}:{
           const isToday=i===todayIdx;
           return (
             <div key={i} className="flex flex-col items-center gap-1 flex-1">
-              <span className={`text-[11px] font-bold ${isToday?"text-purple-600":"text-gray-400"}`}>{d}</span>
+              <span className={`text-[11px] font-bold ${isToday?"text-purple-600":"text-gray-500"}`}>{d}</span>
               <div className="w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-bold"
                 style={rest?{background:"#F3F4F6",color:"#9CA3AF"}:{background:isToday?"#7C3AED":"#EDE9FE",color:isToday?"#fff":"#7C3AED"}}>
                 {rest?"·":(workouts[isoShift(-(todayIdx-i))]&&i<=todayIdx?"✓":(wi as number)+1)}
@@ -11858,7 +11920,7 @@ function WorkoutTab({workout,tracking,onUpdate,profile}:{
             <span className="font-bold text-sm">Rest</span>
             <span className="font-black text-2xl tabular-nums">{Math.floor(restSecs/60)}:{String(restSecs%60).padStart(2,"0")}</span>
           </div>
-          <button onClick={stopRest} className="text-white/60 hover:text-white text-xs font-semibold px-3 py-1 rounded-full" style={{background:"rgba(255,255,255,0.15)"}}>Skip</button>
+          <button onClick={stopRest} className="text-white/80 hover:text-white text-xs font-semibold px-3 py-1 rounded-full" style={{background:"rgba(255,255,255,0.15)"}}>Skip</button>
         </div>
       )}
 
@@ -11875,7 +11937,7 @@ function WorkoutTab({workout,tracking,onUpdate,profile}:{
             <h3 className="font-black text-gray-800 text-lg">{session.label}</h3>
             {completedToday&&<span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{background:"#EDE9FE",color:"#7C3AED"}}>Done ✓</span>}
           </div>
-          <p className="text-gray-400 text-sm mb-4">{session.focus}</p>
+          <p className="text-gray-500 text-sm mb-4">{session.focus}</p>
           <div className="space-y-2">
             {session.items.map((it,i)=>{
               const on=doneIdx.includes(i);
@@ -11891,7 +11953,7 @@ function WorkoutTab({workout,tracking,onUpdate,profile}:{
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className={`font-semibold text-sm ${on?"text-purple-900":"text-gray-800"}`}>{it.name}</div>
-                      {it.note&&<div className="text-[11px] text-gray-400">{it.note}</div>}
+                      {it.note&&<div className="text-[11px] text-gray-500">{it.note}</div>}
                     </div>
                     <div className="text-xs font-bold text-gray-500 shrink-0 text-right">
                       {it.sets>1&&<span>{it.sets} × </span>}{it.reps}
@@ -11924,15 +11986,15 @@ function WorkoutTab({workout,tracking,onUpdate,profile}:{
           {workout.days.map((d,i)=>(
             <details key={i} className="rounded-2xl border border-gray-100 overflow-hidden">
               <summary className="px-4 py-3 cursor-pointer font-semibold text-sm text-gray-800 flex items-center justify-between">
-                <span>{d.label}</span><span className="text-xs text-gray-400">{d.items.length} exercises</span>
+                <span>{d.label}</span><span className="text-xs text-gray-500">{d.items.length} exercises</span>
               </summary>
               <div className="px-4 pb-3 space-y-1.5">
-                <p className="text-xs text-gray-400 mb-2">{d.focus}</p>
+                <p className="text-xs text-gray-500 mb-2">{d.focus}</p>
                 {d.items.map((it,j)=>(
                   <div key={j} className="flex justify-between items-center text-sm">
                     <button onClick={()=>EXERCISE_GUIDE[it.name]&&setGuideEx(it.name)}
                       className={`text-left flex items-center gap-1 ${EXERCISE_GUIDE[it.name]?"text-purple-700 font-semibold hover:underline":"text-gray-700"}`}>
-                      {it.name}{it.note?<span className="text-gray-400 font-normal"> · {it.note}</span>:""}
+                      {it.name}{it.note?<span className="text-gray-500 font-normal"> · {it.note}</span>:""}
                       {EXERCISE_GUIDE[it.name]&&<BookOpen size={12} className="text-purple-400 shrink-0"/>}
                     </button>
                     <span className="text-gray-500 font-medium shrink-0 ml-2">{it.sets>1?`${it.sets} × `:""}{it.reps}</span>
@@ -11984,7 +12046,7 @@ function WeeklyReviewCard({history,weights,onClose}:{history:Record<string,HistE
         <div className="flex items-center justify-between mb-4">
           <div>
             <div className="flex items-center gap-1.5"><Trophy size={18} style={{color:"#1DAA61"}}/><span className="font-black text-gray-800 text-lg">Week in review</span></div>
-            <p className="text-xs text-gray-400 mt-0.5">Your last 7 days at a glance</p>
+            <p className="text-xs text-gray-500 mt-0.5">Your last 7 days at a glance</p>
           </div>
           <button onClick={onClose} className="text-gray-300 hover:text-gray-500"><X size={22}/></button>
         </div>
@@ -12011,7 +12073,7 @@ function WeeklyReviewCard({history,weights,onClose}:{history:Record<string,HistE
         ):onTrackCount>=3?(
           <p className="text-sm text-center text-gray-500">Solid effort — keep building those habits.</p>
         ):(
-          <p className="text-sm text-center text-gray-400">Tough week — that's OK. Every day is a fresh start.</p>
+          <p className="text-sm text-center text-gray-500">Tough week — that's OK. Every day is a fresh start.</p>
         )}
         <button onClick={onClose}
           className="w-full mt-4 py-3 rounded-2xl text-white font-semibold"
@@ -12118,7 +12180,7 @@ function ProgressionTracker({daysActive, t}:{daysActive:number; t:(k:keyof typeo
       <div className="flex items-center gap-1.5 mb-3">
         <Zap size={14} style={{color:GREEN}}/>
         <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Your progress</span>
-        <span className="ml-auto text-xs text-gray-400">Day {daysActive}</span>
+        <span className="ml-auto text-xs text-gray-500">Day {daysActive}</span>
       </div>
       <div className="flex gap-2">
         {levels.map((l,i)=>{
@@ -12743,6 +12805,12 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
                   style={{width:topSlide===i?20:8,height:8,
                     background:topSlide===i?"white":"rgba(255,255,255,0.4)"}}/>
               ))}
+              {/* Visible door to account/settings — the swipe carousel alone is undiscoverable */}
+              <button aria-label="Account & settings" onClick={()=>setTopSlide(2)}
+                className="ml-1.5 p-1.5 rounded-full active:scale-95 transition"
+                style={{background:"rgba(255,255,255,0.15)",border:"1px solid rgba(255,255,255,0.25)"}}>
+                <User size={14}/>
+              </button>
             </div>
           </div>
 
@@ -12784,7 +12852,7 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="font-bold text-white/90">Nutrition</div>
-                    <div className="text-xs text-white/60">{cal>0?`${Math.max(0,cal-netConsumed)} kcal remaining`:"Set your plan"}</div>
+                    <div className="text-xs text-white/80">{cal>0?`${Math.max(0,cal-netConsumed)} kcal remaining`:"Set your plan"}</div>
                   </div>
                   <div className="rounded-2xl px-3 py-1.5 text-xs font-bold" style={{background:"rgba(255,255,255,0.15)"}}>
                     <Dumbbell size={12} className="inline mr-1"/>{workoutBurned} burned
@@ -12807,7 +12875,7 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
                 {proteinTargetVal>0?(
                   <div className="space-y-1.5">
                     <div>
-                      <div className="flex justify-between text-xs text-white/60 mb-1">
+                      <div className="flex justify-between text-xs text-white/80 mb-1">
                         <span>{t("protein")}</span><span>{proteinConsumed}/{proteinTargetVal}g</span>
                       </div>
                       <div className="h-2 rounded-full" style={{background:"rgba(255,255,255,0.2)"}}>
@@ -12848,11 +12916,11 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
                     style={{background:"rgba(255,255,255,0.2)"}}>{(session.name||"?")[0].toUpperCase()}</div>
                   <div className="flex-1 min-w-0">
                     <div className="font-bold text-white/90 text-sm truncate">{session.name}</div>
-                    <div className="text-xs text-white/60 truncate">{plan?.goal||"No goal set"}</div>
+                    <div className="text-xs text-white/80 truncate">{plan?.goal||"No goal set"}</div>
                   </div>
                   <div className="text-right shrink-0">
                     <div className="font-black text-lg leading-none">{points}</div>
-                    <div className="text-xs text-white/60">pts</div>
+                    <div className="text-xs text-white/80">pts</div>
                   </div>
                 </div>
                 {/* Stats mini-grid */}
@@ -12947,8 +13015,8 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
                               <span className="text-xs font-semibold uppercase tracking-wide" style={{color:ui.col}}>{m.time}</span>
                               <div className={`text-sm font-medium ${on?"line-through text-gray-300":"text-gray-700"}`}>{m.food}</div>
                               <div className="flex items-center gap-1 mt-0.5">
-                                <Scale size={10} className="text-gray-400 shrink-0"/>
-                                <span className={`text-xs text-gray-400 ${isExpanded?"":"truncate"}`}>{m.qty}</span>
+                                <Scale size={10} className="text-gray-500 shrink-0"/>
+                                <span className={`text-xs text-gray-500 ${isExpanded?"":"truncate"}`}>{m.qty}</span>
                               </div>
                             </button>
                             <div className="flex flex-col items-end gap-1 shrink-0">
@@ -13008,7 +13076,7 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
                           style={{color:netConsumed>=cal?"#DC2626":netConsumed/cal>0.85?"#D97706":"#16A34A"}}>
                           {netConsumed>=cal?`${netConsumed-cal} kcal surplus`:`${cal-netConsumed} kcal deficit`}
                         </div>
-                        <div className="text-xs text-gray-400">
+                        <div className="text-xs text-gray-500">
                           {workoutBurned>0?`${consumed} eaten · ${workoutBurned} burned · ${cal} target`:`${consumed} / ${cal} kcal for ${sel}`}
                         </div>
                       </div>
@@ -13072,7 +13140,7 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
                   {(()=>{const wt=waterTarget(tracking.lastRecalcWeight);return(<>
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="font-bold text-gray-800 flex items-center gap-2"><Droplet size={18} style={{color:GREEN}}/> {t("water")}</h3>
-                    <span className="text-sm text-gray-400">{dd.water}/{wt} glasses</span>
+                    <span className="text-sm text-gray-500">{dd.water}/{wt} glasses</span>
                   </div>
                   <div className="flex gap-1.5">
                     {[...Array(wt)].map((_,i)=>(
@@ -13086,7 +13154,7 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
                 </Card>
               </>
             ):(
-              <Card className="p-8 text-center text-gray-400">No plan loaded for this session.</Card>
+              <Card className="p-8 text-center text-gray-500">No plan loaded for this session.</Card>
             )}
           </>
         )}
@@ -13187,7 +13255,7 @@ export default function App() {
   const [screen,setScreen]=useState<Screen>(()=>{
     if(!sget<boolean>("eatbc:onboarded")) return "onboarding";
     const saved=sget<Screen>("eatbc:screen");
-    const safe:Screen[]=["welcome","quiz","plan","signup","login"];
+    const safe:Screen[]=["welcome","quiz","foodgame","plan","signup","login"];
     return (saved&&safe.includes(saved))?saved:"welcome";
   });
   const [step,setStep]=useState(()=>sget<number>("eatbc:quiz:step")||0);
@@ -13271,12 +13339,13 @@ export default function App() {
     setQErr("");
     setProfile(p=>({...p,[cur.k]:v}));
   };
+  const EXCLUSIVE_OPTS=["None","Just a regular weekend"];   // picking these clears the rest
   const toggleMulti=(o:string)=>setProfile(p=>{
     const raw=p[cur.k];
     let a:string[]=Array.isArray(raw)?[...raw]:raw?[raw as string]:[];  // coerce legacy string → array
     if(a.includes(o)) a=a.filter(x=>x!==o);
-    else if(o==="None") a=["None"];                 // "None" is exclusive
-    else a=[...a.filter(x=>x!=="None"),o];           // picking a real option clears "None"
+    else if(EXCLUSIVE_OPTS.includes(o)) a=[o];
+    else a=[...a.filter(x=>!EXCLUSIVE_OPTS.includes(x)),o];
     return {...p,[cur.k]:a};
   });
   const canNext=!cur?false
@@ -13292,15 +13361,13 @@ export default function App() {
       const n = Number(v);
       if (!v || isNaN(n) || String(v).trim()==="") { setQErr("Please enter a valid number."); return; }
       if (cur.k === "age") {
-        if (n < 10)  { setQErr("EatBC is designed for ages 10 and above. Please enter your real age."); return; }
+        if (n < 10)  { setQErr("EatBC is built for ages 10 and up — double-check your age?"); return; }
         if (n > 100) { setQErr("Please double-check — did you enter the right age? Max supported is 100."); return; }
       }
       if (cur.k === "weight") {
         if (n <= 0)  { setQErr("Weight must be a positive number in kg (e.g. 68)."); return; }
         if (n < 25)  {
-          const lbsGuess = Math.round(n * 2.205);
-          const kgGuess  = Math.round(n / 0.453592);
-          setQErr(`${n} kg seems very low. If you meant ${lbsGuess} lbs, that's ${Math.round(n / 0.453592)} kg — but more likely you meant ${n} kg as ${lbsGuess} lbs. Enter in kg (e.g. ${kgGuess > 25 ? kgGuess : 65}).`);
+          setQErr(`${n} kg looks too low for an adult. Enter your weight in kilograms — e.g. 65. (If you only know it in pounds, divide by 2.2.)`);
           return;
         }
         if (n > 250) { setQErr(`${n} kg is higher than our supported range (max 250 kg). Please double-check — enter in kg, not pounds or grams.`); return; }
@@ -13338,11 +13405,13 @@ export default function App() {
     const withPicks={...profile,foodPicks:picks};
     setProfile(withPicks);
     setLoading(true);
+    /* A 19-question investment deserves a moment of ceremony — the pause
+       also makes the personalisation legible (labor illusion). */
     setTimeout(()=>{
       try{setPlan(buildPlan(withPicks));setScreen("plan");}
       catch{setErr("Something went off — adjust an answer and retry.");setScreen("quiz");}
       setLoading(false);
-    },500);
+    },2200);
   }
 
   function planText(): string {
@@ -13355,7 +13424,7 @@ export default function App() {
       d.meals.forEach(m=>t+=`• ${m.time}: ${m.food} — ${m.qty} (${m.cal} kcal)\n`);
       t+="\n";
     });
-    t+=`💡 Tips:\n${plan.tips.map(x=>"• "+x).join("\n")}\n\nLet's make the nation fit 💪 — EatBC`;
+    t+=`💡 Tips:\n${plan.tips.map(x=>"• "+x).join("\n")}\n\nLet's make the nation fit 💪 — EatBC\nGet your free plan → https://eatbc.in`;
     return t;
   }
   const shareWA=()=>window.open(`https://wa.me/?text=${encodeURIComponent(planText())}`,"_blank");
@@ -13365,13 +13434,13 @@ export default function App() {
     setSession(sess); sset<Session>("eatbc:session",sess);
     if(loginPlan) setPlan(loginPlan);
     setTracking(loginTracking||{});
-    setScreen("quote");
+    setScreen(quoteShownToday()?"dash":"quote");
   }
   async function doSignup(sess:Session) {
     setSession(sess); sset<Session>("eatbc:session",sess);
     if(plan) await apiPost("/api/plan",{plan,profile},sess.token).catch(()=>{});
     setTracking({});
-    setScreen("quote");
+    setScreen(quoteShownToday()?"dash":"quote");
   }
   function logout() {
     const token=session?.token;
@@ -13498,9 +13567,24 @@ export default function App() {
   if (screen==="onboarding") return <Onboarding onDone={doneOnboarding}/>;
   if (screen==="welcome") return <Welcome lang={lang} onLang={changeLang} onNew={()=>setScreen("quiz")} onLogin={()=>setScreen("login")}/>;
   if (screen==="login")   return <Login onDone={doLogin} onBack={()=>setScreen("welcome")}/>;
-  if (screen==="intro")   return <LoginIntro diet={plan?.diet} onDone={()=>setScreen("quote")}/>;
+  if (screen==="intro")   return <LoginIntro diet={plan?.diet} onDone={()=>setScreen(quoteShownToday()?"dash":"quote")}/>;
   if (screen==="quote")   return <DailyQuote onDone={()=>setScreen("dash")}/>;
-  if (screen==="foodgame") return <FoodGame name={profile.name} diet={profile.diet} onDone={finishGame}/>;
+  if (screen==="foodgame") return (
+    <>
+      <FoodGame name={profile.name} diet={profile.diet} onDone={finishGame}/>
+      {loading&&(
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center px-8 text-center"
+          style={{background:"linear-gradient(165deg,#052e1b 0%,#0a5e34 60%,#0d7a42 100%)"}}>
+          <Loader2 className="animate-spin mb-5" size={44} color="#00FF9D"/>
+          <p className="text-white font-black text-2xl leading-snug" style={{letterSpacing:"-0.5px"}}>
+            Crafting your week around<br/>
+            <span style={{color:"#7CFFC4"}}>{(profile.foodPicks||[]).slice(0,3).join(", ")||"your picks"}…</span>
+          </p>
+          <p className="text-white/80 text-sm mt-3">Balancing calories, protein &amp; your cuisines</p>
+        </div>
+      )}
+    </>
+  );
 
   if (screen==="quiz") return (
     <div className="min-h-screen py-8 px-4 relative overflow-hidden" style={{background:"#0A0A0A"}}>
@@ -13510,16 +13594,16 @@ export default function App() {
       <Card className="p-6 md:p-8">
         <span className="font-bold text-gray-700 mb-6 block">EatBC</span>
         <div className="mb-6">
-          <div className="flex justify-between text-xs text-gray-400 mb-2">
-            <span>{t("question")} {stepClamped+1} {t("of")} {activeQ.length}</span><span>{Math.round(((stepClamped+1)/activeQ.length)*100)}%</span>
+          <div className="flex justify-between text-xs text-gray-500 mb-2">
+            <span>{t("question")} {stepClamped+1} {t("of")} ~{Q.length}</span><span>{Math.round(((stepClamped+1)/Q.length)*100)}%</span>
           </div>
           <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-            <div className="h-2 rounded-full transition-all" style={{width:`${((stepClamped+1)/activeQ.length)*100}%`,background:GREEN}}/>
+            <div className="h-2 rounded-full transition-all" style={{width:`${((stepClamped+1)/Q.length)*100}%`,background:GREEN}}/>
           </div>
         </div>
-        {stepClamped>=5&&<QuizTeaser profile={profile}/>}
+        {stepClamped>=5&&!qErr&&<QuizTeaser profile={profile}/>}
         <h2 className="text-2xl font-bold text-gray-800">{cur.label}</h2>
-        {(cur.subFn?.(profile)||cur.sub)&&<p className="text-sm text-gray-400 mt-1 mb-4">{cur.subFn?.(profile)||cur.sub}</p>}
+        {(cur.subFn?.(profile)||cur.sub)&&<p className="text-sm text-gray-500 mt-1 mb-4">{cur.subFn?.(profile)||cur.sub}</p>}
         <div className={cur.sub?"":"mt-5"}>
           {cur.type==="pick"&&(
             <div className="grid gap-2.5">
@@ -13533,7 +13617,7 @@ export default function App() {
             </div>
           )}
           {cur.type==="multi"&&(
-            <div className="grid grid-cols-2 gap-2 max-h-72 overflow-y-auto">
+            <div className="grid grid-cols-2 gap-2 max-h-96 overflow-y-auto">
               {(cur.optsFn?.(profile)||cur.opts||[]).map(o=>{
                 const on=(Array.isArray(profile[cur.k])?(profile[cur.k] as string[]):[]).includes(o);
                 return (
@@ -13549,12 +13633,12 @@ export default function App() {
           {cur.type==="height"&&(
             <div className="flex gap-3">
               <div className="flex-1">
-                <label className="text-xs text-gray-400">Feet</label>
+                <label className="text-xs text-gray-500">Feet</label>
                 <input type="number" value={profile.heightFt||""} onChange={e=>{setQErr("");setProfile(p=>({...p,heightFt:e.target.value}));}}
                   placeholder="5" className="w-full mt-1 px-4 py-3.5 rounded-2xl border-2 border-gray-200 outline-none focus:border-green-500 text-lg" autoFocus/>
               </div>
               <div className="flex-1">
-                <label className="text-xs text-gray-400">Inches</label>
+                <label className="text-xs text-gray-500">Inches</label>
                 <input type="number" value={profile.heightIn||""} onChange={e=>{setQErr("");setProfile(p=>({...p,heightIn:e.target.value}));}}
                   placeholder="9" className="w-full mt-1 px-4 py-3.5 rounded-2xl border-2 border-gray-200 outline-none focus:border-green-500 text-lg"/>
               </div>
@@ -13659,7 +13743,7 @@ export default function App() {
 
         {plan.workout&&(
           <div className="rounded-3xl p-5 mb-5 text-white shadow-lg"
-            style={{background:"linear-gradient(135deg,#5B21B6 0%,#7C3AED 60%,#9333EA 100%)"}}>
+            style={{background:"linear-gradient(135deg,#0a5e34 0%,#159a57 60%,#1DAA61 100%)"}}>
             <div className="flex items-center gap-2 mb-3"><Dumbbell size={18}/><h3 className="font-black">Your workout plan</h3></div>
             <p className="text-white/80 text-sm mb-3">{plan.workout.focus} · {plan.workout.place} · {plan.workout.daysPerWeek} days/week. Track it live on your dashboard.</p>
             <div className="grid grid-cols-2 gap-2">
@@ -13670,7 +13754,7 @@ export default function App() {
                 </div>
               ))}
             </div>
-            {plan.workout.days.length>4&&<p className="text-white/60 text-xs mt-2">+ {plan.workout.days.length-4} more sessions inside</p>}
+            {plan.workout.days.length>4&&<p className="text-white/80 text-xs mt-2">+ {plan.workout.days.length-4} more sessions inside</p>}
           </div>
         )}
 
@@ -13687,18 +13771,28 @@ export default function App() {
 
         <Card className="p-6 text-center">
           <h3 className="text-xl font-black text-gray-800">Ready to lock this in?</h3>
-          <p className="text-gray-400 text-sm mt-1 mb-4">Accept the challenge → create your account → start tracking daily.</p>
+          <p className="text-gray-500 text-sm mt-1 mb-4">Accept the challenge → create your account → start tracking daily.</p>
           <button onClick={()=>setScreen("signup")}
             className="px-8 py-3.5 rounded-2xl text-white font-black text-lg inline-flex items-center gap-2 shadow-md hover:opacity-90 transition"
             style={{background:GREEN}}>
             Accept the Challenge <ChevronRight size={20}/>
           </button>
-          <p className="text-xs text-gray-400 mt-3">Account creation happens next — just one last step!</p>
+          <p className="text-xs text-gray-500 mt-3">Account creation happens next — just one last step!</p>
           <button onClick={()=>{setStep(0);setScreen("quiz");}}
-            className="block mx-auto text-gray-400 text-sm mt-4 hover:text-gray-600 transition underline underline-offset-2">
+            className="block mx-auto text-gray-500 text-sm mt-4 hover:text-gray-600 transition underline underline-offset-2">
             ← Review or edit my answers
           </button>
         </Card>
+        <div className="h-20"/>{/* breathing room above the sticky CTA */}
+      </div>
+      {/* Sticky conversion CTA — the accept button lives ~5000px deep otherwise */}
+      <div className="fixed left-0 right-0 bottom-0 z-40 px-4 pb-4 pt-8 pointer-events-none"
+        style={{background:"linear-gradient(to top,rgba(240,250,244,0.97) 45%,transparent)"}}>
+        <button onClick={()=>setScreen("signup")}
+          className="pointer-events-auto max-w-md mx-auto w-full py-3.5 rounded-2xl text-white font-black text-base flex items-center justify-center gap-2 shadow-lg active:scale-[0.98] transition"
+          style={{background:GREEN,boxShadow:"0 10px 30px -8px rgba(29,170,97,0.55)"}}>
+          Accept the Challenge <ChevronRight size={19}/>
+        </button>
       </div>
     </Shell>
   );
@@ -13715,5 +13809,5 @@ export default function App() {
       calAdjustMsg={calAdjustMsg}/>
   );
 
-  return <Shell><Card className="p-10 text-center text-gray-400">Loading…</Card></Shell>;
+  return <Shell><Card className="p-10 text-center text-gray-500">Loading…</Card></Shell>;
 }
