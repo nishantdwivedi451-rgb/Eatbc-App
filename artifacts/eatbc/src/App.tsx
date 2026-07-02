@@ -12400,7 +12400,7 @@ function VeerBot({session,planCondition,plan,tracking,profile}:{
       {/* Floating trigger */}
       <button onClick={()=>setOpen(true)} aria-label="Ask Veer"
         className="fixed z-40 flex items-center justify-center active:scale-95 transition-transform"
-        style={{bottom:84,right:18,width:54,height:54,borderRadius:"50%",
+        style={{bottom:96,right:16,width:54,height:54,borderRadius:"50%",
           background:"#111",border:"2px solid rgba(255,250,102,0.55)",
           animation:"vGlowBtn 2.5s ease-in-out infinite"}}>
         <VeerIcon size={32}/>
@@ -12765,118 +12765,74 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
   const [showDeleteConfirm,setShowDeleteConfirm]=useState(false);
   const [deleteLoading,setDeleteLoading]=useState(false);
 
-  const [topSlide,setTopSlide]=useState<0|1|2>(0);
-  const touchStartX=useRef(0);
   const [tab,setTab]=useState<"today"|"train"|"progress"|"community">("today");
   const [showCalendar,setShowCalendar]=useState(false);
+  const [showProfile,setShowProfile]=useState(false);   // account & settings sheet
+  const [showQuick,setShowQuick]=useState(false);       // quick-add action sheet
   const TABS:[typeof tab,string,React.ElementType][]=[
     ["today","Today",Utensils],
     ["train","Train",Dumbbell],
     ["progress","Stats",BarChart3],["community","Squad",Users],
   ];
+  const kcalLeft=Math.max(0,cal-netConsumed);
+  const wtGlasses=waterTarget(tracking.lastRecalcWeight);
+  const greeting=hour<12?"Good morning":hour<17?"Good afternoon":"Good evening";
+  const dateLabel=new Date().toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"short"});
 
   return (
     <>
     <Shell wide>
-      <div style={{animation:"eFade .4s ease both"}}>
-        <div className="rounded-3xl text-white shadow-lg mb-4 overflow-hidden"
-          style={{background:"linear-gradient(135deg,#1DAA61 0%,#0E8A4D 60%,#0B6E40 100%)"}}
-          onTouchStart={e=>{ touchStartX.current=e.touches[0].clientX; }}
-          onTouchEnd={e=>{
-            const dx=e.changedTouches[0].clientX-touchStartX.current;
-            if(dx<-48) setTopSlide(s=>Math.min(2,s+1) as 0|1|2);
-            else if(dx>48) setTopSlide(s=>Math.max(0,s-1) as 0|1|2);
-          }}>
-          {/* Top bar */}
-          <div className="flex items-center justify-between px-6 pt-5 pb-2">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-sm">EatBC</span>
-              <button onClick={()=>setShowCalendar(true)}
-                className="flex items-center gap-1 px-2 py-0.5 rounded-full transition active:scale-95"
-                style={{background:"rgba(255,255,255,0.15)",border:"1px solid rgba(255,255,255,0.25)"}}>
-                <CalendarDays size={12} style={{color:"rgba(255,255,255,0.85)"}}/>
-                <span style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.85)"}}>Month</span>
-              </button>
-            </div>
-            <div className="flex items-center gap-1.5">
-              {([0,1,2] as const).map(i=>(
-                <button key={i} onClick={()=>setTopSlide(i)}
-                  className="rounded-full transition-all duration-300"
-                  style={{width:topSlide===i?20:8,height:8,
-                    background:topSlide===i?"white":"rgba(255,255,255,0.4)"}}/>
-              ))}
-              {/* Visible door to account/settings — the swipe carousel alone is undiscoverable */}
-              <button aria-label="Account & settings" onClick={()=>setTopSlide(2)}
-                className="ml-1.5 p-1.5 rounded-full active:scale-95 transition"
-                style={{background:"rgba(255,255,255,0.15)",border:"1px solid rgba(255,255,255,0.25)"}}>
-                <User size={14}/>
-              </button>
-            </div>
-          </div>
+      <div className="pb-24" style={{animation:"eFade .4s ease both"}}>
+        {/* ── Hero: one glanceable header, no hidden swipes ── */}
+        <div className="rounded-[28px] text-white shadow-lg mb-4 overflow-hidden relative"
+          style={{background:"linear-gradient(150deg,#0D8A4E 0%,#0C7A46 45%,#0A5E38 100%)"}}>
+          <div className="absolute inset-0 pointer-events-none"
+            style={{backgroundImage:"radial-gradient(rgba(255,255,255,0.09) 1px,transparent 1px)",backgroundSize:"22px 22px",opacity:0.45}}/>
+          <div className="absolute rounded-full pointer-events-none"
+            style={{width:260,height:260,top:-120,right:-80,background:"radial-gradient(circle,rgba(255,250,102,0.16),transparent 68%)",filter:"blur(6px)"}}/>
+          <div className="relative px-5 pt-5 pb-5">
 
-          {/* Sliding track — all 3 slides always mounted, translated by CSS */}
-          <div style={{overflow:"hidden"}}>
-            <div style={{
-              display:"flex",
-              transform:`translateX(${-topSlide*100}%)`,
-              transition:"transform 0.32s cubic-bezier(0.4,0,0.2,1)",
-            }}>
-              {/* Slide 1: Overview */}
-              <div style={{minWidth:"100%",height:210,padding:"0 24px 20px",boxSizing:"border-box",display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-2xl font-black mb-0.5">Hi {session.name}</h2>
-                  </div>
-                  <CalRing pct={cal?consumed/cal:0} big={consumed} small={`/ ${cal}`} size={96}/>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="rounded-2xl py-3 text-center" style={{background:"rgba(255,255,255,0.15)"}}>
-                    <div className="font-black text-xl flex items-center justify-center gap-1"><Flame size={18}/>{streak}</div>
-                    <div className="text-xs text-white/70">{t("perfectDays")}</div>
-                  </div>
-                  <div className="rounded-2xl py-3 text-center" style={{background:"rgba(255,255,255,0.15)"}}>
-                    <div className="font-black text-xl">{doneCount}/{dp?.meals.length||0}</div>
-                    <div className="text-xs text-white/70">{t("todaysMeals")}</div>
-                  </div>
-                </div>
-                {showStreakRisk&&(
-                  <div className="rounded-xl px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5"
-                    style={{background:"rgba(251,191,36,0.2)",color:"#fef08a"}}>
-                    <Bell size={12}/>{t("streakRisk")}
-                  </div>
-                )}
+            {/* Top row: greeting + calendar + avatar */}
+            <div className="flex items-start justify-between mb-5">
+              <div className="min-w-0">
+                <div className="text-[11px] font-bold uppercase tracking-widest text-white/85">{greeting}</div>
+                <h2 className="text-[26px] font-black leading-tight truncate" style={{letterSpacing:"-0.5px"}}>{session.name}</h2>
+                <div className="text-xs text-white/85 mt-0.5">{dateLabel}</div>
               </div>
+              <div className="flex items-center gap-2 shrink-0 pt-0.5">
+                <button onClick={()=>setShowCalendar(true)} aria-label="Open month calendar"
+                  className="w-10 h-10 rounded-full flex items-center justify-center active:scale-95 transition"
+                  style={{background:"rgba(255,255,255,0.14)",border:"1px solid rgba(255,255,255,0.22)"}}>
+                  <CalendarDays size={17}/>
+                </button>
+                <button onClick={()=>setShowProfile(true)} aria-label="Account & settings"
+                  className="w-10 h-10 rounded-full flex items-center justify-center font-black text-base active:scale-95 transition"
+                  style={{background:"rgba(255,250,102,0.9)",color:"#0A5E38",boxShadow:"0 4px 14px rgba(0,0,0,0.18)"}}>
+                  {(session.name||"?")[0].toUpperCase()}
+                </button>
+              </div>
+            </div>
 
-              {/* Slide 2: Nutrition */}
-              <div style={{minWidth:"100%",height:210,padding:"0 24px 20px",boxSizing:"border-box",display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-bold text-white/90">Nutrition</div>
-                    <div className="text-xs text-white/80">{cal>0?`${Math.max(0,cal-netConsumed)} kcal remaining`:"Set your plan"}</div>
-                  </div>
-                  <div className="rounded-2xl px-3 py-1.5 text-xs font-bold" style={{background:"rgba(255,255,255,0.15)"}}>
-                    <Dumbbell size={12} className="inline mr-1"/>{workoutBurned} burned
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="rounded-2xl py-2.5" style={{background:"rgba(255,255,255,0.15)"}}>
-                    <div className="font-black text-xl">{consumed}</div>
-                    <div className="text-xs text-white/70">eaten</div>
-                  </div>
-                  <div className="rounded-2xl py-2.5" style={{background:"rgba(255,255,255,0.15)"}}>
-                    <div className="font-black text-xl">{workoutBurned}</div>
-                    <div className="text-xs text-white/70">burned</div>
-                  </div>
-                  <div className="rounded-2xl py-2.5" style={{background:"rgba(255,255,255,0.15)"}}>
-                    <div className="font-black text-xl">{netConsumed}</div>
-                    <div className="text-xs text-white/70">net</div>
-                  </div>
+            {/* Middle: calorie ring + macro bars — the whole day at a glance */}
+            <div className="flex items-center gap-5 mb-4">
+              <div className="shrink-0 relative">
+                <CalRing pct={cal?consumed/cal:0} big={consumed} small={`/ ${cal}`} size={118}/>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-2.5">
+                  <span className="text-sm font-black">{cal>0?`${kcalLeft} kcal left`:"Set your plan"}</span>
+                  {workoutBurned>0&&(
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1"
+                      style={{background:"rgba(255,255,255,0.16)"}}>
+                      <Dumbbell size={11}/>{workoutBurned} burned · {netConsumed} net
+                    </span>
+                  )}
                 </div>
                 {proteinTargetVal>0?(
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     <div>
-                      <div className="flex justify-between text-xs text-white/80 mb-1">
-                        <span>{t("protein")}</span><span>{proteinConsumed}/{proteinTargetVal}g</span>
+                      <div className="flex justify-between text-[11px] font-semibold text-white/90 mb-1">
+                        <span>{t("protein")}</span><span>{proteinConsumed} / {proteinTargetVal}g</span>
                       </div>
                       <div className="h-2 rounded-full" style={{background:"rgba(255,255,255,0.2)"}}>
                         <div className="h-2 rounded-full transition-all duration-700" style={{width:`${Math.min(proteinConsumed/proteinTargetVal,1)*100}%`,background:"#86efac"}}/>
@@ -12884,73 +12840,57 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
                     </div>
                     {fatTarget>0&&(
                       <div>
-                        <div className="flex justify-between text-xs text-white/50 mb-1">
-                          <span>Fat</span><span>{fatConsumed}/{fatTarget}g</span>
+                        <div className="flex justify-between text-[11px] font-semibold text-white/75 mb-1">
+                          <span>Fat</span><span>{fatConsumed} / {fatTarget}g</span>
                         </div>
-                        <div className="h-1.5 rounded-full" style={{background:"rgba(255,255,255,0.15)"}}>
+                        <div className="h-1.5 rounded-full" style={{background:"rgba(255,255,255,0.16)"}}>
                           <div className="h-1.5 rounded-full transition-all duration-700" style={{width:`${Math.min(fatConsumed/fatTarget,1)*100}%`,background:"#fbbf24"}}/>
                         </div>
                       </div>
                     )}
                     {fiberTarget>0&&(
                       <div>
-                        <div className="flex justify-between text-xs text-white/50 mb-1">
-                          <span>Fibre</span><span>{fiberConsumed}/{fiberTarget}g</span>
+                        <div className="flex justify-between text-[11px] font-semibold text-white/75 mb-1">
+                          <span>Fibre</span><span>{fiberConsumed} / {fiberTarget}g</span>
                         </div>
-                        <div className="h-1.5 rounded-full" style={{background:"rgba(255,255,255,0.15)"}}>
+                        <div className="h-1.5 rounded-full" style={{background:"rgba(255,255,255,0.16)"}}>
                           <div className="h-1.5 rounded-full transition-all duration-700" style={{width:`${Math.min(fiberConsumed/fiberTarget,1)*100}%`,background:"#60a5fa"}}/>
                         </div>
                       </div>
                     )}
                   </div>
                 ):(
-                  <div className="text-xs text-white/50 text-center">No protein target set</div>
+                  <div className="text-xs text-white/70">No macro targets set</div>
                 )}
               </div>
+            </div>
 
-              {/* Slide 3: Account + Settings */}
-              <div style={{minWidth:"100%",height:210,padding:"0 24px 20px",boxSizing:"border-box",display:"flex",flexDirection:"column",gap:12}}>
-                {/* Avatar row */}
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center font-black text-lg shrink-0"
-                    style={{background:"rgba(255,255,255,0.2)"}}>{(session.name||"?")[0].toUpperCase()}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-bold text-white/90 text-sm truncate">{session.name}</div>
-                    <div className="text-xs text-white/80 truncate">{plan?.goal||"No goal set"}</div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className="font-black text-lg leading-none">{points}</div>
-                    <div className="text-xs text-white/80">pts</div>
-                  </div>
-                </div>
-                {/* Stats mini-grid */}
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="rounded-2xl py-2" style={{background:"rgba(255,255,255,0.15)"}}>
-                    <div className="font-black text-base flex items-center justify-center gap-0.5"><Flame size={14}/>{streak}</div>
-                    <div className="text-[10px] text-white/70">streak</div>
-                  </div>
-                  <div className="rounded-2xl py-2" style={{background:"rgba(255,255,255,0.15)"}}>
-                    <div className="font-black text-base">{daysActive}</div>
-                    <div className="text-[10px] text-white/70">days active</div>
-                  </div>
-                  <div className="rounded-2xl py-2" style={{background:"rgba(255,255,255,0.15)"}}>
-                    <div className="font-black text-base">{points}</div>
-                    <div className="text-[10px] text-white/70">total pts</div>
-                  </div>
-                </div>
-                {/* Nudge toggle */}
-                <ReminderToggle t={t} radio token={session.token}/>
-                {/* Logout / Delete */}
-                <div className="flex items-center gap-4">
-                  <button onClick={onLogout} aria-label="Log out of your account" className="text-white/80 inline-flex items-center gap-1 text-sm hover:text-white">
-                    <LogOut size={14}/>{t("logout")}
-                  </button>
-                  <button onClick={()=>setShowDeleteConfirm(true)} aria-label="Delete your account" className="text-red-300/70 inline-flex items-center gap-1 text-xs hover:text-red-200">
-                    <X size={12}/>{t("deleteAccount")}
-                  </button>
-                </div>
+            {/* Stat chips */}
+            <div className="grid grid-cols-4 gap-2 text-center">
+              <div className="rounded-2xl py-2.5" style={{background:"rgba(255,255,255,0.13)",border:"1px solid rgba(255,255,255,0.12)"}}>
+                <div className="font-black text-lg leading-none flex items-center justify-center gap-1"><Flame size={15} style={{color:"#FFFA66"}}/>{streak}</div>
+                <div className="text-[10px] text-white/75 mt-1">streak</div>
+              </div>
+              <div className="rounded-2xl py-2.5" style={{background:"rgba(255,255,255,0.13)",border:"1px solid rgba(255,255,255,0.12)"}}>
+                <div className="font-black text-lg leading-none">{todayMeals}/{todayTotal}</div>
+                <div className="text-[10px] text-white/75 mt-1">meals</div>
+              </div>
+              <div className="rounded-2xl py-2.5" style={{background:"rgba(255,255,255,0.13)",border:"1px solid rgba(255,255,255,0.12)"}}>
+                <div className="font-black text-lg leading-none flex items-center justify-center gap-1"><Droplet size={14} style={{color:"#7dd3fc"}}/>{todayTrack.water||0}/{wtGlasses}</div>
+                <div className="text-[10px] text-white/75 mt-1">water</div>
+              </div>
+              <div className="rounded-2xl py-2.5" style={{background:"rgba(255,255,255,0.13)",border:"1px solid rgba(255,255,255,0.12)"}}>
+                <div className="font-black text-lg leading-none">{points}</div>
+                <div className="text-[10px] text-white/75 mt-1">points</div>
               </div>
             </div>
+
+            {showStreakRisk&&(
+              <div className="mt-3 rounded-xl px-3 py-2 text-xs font-semibold flex items-center gap-1.5"
+                style={{background:"rgba(251,191,36,0.2)",color:"#fef08a"}}>
+                <Bell size={12}/>{t("streakRisk")}
+              </div>
+            )}
           </div>
         </div>
 
@@ -12964,17 +12904,7 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
           </div>
         )}
 
-        {/* Section tabs */}
-        <div className="flex gap-2 mb-4 bg-white rounded-2xl p-1 border border-gray-100">
-          {TABS.map(([id,label,Icon])=>(
-            <button key={id} onClick={()=>setTab(id)}
-              role="tab" aria-selected={tab===id} aria-label={`Switch to ${label} tab`}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold transition ${tab===id?"text-white shadow":"text-gray-500"}`}
-              style={tab===id?{background:GREEN}:{}}>
-              <Icon size={15}/> {label}
-            </button>
-          ))}
-        </div>
+        {/* Section navigation lives in the fixed bottom bar (native-app pattern) */}
 
         {tab==="today"&&(
           <>
@@ -12987,19 +12917,38 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
             />
             <DietitianCard condition={plan?.condition||""} t={t}/>
             <ProgressionTracker daysActive={daysActive} t={t}/>
-            <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
-              {WEEK.map(d=>(
-                <button key={d} onClick={()=>setSel(d)}
-                  className={`px-3.5 py-2 rounded-xl text-sm whitespace-nowrap font-semibold transition ${sel===d?"text-white shadow":"bg-white text-gray-500 border border-gray-100"}`}
-                  style={sel===d?{background:GREEN}:{}}>
-                  {d.slice(0,3)}{d===today?" •":""}
-                </button>
-              ))}
+            {/* Week strip — real dates, calendar feel */}
+            <div className="grid grid-cols-7 gap-1.5 mb-4">
+              {WEEK.map((d,i)=>{
+                const todayIdx=WEEK.indexOf(today);
+                const dt=new Date(); dt.setDate(dt.getDate()-(todayIdx-i));
+                const isSel=sel===d, isToday=d===today;
+                return (
+                  <button key={d} onClick={()=>setSel(d)} aria-label={`View ${d}`}
+                    className={`flex flex-col items-center py-2 rounded-2xl transition active:scale-95 ${isSel?"text-white shadow-md":"bg-white text-gray-500 border border-gray-100"}`}
+                    style={isSel?{background:GREEN}:{}}>
+                    <span className={`text-[10px] font-bold uppercase ${isSel?"text-white/80":"text-gray-400"}`}>{d.slice(0,3)}</span>
+                    <span className="text-base font-black leading-tight">{dt.getDate()}</span>
+                    <span className="w-1 h-1 rounded-full mt-0.5" style={{background:isToday?(isSel?"#FFFA66":GREEN):"transparent"}}/>
+                  </button>
+                );
+              })}
             </div>
             {dp?(
               <>
                 <Card className="p-5 mb-4">
-                  <h3 className="font-bold text-gray-800 mb-3">{sel} — {t("tickOff")}</h3>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <h3 className="font-black text-gray-800 flex items-center gap-2"><Utensils size={16} style={{color:GREEN}}/>{sel}'s plan</h3>
+                    <span className="text-[11px] font-bold px-2.5 py-1 rounded-full" style={{background:"#F0FDF4",color:GREEN}}>
+                      {dp.meals.reduce((a,m)=>a+m.cal,0)} kcal
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2.5 mb-3.5">
+                    <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{background:"#F3F4F6"}}>
+                      <div className="h-1.5 rounded-full transition-all duration-500" style={{width:`${dp.meals.length?doneCount/dp.meals.length*100:0}%`,background:GREEN}}/>
+                    </div>
+                    <span className="text-[11px] font-semibold text-gray-500 shrink-0">{doneCount}/{dp.meals.length} done · {t("tickOff")}</span>
+                  </div>
                   <div className="space-y-1">
                     {dp.meals.map((m,i)=>{
                       const ui=MEAL_UI[m.time]||MEAL_UI["Lunch"];
@@ -13113,18 +13062,20 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
                     </div>
                   );
                 })()}
-                <FoodLogger
-                  log={dd.log||[]}
-                  customFoods={tracking.customFoods||[]}
-                  onSaveCustom={saveCustom}
-                  onUpdate={l=>onUpdate({...tracking,[sel]:{...dd,log:l}})}
-                  t={t}
-                  diet={plan?.diet}
-                  token={session.token}
-                  yesterdayLog={yesterdayLog}
-                  fastMode={fastMode??undefined}
-                  onSetFastMode={handleSetFastMode}
-                />
+                <div id="food-logger" style={{scrollMarginTop:16}}>
+                  <FoodLogger
+                    log={dd.log||[]}
+                    customFoods={tracking.customFoods||[]}
+                    onSaveCustom={saveCustom}
+                    onUpdate={l=>onUpdate({...tracking,[sel]:{...dd,log:l}})}
+                    t={t}
+                    diet={plan?.diet}
+                    token={session.token}
+                    yesterdayLog={yesterdayLog}
+                    fastMode={fastMode??undefined}
+                    onSetFastMode={handleSetFastMode}
+                  />
+                </div>
                 <CheatDayZone
                   dd={dd}
                   plan={plan}
@@ -13132,10 +13083,6 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
                   consumed={consumed}
                   onUpdate={updated=>onUpdate({...tracking,[sel]:updated})}
                 />
-                <div className="flex items-center justify-between mb-2 mt-1 px-1">
-                  <span className="text-xs font-semibold text-gray-500">Boss me around 🔔</span>
-                  <ReminderToggle t={t} compact token={session.token}/>
-                </div>
                 <Card className="p-5 mb-4">
                   {(()=>{const wt=waterTarget(tracking.lastRecalcWeight);return(<>
                   <div className="flex items-center justify-between mb-3">
@@ -13199,14 +13146,14 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
 
       {/* Retire toast */}
       {retireToast&&(
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-2xl px-5 py-3 shadow-lg text-sm font-semibold text-white flex items-center gap-2"
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 rounded-2xl px-5 py-3 shadow-lg text-sm font-semibold text-white flex items-center gap-2"
           style={{background:"#1DAA61",animation:"eFade .3s ease both"}}>
           <CheckCircle2 size={16}/> {t("retiredFood")}
         </div>
       )}
       {/* Adaptive calorie adjustment toast */}
       {calAdjustMsg&&(
-        <div className="fixed bottom-6 left-4 right-4 z-50 rounded-2xl px-4 py-3 shadow-lg text-sm font-semibold text-white flex items-center gap-2"
+        <div className="fixed bottom-24 left-4 right-4 z-50 rounded-2xl px-4 py-3 shadow-lg text-sm font-semibold text-white flex items-center gap-2"
           style={{background:"#0E8A4D",animation:"eFade .3s ease both"}}>
           <Zap size={16}/> Plan auto-adjusted: {calAdjustMsg}
         </div>
@@ -13244,6 +13191,114 @@ function Dash({session,plan,tracking,profile,lang,onLang,onUpdate,onSwap,onLogou
           onClose={()=>setShowCalendar(false)}
         />
       )}
+
+      {/* ── Profile & settings bottom sheet ── */}
+      {showProfile&&(
+        <div className="fixed inset-0 z-50 flex items-end justify-center"
+          style={{background:"rgba(0,0,0,0.5)",backdropFilter:"blur(4px)"}}
+          onClick={()=>setShowProfile(false)}>
+          <div className="w-full max-w-md bg-white rounded-t-[28px] px-6 pt-3 pb-8 shadow-2xl"
+            style={{animation:"eSlideUp .3s cubic-bezier(.22,1,.36,1) both"}}
+            onClick={e=>e.stopPropagation()}>
+            <div className="w-10 h-1 rounded-full bg-gray-200 mx-auto mb-5"/>
+            <div className="flex items-center gap-3.5 mb-5">
+              <div className="w-14 h-14 rounded-full flex items-center justify-center font-black text-2xl text-white shrink-0"
+                style={{background:`linear-gradient(135deg,${GREEN},#0B6E40)`}}>{(session.name||"?")[0].toUpperCase()}</div>
+              <div className="flex-1 min-w-0">
+                <div className="font-black text-gray-800 text-lg truncate">{session.name}</div>
+                <div className="text-xs font-semibold px-2 py-0.5 rounded-full inline-block mt-0.5" style={{background:"#F0FDF4",color:GREEN}}>
+                  {plan?.goal||"No goal set"}
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center mb-5">
+              <div className="rounded-2xl py-3 border border-gray-100" style={{background:"#FAFAF9"}}>
+                <div className="font-black text-lg text-gray-800 flex items-center justify-center gap-1"><Flame size={15} style={{color:"#F59E0B"}}/>{streak}</div>
+                <div className="text-[10px] text-gray-500 font-semibold">streak</div>
+              </div>
+              <div className="rounded-2xl py-3 border border-gray-100" style={{background:"#FAFAF9"}}>
+                <div className="font-black text-lg text-gray-800">{daysActive}</div>
+                <div className="text-[10px] text-gray-500 font-semibold">days active</div>
+              </div>
+              <div className="rounded-2xl py-3 border border-gray-100" style={{background:"#FAFAF9"}}>
+                <div className="font-black text-lg text-gray-800">{points}</div>
+                <div className="text-[10px] text-gray-500 font-semibold">points</div>
+              </div>
+            </div>
+            <div className="mb-5"><ReminderToggle t={t} token={session.token}
+              label="Boss me around 🔔" sublabel="Poke me when I go AWOL from my diet plan"/></div>
+            <button onClick={onLogout} aria-label="Log out of your account"
+              className="w-full py-3 rounded-2xl font-bold text-sm mb-2.5 flex items-center justify-center gap-2 border-2 border-gray-200 text-gray-700 active:scale-[0.98] transition">
+              <LogOut size={15}/>{t("logout")}
+            </button>
+            <button onClick={()=>{setShowProfile(false);setShowDeleteConfirm(true);}} aria-label="Delete your account"
+              className="w-full py-2.5 rounded-2xl font-semibold text-xs text-red-400 hover:text-red-600 flex items-center justify-center gap-1.5 transition">
+              <X size={13}/>{t("deleteAccount")}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Quick-add action sheet ── */}
+      {showQuick&&(
+        <div className="fixed inset-0 z-50 flex items-end justify-center"
+          style={{background:"rgba(0,0,0,0.5)",backdropFilter:"blur(4px)"}}
+          onClick={()=>setShowQuick(false)}>
+          <div className="w-full max-w-md bg-white rounded-t-[28px] px-6 pt-3 pb-8 shadow-2xl"
+            style={{animation:"eSlideUp .3s cubic-bezier(.22,1,.36,1) both"}}
+            onClick={e=>e.stopPropagation()}>
+            <div className="w-10 h-1 rounded-full bg-gray-200 mx-auto mb-4"/>
+            <h3 className="font-black text-gray-800 text-lg mb-4">Quick add</h3>
+            <div className="grid grid-cols-2 gap-3">
+              {([
+                ["🍛","Log food","What did you eat?",()=>{setShowQuick(false);setTab("today");setSel(today);setTimeout(()=>document.getElementById("food-logger")?.scrollIntoView({behavior:"smooth"}),150);}],
+                ["💧","+1 water",`${todayTrack.water||0}/${wtGlasses} glasses today`,()=>{onUpdate({...tracking,[today]:{...todayTrack,water:Math.min(wtGlasses,(todayTrack.water||0)+1)}});setShowQuick(false);}],
+                ["🏋️","Log workout","Track today's session",()=>{setShowQuick(false);setTab("train");window.scrollTo({top:0,behavior:"smooth"});}],
+                ["🤖","Ask Veer","Your AI coach, 24/7",()=>{setShowQuick(false);window.dispatchEvent(new CustomEvent("eatbc:veer-open",{detail:{message:""}}));}],
+              ] as [string,string,string,()=>void][]).map(([emoji,label,sub,fn])=>(
+                <button key={label} onClick={fn}
+                  className="rounded-2xl p-4 text-left border border-gray-100 active:scale-[0.97] transition"
+                  style={{background:"#FAFAF9"}}>
+                  <div className="text-2xl mb-1.5">{emoji}</div>
+                  <div className="font-bold text-sm text-gray-800">{label}</div>
+                  <div className="text-[11px] text-gray-500 mt-0.5">{sub}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Fixed bottom navigation ── */}
+      <div className="fixed left-0 right-0 bottom-0 z-40"
+        style={{background:"rgba(255,255,255,0.94)",backdropFilter:"blur(14px)",WebkitBackdropFilter:"blur(14px)",
+          borderTop:"1px solid rgba(0,0,0,0.06)",paddingBottom:"max(env(safe-area-inset-bottom,0px),6px)"}}>
+        <div className="max-w-md mx-auto grid grid-cols-5 items-end px-2 pt-1.5 pb-1">
+          {TABS.slice(0,2).map(([id,label,Icon])=>(
+            <button key={id} onClick={()=>{setTab(id);window.scrollTo({top:0,behavior:"smooth"});}}
+              role="tab" aria-selected={tab===id} aria-label={`Switch to ${label} tab`}
+              className="flex flex-col items-center gap-0.5 py-1.5 rounded-xl transition active:scale-95">
+              <Icon size={21} style={{color:tab===id?GREEN:"#9CA3AF"}} strokeWidth={tab===id?2.6:2}/>
+              <span className="text-[10px] font-bold" style={{color:tab===id?GREEN:"#9CA3AF"}}>{label}</span>
+            </button>
+          ))}
+          <div className="flex justify-center">
+            <button onClick={()=>setShowQuick(true)} aria-label="Quick add"
+              className="w-[52px] h-[52px] -mt-6 rounded-full flex items-center justify-center text-white active:scale-95 transition"
+              style={{background:`linear-gradient(135deg,${GREEN},#0B6E40)`,boxShadow:"0 8px 22px -4px rgba(29,170,97,0.55)",border:"3px solid white"}}>
+              <Plus size={26} strokeWidth={2.8}/>
+            </button>
+          </div>
+          {TABS.slice(2).map(([id,label,Icon])=>(
+            <button key={id} onClick={()=>{setTab(id);window.scrollTo({top:0,behavior:"smooth"});}}
+              role="tab" aria-selected={tab===id} aria-label={`Switch to ${label} tab`}
+              className="flex flex-col items-center gap-0.5 py-1.5 rounded-xl transition active:scale-95">
+              <Icon size={21} style={{color:tab===id?GREEN:"#9CA3AF"}} strokeWidth={tab===id?2.6:2}/>
+              <span className="text-[10px] font-bold" style={{color:tab===id?GREEN:"#9CA3AF"}}>{label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
     </Shell>
     <VeerBot session={session} planCondition={plan?.condition||""} plan={plan} tracking={tracking} profile={profile} />
     </>
