@@ -11,6 +11,9 @@ import "@fontsource/inter/500.css";
 import "@fontsource/inter/600.css";
 import "@fontsource/inter/700.css";
 import "./index.css";
+import { inject } from "@vercel/analytics";
+
+inject();
 
 createRoot(document.getElementById("root")!).render(
   <ErrorBoundary>
