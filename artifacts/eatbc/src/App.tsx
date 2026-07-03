@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import QRCode from "qrcode";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronRight, Utensils, Share2, Mail,
@@ -11376,36 +11377,86 @@ function pickPraise(seed:string):string{ return WORKOUT_PRAISE[hashNum(seed)%WOR
 /* Renders a branded, story-ready (9:16) share card for a logged workout and
    returns it as a PNG blob — used for the native share sheet (WhatsApp,
    Instagram Stories, etc all accept an image file via Web Share). */
-async function renderWorkoutShareCard(exerciseName:string,cal:number,praise:string):Promise<Blob|null>{
+interface ShareCardDetails{n:string;cal:number;praise:string;cat?:string;sets?:number;reps?:string;weightLabel?:string;userName?:string;}
+function roundRectPath(ctx:CanvasRenderingContext2D,x:number,y:number,w:number,h:number,r:number){
+  ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();
+}
+/* Branded 1080×1350 share card — Pine & Turmeric, workout-type-aware details,
+   and a scannable QR to eatbc.in (static images can't carry clickable links
+   on Instagram/WhatsApp, so the QR + printed URL + link in the share text
+   cover every path a viewer can take). */
+async function renderWorkoutShareCard(d:ShareCardDetails):Promise<Blob|null>{
   try{
-    const W=1080,H=1920;
+    const W=1080,H=1350;
     const canvas=document.createElement("canvas");
     canvas.width=W; canvas.height=H;
     const ctx=canvas.getContext("2d"); if(!ctx) return null;
+    const HEAD="'Space Grotesk', Inter, system-ui, sans-serif";
+    const BODY="Inter, system-ui, sans-serif";
+    /* Pine backdrop + texture + turmeric glow */
     const grad=ctx.createLinearGradient(0,0,W,H);
-    grad.addColorStop(0,"#5B21B6"); grad.addColorStop(0.55,"#7C3AED"); grad.addColorStop(1,"#9333EA");
+    grad.addColorStop(0,"#123B2C"); grad.addColorStop(0.55,"#0D2E22"); grad.addColorStop(1,"#081F17");
     ctx.fillStyle=grad; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle="rgba(255,255,255,0.05)";
+    for(let x=30;x<W;x+=44)for(let y=30;y<H;y+=44){ctx.beginPath();ctx.arc(x,y,2,0,7);ctx.fill();}
+    const glow=ctx.createRadialGradient(W-90,70,0,W-90,70,430);
+    glow.addColorStop(0,"rgba(232,181,74,0.30)"); glow.addColorStop(1,"rgba(232,181,74,0)");
+    ctx.fillStyle=glow; ctx.fillRect(0,0,W,640);
     ctx.textAlign="center";
-    ctx.fillStyle="rgba(255,255,255,0.85)";
-    ctx.font="700 44px system-ui,-apple-system,sans-serif";
-    ctx.fillText("EatBC · Workout Logged", W/2, 220);
-    ctx.fillStyle="#fff";
-    ctx.font="900 120px system-ui,-apple-system,sans-serif";
-    wrapCanvasText(ctx, exerciseName, W/2, 520, W-160, 130);
-    if(cal>0){
-      ctx.fillStyle="#FDE68A";
-      ctx.font="900 220px system-ui,-apple-system,sans-serif";
-      ctx.fillText(`~${cal}`, W/2, 1150);
-      ctx.fillStyle="rgba(255,255,255,0.85)";
-      ctx.font="700 48px system-ui,-apple-system,sans-serif";
-      ctx.fillText("kcal burned", W/2, 1230);
+    /* Brand + kicker + who/when */
+    ctx.fillStyle="#E8B54A"; ctx.font=`900 58px ${HEAD}`; ctx.fillText("EatBC",W/2,118);
+    ctx.fillStyle="rgba(255,255,255,0.55)"; ctx.font=`800 27px ${BODY}`;
+    ctx.fillText("W O R K O U T   L O G G E D",W/2,168);
+    const dateStr=new Date().toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"short"});
+    ctx.fillStyle="rgba(255,255,255,0.72)"; ctx.font=`600 33px ${BODY}`;
+    ctx.fillText(`${d.userName?d.userName+" · ":""}${dateStr}`,W/2,232);
+    /* Praise + exercise */
+    ctx.fillStyle="#FFFFFF"; ctx.font=`900 72px ${HEAD}`;
+    wrapCanvasText(ctx,d.praise,W/2,352,W-150,82);
+    ctx.fillStyle="#E8B54A"; ctx.font=`900 88px ${HEAD}`;
+    wrapCanvasText(ctx,d.n,W/2,548,W-130,96);
+    /* Type-aware detail chips */
+    const isDur=d.cat==="cardio"||d.cat==="restore";
+    const chips:string[]=[];
+    if(isDur){ if(d.reps)chips.push(`⏱  ${d.reps}`); }
+    else{
+      if(d.sets)chips.push(`${d.sets} sets × ${d.reps||"?"}`);
+      if(d.weightLabel)chips.push(d.weightLabel==="BW"?"bodyweight":`@ ${d.weightLabel}`);
     }
-    ctx.fillStyle="#fff";
-    ctx.font="600 42px system-ui,-apple-system,sans-serif";
-    wrapCanvasText(ctx, praise, W/2, 1500, W-200, 58);
-    ctx.fillStyle="rgba(255,255,255,0.6)";
-    ctx.font="700 36px system-ui,-apple-system,sans-serif";
-    ctx.fillText("eatbc.in", W/2, H-100);
+    if(d.cat)chips.push(d.cat==="restore"?"recovery":d.cat);
+    if(chips.length){
+      ctx.font=`800 38px ${BODY}`;
+      const gap=22,padX=34,chH=84,cy=688;
+      const widths=chips.map(c=>ctx.measureText(c).width+padX*2);
+      let cx=(W-(widths.reduce((a,b)=>a+b,0)+gap*(chips.length-1)))/2;
+      chips.forEach((c,i)=>{
+        ctx.fillStyle="rgba(255,255,255,0.10)"; roundRectPath(ctx,cx,cy,widths[i],chH,42); ctx.fill();
+        ctx.strokeStyle="rgba(232,181,74,0.55)"; ctx.lineWidth=2.5; roundRectPath(ctx,cx,cy,widths[i],chH,42); ctx.stroke();
+        ctx.fillStyle="#fff"; ctx.fillText(c,cx+widths[i]/2,cy+56);
+        cx+=widths[i]+gap;
+      });
+    }
+    /* Calorie hero */
+    if(d.cal>0){
+      ctx.fillStyle="#E8B54A"; ctx.font=`900 185px ${HEAD}`;
+      ctx.fillText(`${d.cal}`,W/2,985);
+      ctx.fillStyle="rgba(255,255,255,0.78)"; ctx.font=`700 42px ${BODY}`;
+      ctx.fillText("kcal burned (est.)",W/2,1050);
+    }else{
+      ctx.fillStyle="rgba(255,255,255,0.85)"; ctx.font=`900 64px ${HEAD}`;
+      ctx.fillText("Consistency > intensity 💪",W/2,960);
+    }
+    /* Footer: QR tile + URL */
+    ctx.fillStyle="rgba(255,255,255,0.07)"; roundRectPath(ctx,60,H-236,W-120,172,30); ctx.fill();
+    const qrCanvas=document.createElement("canvas");
+    await QRCode.toCanvas(qrCanvas,"https://eatbc.in",{width:200,margin:1,color:{dark:"#0D2E22",light:"#FFFFFF"}});
+    ctx.fillStyle="#fff"; roundRectPath(ctx,86,H-218,136,136,16); ctx.fill();
+    ctx.drawImage(qrCanvas,91,H-213,126,126);
+    ctx.textAlign="left";
+    ctx.fillStyle="#E8B54A"; ctx.font=`900 48px ${HEAD}`; ctx.fillText("eatbc.in",254,H-152);
+    ctx.fillStyle="rgba(255,255,255,0.68)"; ctx.font=`600 29px ${BODY}`;
+    ctx.fillText("Scan → your free Indian diet & fitness coach",254,H-106);
     return await new Promise(res=>canvas.toBlob(b=>res(b),"image/png"));
   }catch{ return null; }
 }
@@ -11421,10 +11472,10 @@ function wrapCanvasText(ctx:CanvasRenderingContext2D,text:string,x:number,y:numb
 /* Native share sheet (covers WhatsApp + Instagram Stories/DM + everything
    else installed) with an image file when supported; falls back to a
    WhatsApp deep link on desktop/older browsers where Web Share is absent. */
-async function shareWorkoutResult(exerciseName:string,cal:number,praise:string){
-  const text=`${praise}\n${exerciseName}${cal>0?` — ~${cal} kcal burned`:""} 💪 via EatBC`;
+async function shareWorkoutResult(d:ShareCardDetails){
+  const text=`${d.praise}\n${d.n}${d.cal>0?` — ~${d.cal} kcal burned`:""} 💪\nvia EatBC → https://eatbc.in`;
   try{
-    const blob=await renderWorkoutShareCard(exerciseName,cal,praise);
+    const blob=await renderWorkoutShareCard(d);
     const nav=navigator as Navigator & {canShare?:(d:{files?:File[]})=>boolean};
     if(blob && nav.canShare && nav.share){
       const file=new File([blob],"eatbc-workout.png",{type:"image/png"});
@@ -11481,7 +11532,16 @@ function WorkoutLogger({log,onUpdate,userWeightKg}:{log:ExerciseLog[];onUpdate:(
     ?calcCardioCal(estimateMET(pending||"",pendingCat),weightKg,parseDurationMinutes(finalRepsStr))
     :showWeight?calcWorkoutCal(effectiveWeight,sets,finalRepsStr):0;
 
-  const [justLogged,setJustLogged]=useState<{n:string;cal:number;praise:string}|null>(null);
+  const [justLogged,setJustLogged]=useState<ShareCardDetails|null>(null);
+  const [shareCardUrl,setShareCardUrl]=useState<string|null>(null);
+  useEffect(()=>{
+    let alive=true;
+    if(!justLogged){ setShareCardUrl(u=>{ if(u)URL.revokeObjectURL(u); return null; }); return; }
+    renderWorkoutShareCard(justLogged).then(b=>{
+      if(b&&alive) setShareCardUrl(u=>{ if(u)URL.revokeObjectURL(u); return URL.createObjectURL(b); });
+    });
+    return()=>{ alive=false; };
+  },[justLogged]);
 
   const selectExercise=(n:string,c:string)=>{
     setPending(n);setPendingCat(c);
@@ -11494,7 +11554,8 @@ function WorkoutLogger({log,onUpdate,userWeightKg}:{log:ExerciseLog[];onUpdate:(
     const weightLabel=showWeight?(freeWeight?`${freeWeight}kg`:weightPreset==="BW"?"BW":`${weightPreset}kg`):undefined;
     const cal=previewCal>0?previewCal:undefined;
     onUpdate([...log,{n:pending,sets:showSets?sets:1,reps:finalRepsStr,cat:pendingCat,ts:new Date().toISOString(),weight:showWeight?effectiveWeight:undefined,weightLabel,cal}]);
-    setJustLogged({n:pending,cal:cal||0,praise:pickPraise(pending+new Date().toDateString())});
+    setJustLogged({n:pending,cal:cal||0,praise:pickPraise(pending+new Date().toDateString()),
+      cat:pendingCat,sets:showSets?sets:undefined,reps:finalRepsStr,weightLabel});
     setPending(null);setSets(3);setReps("10 reps");setUseCustom(false);setCustomReps("");setWeightPreset("BW");setFreeWeight("");
     setOpen(false);
   };
@@ -11691,28 +11752,38 @@ function WorkoutLogger({log,onUpdate,userWeightKg}:{log:ExerciseLog[];onUpdate:(
           onClick={()=>setJustLogged(null)}>
           <div className="bg-white rounded-3xl p-6 max-w-sm w-full text-center"
             style={{animation:"popIn 0.3s ease both"}} onClick={e=>e.stopPropagation()}>
-            <div className="text-5xl mb-2">🎉</div>
-            <h3 className="font-black text-gray-800 text-xl leading-snug">{justLogged.praise}</h3>
-            <p className="text-gray-500 text-sm mt-1">{justLogged.n} — logged</p>
-            {justLogged.cal>0&&(
-              <div className="mt-4 rounded-2xl py-4" style={{background:PURLT}}>
-                <div className="text-3xl font-black flex items-center justify-center gap-1.5" style={{color:PUR}}>
-                  <Flame size={22}/>~{justLogged.cal}
-                </div>
-                <div className="text-xs font-semibold" style={{color:"rgba(109,40,217,0.7)"}}>kcal burned (est.)</div>
+            <div className="text-4xl mb-1.5">🎉</div>
+            <h3 className="font-black text-gray-800 text-lg leading-snug">{justLogged.praise}</h3>
+            <p className="text-gray-500 text-sm mt-0.5 mb-3">{justLogged.n} — logged{justLogged.cal>0?` · ~${justLogged.cal} kcal`:""}</p>
+            {/* Live share-card preview */}
+            {shareCardUrl?(
+              <img src={shareCardUrl} alt="Your shareable workout card"
+                className="w-full rounded-2xl border border-gray-100 shadow-md"
+                style={{maxHeight:340,objectFit:"contain",background:"#0D2E22"}}/>
+            ):(
+              <div className="rounded-2xl flex items-center justify-center" style={{height:200,background:"#F4EFE6"}}>
+                <Loader2 className="animate-spin" size={24} style={{color:TURMERIC_DEEP}}/>
               </div>
             )}
-            <div className="flex gap-2 mt-5">
-              <button onClick={()=>shareWorkoutResult(justLogged.n,justLogged.cal,justLogged.praise)}
+            <p className="text-[10px] text-gray-500 mt-2">The QR on the card opens <b>eatbc.in</b> — scannable from Insta stories & WhatsApp.</p>
+            <div className="flex gap-2 mt-3">
+              <button onClick={()=>shareWorkoutResult(justLogged)}
                 className="flex-1 py-3 rounded-2xl font-bold text-white text-sm flex items-center justify-center gap-1.5"
-                style={{background:PUR}}>
+                style={{background:PINE_MID}}>
                 <Share2 size={15}/> Share
               </button>
-              <button onClick={()=>window.open(`https://wa.me/?text=${encodeURIComponent(`${justLogged.praise}\n${justLogged.n}${justLogged.cal>0?` — ~${justLogged.cal} kcal burned`:""} 💪 via EatBC`)}`,"_blank","noopener")}
+              <button onClick={()=>window.open(`https://wa.me/?text=${encodeURIComponent(`${justLogged.praise}\n${justLogged.n}${justLogged.cal>0?` — ~${justLogged.cal} kcal burned`:""} 💪\nvia EatBC → https://eatbc.in`)}`,"_blank","noopener")}
                 className="flex-1 py-3 rounded-2xl font-bold text-sm flex items-center justify-center gap-1.5"
                 style={{background:"#DCFCE7",color:"#15803D"}}>
                 WhatsApp
               </button>
+              {shareCardUrl&&(
+                <a href={shareCardUrl} download="eatbc-workout.png"
+                  className="py-3 px-3.5 rounded-2xl font-bold text-sm flex items-center justify-center"
+                  style={{background:"#FBF3E0",color:TURMERIC_DEEP}} aria-label="Download card">
+                  ⬇
+                </a>
+              )}
             </div>
             <button onClick={()=>setJustLogged(null)} className="mt-3 text-xs font-semibold text-gray-500">Close</button>
           </div>
@@ -12234,12 +12305,20 @@ function DietitianCard({condition, t}:{condition:string; t:(k:keyof typeof STR)=
 }
 
 /* ─────────────── Veer — lifestyle coach AI bot ─────────────── */
+/* Veer — the coach mascot. A warm face: turmeric eyes + V-smile on pine,
+   with a tiny headband stripe. Reads friendly at 24px and 120px alike. */
 function VeerIcon({size=40}:{size?:number}) {
   return (
     <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
-      <circle cx="20" cy="20" r="20" fill="#111111"/>
-      <circle cx="20" cy="20" r="16.5" stroke="#FFFA66" strokeWidth="1.5" fill="none" opacity="0.45"/>
-      <path d="M12 14 L20 27 L28 14" stroke="#FFFA66" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+      <circle cx="20" cy="20" r="20" fill="#123B2C"/>
+      <circle cx="20" cy="20" r="18.6" stroke="#E8B54A" strokeWidth="1.6" fill="none" opacity="0.55"/>
+      {/* coach headband */}
+      <path d="M8.5 13.2 C13 10.4 27 10.4 31.5 13.2" stroke="#E8B54A" strokeWidth="2.6" strokeLinecap="round" fill="none"/>
+      {/* eyes */}
+      <circle cx="14.4" cy="19.4" r="2.5" fill="#E8B54A"/>
+      <circle cx="25.6" cy="19.4" r="2.5" fill="#E8B54A"/>
+      {/* V-smile */}
+      <path d="M13.5 25 L20 30.5 L26.5 25" stroke="#E8B54A" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
     </svg>
   );
 }
@@ -12272,7 +12351,28 @@ function VeerBot({session,planCondition,plan,tracking,profile}:{
     if(!open) return;
     if(!hasIntroduced.current){
       hasIntroduced.current=true;
-      setMessages([{role:"assistant",content:"Namaste! I am Veer, your AI lifestyle coach. Kaise help kar sakta hoon aapki? 😊",time:ts()}]);
+      /* Personalised, data-aware intro — instant (no API call) and specific. */
+      const firstName=(profile.name||session?.name||"").split(" ")[0];
+      const hr=new Date().getHours();
+      const salaam=hr<12?"Good morning":hr<17?"Good afternoon":"Good evening";
+      const hello=`${salaam}${firstName?`, ${firstName}`:""}! 💪 Veer here — your coach.`;
+      const todayName=WEEK[(new Date().getDay()+6)%7];
+      const td=(tracking[todayName] as DayTracking)||{meals:{},water:0};
+      const dPlan=plan?.days?.find(x=>x.day===todayName);
+      const eaten=(dPlan?dPlan.meals.reduce((a,m,i)=>a+(td.meals[i]?m.cal:0),0):0)
+        +((td.log||[]).reduce((s,x)=>s+x.cal,0));
+      const left=plan?.dailyCalories?Math.max(0,plan.dailyCalories-eaten):0;
+      const streakNow=currentStreak(tracking.history||{});
+      const bits:string[]=[];
+      if(streakNow>1) bits.push(`you're on a ${streakNow}-day streak 🔥`);
+      if(left>0&&eaten>0) bits.push(`${left} kcal left in today's budget`);
+      const context=bits.length
+        ?`Quick look at your day — ${bits.join(" and ")}. What are we working on?`
+        :"Ask me anything — food, workouts, macros, or how your week is going.";
+      setMessages([
+        {role:"assistant",content:hello,time:ts()},
+        {role:"assistant",content:context,time:ts()},
+      ]);
     }
   },[open]);
 
@@ -12394,7 +12494,7 @@ function VeerBot({session,planCondition,plan,tracking,profile}:{
     <>
       <style>{`
         @keyframes vWaSlide{from{transform:translateX(100%)}to{transform:translateX(0)}}
-        @keyframes vGlowBtn{0%,100%{box-shadow:0 4px 20px rgba(255,250,102,.22)}50%{box-shadow:0 6px 34px rgba(255,250,102,.52)}}
+        @keyframes vGlowBtn{0%,100%{box-shadow:0 4px 20px rgba(232,181,74,.25)}50%{box-shadow:0 6px 34px rgba(232,181,74,.55)}}
         @keyframes vBubbleIn{from{opacity:0;transform:translateY(5px) scale(0.97)}to{opacity:1;transform:none}}
         @keyframes waDot{0%,70%,100%{transform:translateY(0);opacity:.35}35%{transform:translateY(-5px);opacity:1}}
       `}</style>
@@ -12407,31 +12507,34 @@ function VeerBot({session,planCondition,plan,tracking,profile}:{
       <button onClick={()=>setOpen(true)} aria-label="Ask Veer"
         className="fixed z-40 flex items-center justify-center active:scale-95 transition-transform"
         style={{bottom:96,right:16,width:54,height:54,borderRadius:"50%",
-          background:"#111",border:"2px solid rgba(255,250,102,0.55)",
+          background:"#123B2C",border:"2px solid rgba(232,181,74,0.7)",
+          boxShadow:"0 8px 20px -6px rgba(13,46,34,0.5)",
           animation:"vGlowBtn 2.5s ease-in-out infinite"}}>
         <VeerIcon size={32}/>
       </button>
 
       {open&&(
         <div className="fixed inset-0 z-50 flex flex-col"
-          style={{background:"#0B1418",animation:"vWaSlide .26s cubic-bezier(.22,1,.36,1) both"}}>
+          style={{background:"#F4EFE6",animation:"vWaSlide .26s cubic-bezier(.22,1,.36,1) both"}}>
 
-          {/* Header — WhatsApp dark style */}
+          {/* Header — EatBC coach identity */}
           <div className="flex items-center gap-2.5 px-2 py-2"
-            style={{background:"#1F2C34",paddingTop:"max(env(safe-area-inset-top,0px) + 8px, 12px)"}}>
-            <button onClick={()=>setOpen(false)}
+            style={{background:"linear-gradient(135deg,#123B2C,#0D2E22)",paddingTop:"max(env(safe-area-inset-top,0px) + 8px, 12px)"}}>
+            <button onClick={()=>setOpen(false)} aria-label="Close chat"
               className="p-1.5 rounded-full active:bg-white/10 flex-shrink-0">
               <ChevronLeft size={24} color="rgba(255,255,255,0.85)"/>
             </button>
-            <div style={{width:42,height:42,borderRadius:"50%",flexShrink:0,
-              background:"rgba(255,250,102,0.10)",border:"2px solid rgba(255,250,102,0.4)",
+            <div style={{width:44,height:44,borderRadius:"50%",flexShrink:0,position:"relative",
+              border:"2px solid rgba(232,181,74,0.55)",
               display:"flex",alignItems:"center",justifyContent:"center"}}>
-              <VeerIcon size={25}/>
+              <VeerIcon size={38}/>
+              <span style={{position:"absolute",bottom:0,right:0,width:11,height:11,borderRadius:"50%",
+                background:"#E8B54A",border:"2px solid #0D2E22"}}/>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-bold text-white leading-tight" style={{fontSize:16.5}}>Veer AI</p>
-              <p style={{fontSize:12.5,color:thinking?"#FFFA66":G,fontWeight:500,marginTop:1}}>
-                {thinking?"typing…":"online · lifestyle coach"}
+              <p className="font-black text-white leading-tight" style={{fontSize:17,letterSpacing:"-0.2px"}}>Veer</p>
+              <p style={{fontSize:12,color:"#E8B54A",fontWeight:600,marginTop:1}}>
+                {thinking?"typing…":"Head Coach · always on"}
               </p>
             </div>
           </div>
@@ -12439,8 +12542,8 @@ function VeerBot({session,planCondition,plan,tracking,profile}:{
           {/* Chat area */}
           <div className="flex-1 overflow-y-auto px-3 py-3"
             style={{
-              background:"#0B1418",
-              backgroundImage:`url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.018'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+              background:"#F4EFE6",
+              backgroundImage:`url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23123B2C' fill-opacity='0.035'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
             }}
             onClick={()=>setShowAttachMenu(false)}>
 
@@ -12452,22 +12555,23 @@ function VeerBot({session,planCondition,plan,tracking,profile}:{
                   style={{animation:"vBubbleIn .2s ease both",animationDelay:`${Math.min(i*0.04,0.18)}s`}}>
                   <div className="relative" style={{
                     maxWidth:"78%",
-                    background:isVeer?"#1F2C34":"#005C4B",
+                    background:isVeer?"#FFFFFF":"#123B2C",
+                    border:isVeer?"1px solid #E7E0CF":"none",
                     borderRadius:isVeer
                       ?(showTail?"2px 12px 12px 12px":"12px 12px 12px 12px")
                       :(showTail?"12px 2px 12px 12px":"12px 12px 12px 12px"),
                     padding:"7px 10px 5px 10px",
-                    boxShadow:"0 1px 2px rgba(0,0,0,0.4)",
+                    boxShadow:isVeer?"0 1px 3px rgba(13,46,34,0.08)":"0 1px 3px rgba(13,46,34,0.25)",
                     marginTop:showTail&&i>0?"6px":"1px",
                   }}>
                     {/* Bubble tail */}
                     {showTail&&isVeer&&(
                       <div style={{position:"absolute",top:0,left:-7,width:0,height:0,
-                        borderTop:"8px solid #1F2C34",borderLeft:"8px solid transparent"}}/>
+                        borderTop:"8px solid #FFFFFF",borderLeft:"8px solid transparent"}}/>
                     )}
                     {showTail&&!isVeer&&(
                       <div style={{position:"absolute",top:0,right:-7,width:0,height:0,
-                        borderTop:"8px solid #005C4B",borderRight:"8px solid transparent"}}/>
+                        borderTop:"8px solid #123B2C",borderRight:"8px solid transparent"}}/>
                     )}
 
                     {/* Attachment bubble */}
@@ -12478,15 +12582,15 @@ function VeerBot({session,planCondition,plan,tracking,profile}:{
                             className="rounded-lg block" style={{maxWidth:220,maxHeight:200,objectFit:"cover"}}/>
                         ):(
                           <div className="flex items-center gap-2.5 rounded-xl px-3 py-2.5"
-                            style={{background:"rgba(0,0,0,0.25)",minWidth:180}}>
+                            style={{background:"rgba(13,46,34,0.08)",minWidth:180}}>
                             <div className="flex-shrink-0 w-9 h-11 rounded-lg flex items-center justify-center"
                               style={{background:m.attachment.name.toLowerCase().endsWith(".pdf")
                                 ?"rgba(239,68,68,0.25)":"rgba(59,130,246,0.25)"}}>
                               <FileText size={20} color={m.attachment.name.toLowerCase().endsWith(".pdf")?"#F87171":"#93C5FD"}/>
                             </div>
                             <div className="min-w-0">
-                              <p className="text-white font-semibold truncate" style={{fontSize:12.5,maxWidth:140}}>{m.attachment.name}</p>
-                              <p style={{fontSize:11,color:"rgba(255,255,255,0.42)"}}>{m.attachment.size||"Document"}</p>
+                              <p className="font-semibold truncate" style={{fontSize:12.5,maxWidth:140,color:isVeer?"#1F2937":"#fff"}}>{m.attachment.name}</p>
+                              <p style={{fontSize:11,color:isVeer?"rgba(31,41,55,0.5)":"rgba(255,255,255,0.55)"}}>{m.attachment.size||"Document"}</p>
                             </div>
                           </div>
                         )}
@@ -12495,16 +12599,16 @@ function VeerBot({session,planCondition,plan,tracking,profile}:{
 
                     {/* Message text */}
                     {m.content&&(
-                      <p style={{fontSize:14.5,color:"rgba(255,255,255,0.93)",
-                        lineHeight:1.5,whiteSpace:"pre-wrap",wordBreak:"break-word"}}>
+                      <p style={{fontSize:14.5,color:isVeer?"#1F2937":"rgba(255,255,255,0.96)",
+                        lineHeight:1.55,whiteSpace:"pre-wrap",wordBreak:"break-word"}}>
                         {m.content}
                       </p>
                     )}
 
                     {/* Time + tick */}
                     <div className={`flex items-center gap-1 mt-0.5 ${isVeer?"justify-start":"justify-end"}`}>
-                      <span style={{fontSize:10,color:"rgba(255,255,255,0.38)",lineHeight:1}}>{m.time}</span>
-                      {!isVeer&&<Check size={13} color="rgba(134,239,172,0.8)"/>}
+                      <span style={{fontSize:10,color:isVeer?"rgba(31,41,55,0.4)":"rgba(255,255,255,0.5)",lineHeight:1}}>{m.time}</span>
+                      {!isVeer&&<Check size={13} color="#E8B54A"/>}
                     </div>
                   </div>
                 </div>
@@ -12514,14 +12618,12 @@ function VeerBot({session,planCondition,plan,tracking,profile}:{
             {/* Typing indicator */}
             {thinking&&(
               <div className="flex justify-start mb-1 mt-1">
-                <div style={{background:"#1F2C34",borderRadius:"2px 12px 12px 12px",
-                  padding:"10px 14px",boxShadow:"0 1px 2px rgba(0,0,0,0.4)"}}>
-                  <div style={{position:"absolute",top:0,left:-7,width:0,height:0,
-                    borderTop:"8px solid #1F2C34",borderLeft:"8px solid transparent"}}/>
+                <div style={{background:"#FFFFFF",border:"1px solid #E7E0CF",borderRadius:"2px 12px 12px 12px",
+                  padding:"10px 14px",boxShadow:"0 1px 3px rgba(13,46,34,0.08)"}}>
                   <div className="flex items-center gap-1.5">
                     {[0,1,2].map(i=>(
                       <span key={i} style={{width:8,height:8,borderRadius:"50%",display:"block",
-                        background:"rgba(255,255,255,0.5)",
+                        background:"#E8B54A",
                         animation:`waDot 1.1s ease-in-out ${i*0.22}s infinite`}}/>
                     ))}
                   </div>
@@ -12546,28 +12648,28 @@ function VeerBot({session,planCondition,plan,tracking,profile}:{
               <motion.div
                 initial={{opacity:0,y:12}} animate={{opacity:1,y:0}} exit={{opacity:0,y:12}}
                 transition={{duration:0.18,ease:[0.23,1,0.32,1]}}
-                style={{background:"#1F2C34",borderTop:"1px solid rgba(255,255,255,0.07)",
+                style={{background:"#FBF8F1",borderTop:"1px solid #E7E0CF",
                   padding:"12px 16px"}}>
                 <div className="flex gap-4">
                   <button onClick={()=>{setShowAttachMenu(false);docRef.current?.click();}}
                     className="flex flex-col items-center gap-2 flex-1 py-3 rounded-2xl active:scale-95 transition-transform"
-                    style={{background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.09)"}}>
+                    style={{background:"#FFFFFF",border:"1px solid #E7E0CF"}}>
                     <div className="w-12 h-12 rounded-full flex items-center justify-center"
                       style={{background:"rgba(239,68,68,0.15)"}}>
                       <FileText size={22} color="#F87171"/>
                     </div>
-                    <span style={{fontSize:12,color:"rgba(255,255,255,0.70)",fontWeight:600}}>Document</span>
-                    <span style={{fontSize:10,color:"rgba(255,255,255,0.30)"}}>PDF · Word · TXT</span>
+                    <span style={{fontSize:12,color:"#1F2937",fontWeight:700}}>Document</span>
+                    <span style={{fontSize:10,color:"rgba(31,41,55,0.45)"}}>PDF · Word · TXT</span>
                   </button>
                   <button onClick={()=>{setShowAttachMenu(false);imgRef.current?.click();}}
                     className="flex flex-col items-center gap-2 flex-1 py-3 rounded-2xl active:scale-95 transition-transform"
-                    style={{background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.09)"}}>
+                    style={{background:"#FFFFFF",border:"1px solid #E7E0CF"}}>
                     <div className="w-12 h-12 rounded-full flex items-center justify-center"
                       style={{background:"rgba(29,170,97,0.15)"}}>
                       <Camera size={22} color={G}/>
                     </div>
-                    <span style={{fontSize:12,color:"rgba(255,255,255,0.70)",fontWeight:600}}>Camera</span>
-                    <span style={{fontSize:10,color:"rgba(255,255,255,0.30)"}}>Photo · Gallery</span>
+                    <span style={{fontSize:12,color:"#1F2937",fontWeight:700}}>Camera</span>
+                    <span style={{fontSize:10,color:"rgba(31,41,55,0.45)"}}>Photo · Gallery</span>
                   </button>
                 </div>
               </motion.div>
@@ -12577,7 +12679,7 @@ function VeerBot({session,planCondition,plan,tracking,profile}:{
           {/* Pending attachment preview */}
           {pendingAttach&&(
             <div className="flex items-center gap-2.5 px-3 py-2"
-              style={{background:"rgba(255,255,255,0.04)",borderTop:"1px solid rgba(255,255,255,0.07)"}}>
+              style={{background:"#FBF8F1",borderTop:"1px solid #E7E0CF"}}>
               {pendingAttach.type==="image"&&pendingAttach.url?(
                 <img src={pendingAttach.url} alt="" style={{width:40,height:40,borderRadius:8,objectFit:"cover",flexShrink:0}}/>
               ):(
@@ -12586,25 +12688,38 @@ function VeerBot({session,planCondition,plan,tracking,profile}:{
                   <FileText size={20} color="#F87171"/>
                 </div>
               )}
-              <p className="flex-1 text-white truncate" style={{fontSize:13}}>{pendingAttach.name}</p>
+              <p className="flex-1 truncate" style={{fontSize:13,color:"#1F2937"}}>{pendingAttach.name}</p>
               <button onClick={()=>setPendingAttach(null)} className="p-1 rounded-full hover:bg-white/10">
-                <X size={16} color="rgba(255,255,255,0.45)"/>
+                <X size={16} color="rgba(31,41,55,0.5)"/>
               </button>
+            </div>
+          )}
+
+          {/* Coach quick-prompts — visible until the conversation gets going */}
+          {messages.length<=2&&!thinking&&(
+            <div className="flex gap-2 px-3 pb-2 overflow-x-auto" style={{background:"transparent"}}>
+              {["How am I doing this week?","What should I eat tonight?","Fix my protein gap","Plan my cheat day guilt-free"].map(q=>(
+                <button key={q} onClick={()=>sendMsg(q)}
+                  className="shrink-0 px-3.5 py-2 rounded-full text-xs font-bold active:scale-95 transition"
+                  style={{background:"#FFFFFF",border:"1.5px solid #E8B54A",color:"#123B2C"}}>
+                  {q}
+                </button>
+              ))}
             </div>
           )}
 
           {/* Input bar */}
           <div className="flex items-end gap-2 px-3 py-2"
-            style={{background:"#1F2C34",paddingBottom:"max(env(safe-area-inset-bottom,0px) + 8px, 12px)"}}>
+            style={{background:"#FBF8F1",borderTop:"1px solid #E7E0CF",paddingBottom:"max(env(safe-area-inset-bottom,0px) + 8px, 12px)"}}>
             <button
               onClick={()=>setShowAttachMenu(v=>!v)}
               className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center mb-0.5 active:scale-90 transition-all"
-              style={{background:showAttachMenu?"#FFFA66":"rgba(255,255,255,0.10)"}}>
-              <Paperclip size={19} color={showAttachMenu?"#111":"rgba(255,255,255,0.65)"}/>
+              style={{background:showAttachMenu?"#E8B54A":"rgba(13,46,34,0.08)"}}>
+              <Paperclip size={19} color={showAttachMenu?"#123B2C":"rgba(13,46,34,0.6)"}/>
             </button>
 
             <div className="flex-1 flex items-end rounded-[24px] overflow-hidden"
-              style={{background:"rgba(255,255,255,0.09)",border:"1px solid rgba(255,255,255,0.11)"}}>
+              style={{background:"#FFFFFF",border:"1px solid #E7E0CF"}}>
               <textarea
                 ref={taRef} rows={1}
                 value={textInput}
@@ -12619,7 +12734,7 @@ function VeerBot({session,planCondition,plan,tracking,profile}:{
                 style={{
                   flex:1,background:"transparent",outline:"none",resize:"none",
                   paddingLeft:14,paddingRight:10,paddingTop:10,paddingBottom:10,
-                  fontSize:15,color:"rgba(255,255,255,0.93)",lineHeight:1.45,
+                  fontSize:15,color:"#1F2937",lineHeight:1.45,
                   maxHeight:120,display:"block",width:"100%",
                   fontFamily:"inherit",
                 }}/>
@@ -12629,8 +12744,8 @@ function VeerBot({session,planCondition,plan,tracking,profile}:{
               onClick={submit}
               disabled={thinking&&!textInput.trim()&&!pendingAttach}
               className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center mb-0.5 active:scale-90 transition-transform disabled:opacity-40"
-              style={{background:G}}>
-              <Send size={17} color="white" style={{marginLeft:2}}/>
+              style={{background:"#E8B54A"}}>
+              <Send size={17} color="#123B2C" style={{marginLeft:2}}/>
             </button>
           </div>
         </div>
