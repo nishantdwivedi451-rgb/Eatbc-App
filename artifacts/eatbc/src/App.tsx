@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import QRCode from "qrcode";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -11745,13 +11746,14 @@ function WorkoutLogger({log,onUpdate,userWeightKg}:{log:ExerciseLog[];onUpdate:(
         </div>
       )}
 
-      {/* Completion celebration — motivating message, calorie burn, share */}
-      {justLogged&&(
+      {/* Completion celebration — portal to <body> so it always centers in the
+          viewport, immune to transformed/animated ancestors hijacking fixed. */}
+      {justLogged&&createPortal(
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-5"
           style={{background:"rgba(0,0,0,0.6)",backdropFilter:"blur(4px)"}}
           onClick={()=>setJustLogged(null)}>
-          <div className="bg-white rounded-3xl p-6 max-w-sm w-full text-center"
-            style={{animation:"popIn 0.3s ease both"}} onClick={e=>e.stopPropagation()}>
+          <div className="bg-white rounded-3xl p-5 max-w-sm w-full text-center overflow-y-auto"
+            style={{animation:"popIn 0.3s ease both",maxHeight:"85vh"}} onClick={e=>e.stopPropagation()}>
             <div className="text-4xl mb-1.5">🎉</div>
             <h3 className="font-black text-gray-800 text-lg leading-snug">{justLogged.praise}</h3>
             <p className="text-gray-500 text-sm mt-0.5 mb-3">{justLogged.n} — logged{justLogged.cal>0?` · ~${justLogged.cal} kcal`:""}</p>
@@ -11759,7 +11761,7 @@ function WorkoutLogger({log,onUpdate,userWeightKg}:{log:ExerciseLog[];onUpdate:(
             {shareCardUrl?(
               <img src={shareCardUrl} alt="Your shareable workout card"
                 className="w-full rounded-2xl border border-gray-100 shadow-md"
-                style={{maxHeight:340,objectFit:"contain",background:"#0D2E22"}}/>
+                style={{maxHeight:"38vh",objectFit:"contain",background:"#0D2E22"}}/>
             ):(
               <div className="rounded-2xl flex items-center justify-center" style={{height:200,background:"#F4EFE6"}}>
                 <Loader2 className="animate-spin" size={24} style={{color:TURMERIC_DEEP}}/>
@@ -11787,7 +11789,8 @@ function WorkoutLogger({log,onUpdate,userWeightKg}:{log:ExerciseLog[];onUpdate:(
             </div>
             <button onClick={()=>setJustLogged(null)} className="mt-3 text-xs font-semibold text-gray-500">Close</button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
